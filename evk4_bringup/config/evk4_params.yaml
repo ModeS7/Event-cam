@@ -1,0 +1,30 @@
+# Parameters for the metavision_driver node started by evk4.launch.py.
+#
+# Only values that differ from the driver defaults or that EVK4 users
+# commonly tune are listed here. Full parameter reference:
+#   https://github.com/ros-event-camera/metavision_driver
+#
+# `serial`, `bias_file`, and `frame_id` are set from launch arguments,
+# not here.
+/**:
+  ros__parameters:
+    encoding: evt3  # the only supported encoding (driver default)
+
+    # Message batching: events are published once EITHER threshold is
+    # reached. Smaller time threshold = lower latency, more messages.
+    event_message_time_threshold: 0.001  # [s] (driver default: 1 ms)
+
+    # --- Event Rate Control (EVK4 / Gen4 on-sensor feature) -------------
+    # Drops events on-sensor to protect USB bandwidth and CPU when the
+    # scene is very active. Uncomment to enable:
+    # erc_mode: enabled       # na | disabled | enabled  (default: na)
+    # erc_rate: 100000000     # [events/s]               (default: 1e8)
+
+    # --- On-sensor noise filtering ---------------------------------------
+    # trail_filter: true            # (default: false)
+    # trail_filter_type: trail      # trail | stc_cut_trail | stc_keep_trail
+    # trail_filter_threshold: 5000  # (default: 5000)
+
+    # --- Performance ------------------------------------------------------
+    # Decouple the SDK callback from ROS publishing (helps at high rates):
+    # use_multithreading: true      # (default: false)

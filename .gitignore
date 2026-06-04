@@ -1,0 +1,25 @@
+# colcon / ROS 2 build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Recordings — never commit camera data
+*.raw
+*.dat
+*.hdf5
+*.bag
+*.db3
+*.mcap
+rosbag2_*/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
