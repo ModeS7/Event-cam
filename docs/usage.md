@@ -47,14 +47,19 @@ number (e.g. `1701`) — driver 3.0.0 does not support overriding it.
 
 | Service | Type | Effect |
 |---|---|---|
-| `/event_camera/save_biases` | `std_srvs/srv/Trigger` | Save current biases (uses the `bias_file` path) |
-| `/event_camera/save_settings` | `std_srvs/srv/Trigger` | Save current camera settings |
+| `/event_camera/save_biases` | `std_srvs/srv/Trigger` | Write current biases to the `bias_file` path |
+| `/event_camera/save_settings` | `std_srvs/srv/Trigger` | Write current camera settings to the `settings` file path |
 
 ```bash
 ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
 ```
 
-Services only exist while the camera launch is running. For bandwidth and
+Services only exist while the camera launch is running, and each **fails
+unless its file path was set at startup**: `save_biases` needs the
+`bias_file` launch argument (full workflow:
+[`config/biases/README.md`](../evk4_bringup/config/biases/README.md));
+`save_settings` needs the driver's `settings` parameter, which our launch
+doesn't expose — add it to `evk4_params.yaml` if you need it. For bandwidth and
 rate statistics no service is needed: the driver prints them to the launch
 terminal every second (`statistics_print_interval` parameter), e.g.
 
@@ -137,16 +142,25 @@ Blue pixels are ON events (brightness increased), red are OFF events
 channel 0). A static scene renders black; only change is visible.
 
 The renderer runs with its defaults (25 fps, `time_slice` display). For
-other settings, run it standalone:
-`ros2 launch event_camera_renderer renderer.launch.py camera:=event_camera fps:=60.0`
+other settings, launch the camera with `viz:=false` and run the upstream
+renderer launch instead:
+
+```bash
+ros2 launch event_camera_renderer renderer.launch.py camera:=event_camera \
+    fps:=60.0 type:=sharp     # type: time_slice | sharp
+```
+
+Note: launched this way the image appears on
+`/event_camera/renderer/image_raw` (the upstream launch namespaces the
+node), not on `/event_camera/image_raw`.
 
 ## Bias tuning
 
 Biases are the sensor's analog settings (contrast thresholds, bandwidth,
-…). The factory defaults are a good start; tune only with a reason. See the
-[driver README](https://github.com/ros-event-camera/metavision_driver) and
-Prophesee's bias documentation for the workflow, then load your file with
-`bias_file:=...` (store files under `evk4_bringup/config/biases/`).
+…). The factory defaults are a good start; tune only with a reason. The
+verified launch → `ros2 param set` → `save_biases` workflow is documented
+in [`config/biases/README.md`](../evk4_bringup/config/biases/README.md);
+see Prophesee's bias documentation for what the individual biases do.
 
 ## Recording and playback
 
