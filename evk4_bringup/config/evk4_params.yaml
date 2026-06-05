@@ -1,17 +1,21 @@
 # Parameters for the metavision_driver node started by evk4.launch.py.
 #
 # Only values that differ from the driver defaults or that EVK4 users
-# commonly tune are listed here. Full parameter reference:
-#   https://github.com/ros-event-camera/metavision_driver
+# commonly tune are listed here. Defaults below were verified against the
+# RELEASED 3.0.0 source (the upstream master README differs in places!):
+#   https://github.com/ros-event-camera/metavision_driver/blob/3.0.0/src/driver_ros2.cpp
 #
-# `serial`, `bias_file`, and `frame_id` are set from launch arguments,
-# not here.
+# `serial` and `bias_file` are set from launch arguments, not here.
+# Note: driver 3.0.0 has no frame_id parameter; message headers carry the
+# last 4 digits of the camera serial number.
 /**:
   ros__parameters:
     encoding: evt3  # the only supported encoding (driver default)
 
-    # Message batching: events are published once EITHER threshold is
-    # reached. Smaller time threshold = lower latency, more messages.
+    # Message batching: events are published once either threshold is
+    # reached; in practice the time threshold governs (the size threshold
+    # defaults to 1 GB, i.e. effectively off). Smaller = lower latency,
+    # more messages.
     event_message_time_threshold: 0.001  # [s] (driver default: 1 ms)
 
     # --- Event Rate Control (EVK4 / Gen4 on-sensor feature) -------------
@@ -23,8 +27,8 @@
     # --- On-sensor noise filtering ---------------------------------------
     # trail_filter: true            # (default: false)
     # trail_filter_type: trail      # trail | stc_cut_trail | stc_keep_trail
-    # trail_filter_threshold: 5000  # (default: 5000)
+    # trail_filter_threshold: 5000  # (default: 0)
 
     # --- Performance ------------------------------------------------------
-    # Decouple the SDK callback from ROS publishing (helps at high rates):
-    # use_multithreading: true      # (default: false)
+    # SDK callback is decoupled from ROS publishing by default (3.0.0):
+    # use_multithreading: false     # (default: true)

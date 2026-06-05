@@ -19,8 +19,8 @@ sudo apt update
 
 If ROS 2 itself is missing too (`ls /opt/ros/` is empty), install it first:
 `sudo apt install ros-jazzy-desktop ros-dev-tools` (desktop includes
-`rqt_image_view`, used below for visualization; `ros-dev-tools` provides
-`colcon` and `rosdep` for the build step).
+`rqt_image_view` for visualization; `ros-dev-tools` provides `colcon` and
+`rosdep` for the build step).
 
 ## Launch aborts: `required package '...' is not installed`
 
@@ -36,8 +36,8 @@ sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer
    ```bash
    lsusb | grep -i 04b4
    ```
-   Nothing → bad cable/port. Use USB 3.x, try another port, check `dmesg -w`
-   while replugging.
+   Nothing → bad cable/port. Use USB 3.x, try another port, check
+   `sudo dmesg -w` while replugging.
 2. Permissions (the most common cause). With the device from `lsusb`
    (`Bus 002 Device 003` → `/dev/bus/usb/002/003`):
    ```bash
@@ -52,12 +52,13 @@ sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer
 ## `cannot open default on attempt 1, retrying ...` then `giving up!`
 
 The camera exists but can't be opened — almost always it's held by another
-process. A previous driver instance that didn't shut down cleanly (the
-driver can hang on Ctrl-C) is the usual culprit:
+process. A previous launch that didn't shut down cleanly is the usual
+culprit (our launch runs the driver inside a `component_container_isolated`
+process):
 
 ```bash
-pgrep -af driver_node      # any leftover instance?
-pkill -9 -f driver_node
+pgrep -af component_container      # any leftover instance?
+pkill -9 -f component_container
 ```
 
 If it still fails, unplug/replug the camera to reset the USB handle, confirm
@@ -65,10 +66,27 @@ with `lsusb | grep -i 04b4`, and launch again.
 
 ## Service call hangs: `waiting for service to become available...`
 
-The `save_biases` / `save_settings` / `dump_statistics` services live inside
-the driver node — they only exist **while the camera launch is running**.
-Call them from a second terminal; the output appears in the launch
-terminal's log.
+Two causes:
+
+1. The `save_biases` / `save_settings` services live inside the driver node —
+   they only exist **while the camera launch is running**. Call them from a
+   second terminal.
+2. The service doesn't exist in your driver version. Notably
+   `dump_statistics` appears in the upstream master-branch docs but is NOT in
+   the released 3.0.0 apt package. Check what actually exists with
+   `ros2 node info /event_camera` (Service Servers section).
+
+## `ros2 topic list` / `ros2 node list` show things that aren't running
+
+The ROS 2 CLI daemon caches the node graph and can keep showing topics and
+nodes for a while after their processes died — which makes a dead launch
+look alive. Don't trust the list when debugging; verify the process exists
+(`pgrep -af component_container`) or reset the cache first:
+
+```bash
+ros2 daemon stop   # it restarts automatically on the next ros2 command
+ros2 node list     # now reflects reality
+```
 
 ## Topic exists but `ros2 topic hz /event_camera/events` shows nothing
 
@@ -99,10 +117,9 @@ In busy scenes the EVK4 can emit hundreds of Mev/s. In
 - Enable on-sensor event rate control: `erc_mode: enabled` and set
   `erc_rate`.
 - Increase `event_message_time_threshold` (fewer, larger messages).
-- Set `use_multithreading: true`.
 
-Check the actual rates with
-`ros2 service call /event_camera/dump_statistics std_srvs/srv/Trigger` or
+Check the actual rates in the statistics line the driver prints every
+second in the launch terminal (`bw in: ... msgs/s in: ...`), or with
 `ros2 run evk4_examples event_rate`.
 
 ## `ModuleNotFoundError: No module named 'event_camera_py'`

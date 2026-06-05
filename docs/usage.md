@@ -40,17 +40,30 @@ zero-copy path.
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (default 25 fps) | `viz:=true` |
 
-## Services (provided by the driver)
+Message headers carry `frame_id` = last 4 digits of the camera serial
+number (e.g. `1701`) — driver 3.0.0 does not support overriding it.
+
+## Services (provided by the driver, v3.0.0)
 
 | Service | Type | Effect |
 |---|---|---|
 | `/event_camera/save_biases` | `std_srvs/srv/Trigger` | Save current biases (uses the `bias_file` path) |
 | `/event_camera/save_settings` | `std_srvs/srv/Trigger` | Save current camera settings |
-| `/event_camera/dump_statistics` | `std_srvs/srv/Trigger` | Log bandwidth/rate statistics |
 
 ```bash
-ros2 service call /event_camera/dump_statistics std_srvs/srv/Trigger
+ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
 ```
+
+Services only exist while the camera launch is running. For bandwidth and
+rate statistics no service is needed: the driver prints them to the launch
+terminal every second (`statistics_print_interval` parameter), e.g.
+
+```
+[event_camera]: bw in: 9.75 MB/s, msgs/s in: 247, out: 247, maxq: 1
+```
+
+(`out` counts messages delivered to subscribers in other processes — it is
+0 when nothing external is subscribed.)
 
 ## Consuming events
 
@@ -84,9 +97,26 @@ cd_events = decoder.get_cd_events()    # numpy array, fields: x, y, p, t [us]
 
 ### C++
 
-Use [event_camera_codecs](https://github.com/ros-event-camera/event_camera_codecs)
-to decode `EventPacket` messages; its README has a complete subscriber
-example.
+`evk4_examples_cpp` contains the same example in C++
+([`src/event_rate.cpp`](../evk4_examples_cpp/src/event_rate.cpp)), decoding
+with [event_camera_codecs](https://github.com/ros-event-camera/event_camera_codecs):
+
+```bash
+ros2 run evk4_examples_cpp event_rate
+```
+
+It is built as a **composable component**, so for the zero-copy
+intra-process path you can load it into the running camera container
+instead of starting a separate process:
+
+```bash
+ros2 component load /event_camera_container evk4_examples_cpp \
+    evk4_examples_cpp::EventRate -e use_intra_process_comms:=true
+```
+
+(With the container loaded this way, the driver's `out` statistics counter
+stays at 0 for this subscriber — events are handed over as pointers, not
+published through DDS. Use this pattern for your own high-rate consumers.)
 
 ## Visualization
 

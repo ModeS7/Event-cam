@@ -6,8 +6,8 @@ the community [metavision_driver](https://github.com/ros-event-camera/metavision
 — it contains no driver code of its own, only launch/config glue,
 example consumers, and documentation.
 
-> **Status:** implemented; pending first end-to-end validation on camera
-> hardware.
+> **Status:** validated end-to-end on camera hardware (2026-06-05) —
+> install, build, live events, visualization, recording, playback.
 
 ## Supported platform
 
@@ -65,6 +65,7 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 |---|---|
 | `evk4_bringup/` | Launch file (`evk4.launch.py`), driver parameters, bias configs |
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
+| `evk4_examples_cpp/` | Same example in C++, as a composable component |
 | `docs/` | Installation, usage, troubleshooting |
 
 ## Documentation

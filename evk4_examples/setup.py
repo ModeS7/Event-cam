@@ -18,7 +18,6 @@ setup(
     description='Example Python subscribers for the Prophesee EVK4 '
                 'event camera topics published by evk4_bringup.',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'event_rate = evk4_examples.event_rate_node:main',
