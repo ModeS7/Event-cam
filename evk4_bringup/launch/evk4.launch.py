@@ -28,7 +28,8 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import OpaqueFunction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 
 
 def _require(package, apt_package):
@@ -53,12 +54,16 @@ def _launch_setup(context, *args, **kwargs):
     params_file = os.path.join(
         get_package_share_directory('evk4_bringup'), 'config', 'evk4_params.yaml')
 
-    nodes = [
-        Node(
+    # Driver and renderer are composed into ONE container process with
+    # intra-process communication: the high-rate event stream passes
+    # between them as pointers instead of being serialized and copied
+    # through the middleware. Subscribers in other processes (your nodes,
+    # rosbag2, rqt) still receive normal DDS copies.
+    components = [
+        ComposableNode(
             package='metavision_driver',
-            executable='driver_node',
+            plugin='metavision_driver::DriverROS2',
             name=camera_name,
-            output='screen',
             parameters=[
                 params_file,
                 {
@@ -67,22 +72,32 @@ def _launch_setup(context, *args, **kwargs):
                     'frame_id': camera_name,
                 },
             ],
+            extra_arguments=[{'use_intra_process_comms': True}],
         ),
     ]
     if viz == 'true':
         _require('event_camera_renderer', 'ros-jazzy-event-camera-renderer')
-        nodes.append(
-            Node(
+        components.append(
+            ComposableNode(
                 package='event_camera_renderer',
-                executable='renderer_node',
+                plugin='event_camera_renderer::Renderer',
                 name='renderer',
-                output='screen',
                 remappings=[
                     ('~/events', f'/{camera_name}/events'),
                     ('~/image_raw', f'/{camera_name}/image_raw'),
                 ],
+                extra_arguments=[{'use_intra_process_comms': True}],
             ))
-    return nodes
+    return [
+        ComposableNodeContainer(
+            name=f'{camera_name}_container',
+            namespace='',
+            package='rclcpp_components',
+            executable='component_container_isolated',
+            composable_node_descriptions=components,
+            output='screen',
+        ),
+    ]
 
 
 def generate_launch_description():

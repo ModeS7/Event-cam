@@ -25,6 +25,14 @@ Driver tuning parameters (event rate control, noise filtering, batching)
 live in `evk4_bringup/config/evk4_params.yaml` — see the comments there and
 the [upstream parameter reference](https://github.com/ros-event-camera/metavision_driver).
 
+**Architecture note:** the launch composes driver and renderer into a single
+container process with intra-process communication, so the high-rate event
+stream is passed by pointer between them — never serialized or copied.
+Subscribers in *other* processes (your nodes, rosbag2, rqt) receive normal
+DDS copies; if you write a high-throughput C++ consumer, implement it as a
+composable component and load it into the same container to get the same
+zero-copy path.
+
 ## Topics
 
 | Topic | Type | When |
@@ -105,7 +113,7 @@ Prophesee's bias documentation for the workflow, then load your file with
 Record raw event packets (compact — this is the EVT3 stream, not images):
 
 ```bash
-ros2 bag record /event_camera/events
+ros2 bag record --topics /event_camera/events
 ```
 
 Play back and analyze offline:

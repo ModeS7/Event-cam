@@ -7,6 +7,9 @@ Target platform: **Ubuntu 24.04 + ROS 2 Jazzy** with a Prophesee **EVK4 HD**
 
 - Ubuntu 24.04 with ROS 2 Jazzy installed
   ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html))
+  — if step 2 below fails with `Unable to locate package`, the ROS 2 apt
+  repository is missing; see
+  [troubleshooting.md](troubleshooting.md#e-unable-to-locate-package-ros-jazzy-)
 - A **USB 3.x** port and cable — the EVK4 can exceed what USB 2 can carry
 
 ## 2. Install the driver stack (apt)
@@ -63,7 +66,24 @@ lsusb | grep -i 04b4
 
 ## 5. Build this repo
 
+`colcon` and `rosdep` ship in `ros-dev-tools`, **not** in `ros-jazzy-desktop`:
+
 ```bash
+sudo apt install ros-dev-tools
+```
+
+If rosdep has never been used on this machine, initialize it once
+(`init` errors harmlessly if it was already done):
+
+```bash
+sudo rosdep init
+rosdep update
+```
+
+Then build:
+
+```bash
+source /opt/ros/jazzy/setup.bash    # or add to ~/.bashrc
 mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 git clone https://github.com/ModeS7/Event-cam.git
 cd ~/ros2_ws
@@ -72,15 +92,13 @@ colcon build
 source install/setup.bash
 ```
 
-(First time using rosdep on a machine: `sudo rosdep init && rosdep update`.)
-
 ## 6. Smoke test
 
 ```bash
 ros2 launch evk4_bringup evk4.launch.py
 ```
 
-In a second terminal (remember to `source install/setup.bash`):
+In a second terminal (remember to `source ~/ros2_ws/install/setup.bash`):
 
 ```bash
 ros2 topic hz /event_camera/events        # messages appear when the scene changes

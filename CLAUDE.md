@@ -72,6 +72,13 @@ well-documented, easy to extend.
 - **Renderer node (verified in upstream launch/source):** executable
   `renderer_node`, subscribes `~/events`, publishes `~/image_raw` — our
   launch remaps both into the camera namespace.
+- **Composition (verified in upstream `driver_composition.launch.py`):**
+  component plugins are `metavision_driver::DriverROS2` and
+  `event_camera_renderer::Renderer`; upstream composes them in a
+  `component_container_isolated` with `use_intra_process_comms: True`.
+  Our `evk4.launch.py` does the same (decision 2026-06-05: avoid copying
+  the event stream between driver and renderer). High-throughput user
+  nodes should be C++ components loaded into the same container.
 - **Driver services are `std_srvs/srv/Trigger`** (verified in
   `driver_ros2.cpp`).
 - **udev detail:** `88-cyusb.rules` (vendor `04b4`, MODE 666) is the rule
