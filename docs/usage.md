@@ -62,8 +62,11 @@ terminal every second (`statistics_print_interval` parameter), e.g.
 [event_camera]: bw in: 9.75 MB/s, msgs/s in: 247, out: 247, maxq: 1
 ```
 
-(`out` counts messages delivered to subscribers in other processes — it is
-0 when nothing external is subscribed.)
+(`out` counts published messages and is 0 only while *nothing* is
+subscribed to `events`. Note the renderer subscribes lazily — it logs
+`subscribing to events!` / `unsubscribing from events!` as image viewers
+come and go — so with `viz:=true` but no open image viewer, `out: 0` is
+normal.)
 
 ## Consuming events
 
@@ -114,9 +117,10 @@ ros2 component load /event_camera_container evk4_examples_cpp \
     evk4_examples_cpp::EventRate -e use_intra_process_comms:=true
 ```
 
-(With the container loaded this way, the driver's `out` statistics counter
-stays at 0 for this subscriber — events are handed over as pointers, not
-published through DDS. Use this pattern for your own high-rate consumers.)
+(Inside the container, events reach the component as C++ pointers — no
+serialization. This isn't visible in the driver's `out` counter, which
+counts publish calls regardless of transport. Use this pattern for your
+own high-rate consumers.)
 
 ## Visualization
 
@@ -125,6 +129,12 @@ With `viz:=true` (default):
 ```bash
 ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ```
+
+![Rendered event stream in rqt_image_view](images/rqt_image_view.png)
+
+Blue pixels are ON events (brightness increased), red are OFF events
+(brightness decreased) — verified in the renderer source (`bgr8`, ON →
+channel 0). A static scene renders black; only change is visible.
 
 The renderer runs with its defaults (25 fps, `time_slice` display). For
 other settings, run it standalone:

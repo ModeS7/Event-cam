@@ -92,9 +92,12 @@ well-documented, easy to extend.
   the event stream between driver and renderer). High-throughput user
   nodes should be C++ components loaded into the same container.
 - **Statistics:** the driver prints bandwidth/rate stats to the launch
-  terminal every second (`statistics_print_interval`); the `out` counter
-  only counts inter-process subscribers (0 with intra-process-only
-  consumers is normal).
+  terminal every second (`statistics_print_interval`). The `out` counter
+  counts publish calls — made whenever ≥1 subscriber is matched,
+  regardless of transport (verified in 3.0.0 source, line ~410). `out: 0`
+  with `viz:=true` means the renderer is lazily unsubscribed (it only
+  subscribes to events while something views `image_raw` — verified in
+  renderer 3.0.0 source).
 - **Released 3.0.0 vs master discrepancies (verified by grepping the
   3.0.0 tag of `driver_ros2.cpp` + live hardware 2026-06-05):** no
   `~/dump_statistics` service; no `frame_id` parameter (headers carry the
@@ -115,10 +118,11 @@ Done:
       loud if a wrapped package is missing) + `evk4_params.yaml`
 - [x] `evk4_examples`: `ros2 run evk4_examples event_rate` (sensor-data
       QoS, decodes with `event_camera_py`, logs Mev/s, ON%, msgs/s)
-- [x] `evk4_examples_cpp`: same example as a C++ composable component
-      (`ros2 run evk4_examples_cpp event_rate`, or `ros2 component load`
-      into the camera container). NOT yet compiled/validated on the lab
-      PC — no ROS on the dev machine.
+- [x] `evk4_examples_cpp`: same example as a C++ composable component.
+      Both modes validated on hardware 2026-06-05: standalone
+      (`ros2 run evk4_examples_cpp event_rate`, ~2-3 Mev/s live) and
+      `ros2 component load` into the camera container (loads as
+      `/event_rate_cpp`, stats appear in the launch terminal).
 - [x] `docs/`: installation, usage (incl. recording/playback),
       troubleshooting
 - [x] Full hardware validation on the lab PC (2026-06-05): install, udev,

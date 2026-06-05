@@ -41,6 +41,12 @@ ros2 launch evk4_bringup evk4.launch.py
 ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ```
 
+![Rendered event stream in rqt_image_view](docs/images/rqt_image_view.png)
+
+*Live EVK4 event stream rendered to an image (camera panning across the
+lab): blue = ON events (brightness increased), red = OFF events
+(brightness decreased).*
+
 Full instructions: [docs/installation.md](docs/installation.md).
 
 ## Topic contract
