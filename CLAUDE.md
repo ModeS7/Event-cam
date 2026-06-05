@@ -18,9 +18,11 @@ well-documented, easy to extend.
   `/event_camera/events` (`event_camera_msgs/EventPacket`, always) and
   `/event_camera/image_raw` (`sensor_msgs/Image`, renderer, behind
   `viz:=true`, default true).
-- **Layout (user-confirmed):** two packages — `evk4_bringup` (launch +
-  config + biases, ament_cmake) and `evk4_examples` (ament_python, example
-  subscriber using `event_camera_py`).
+- **Layout (user-confirmed):** `evk4_bringup` (launch + config + biases,
+  ament_cmake), `evk4_examples` (ament_python, subscriber using
+  `event_camera_py`), and `evk4_examples_cpp` (ament_cmake, same example
+  as a composable component using `event_camera_codecs`; added 2026-06-05
+  at user request — one package per language, like the ROS 2 demos).
 - **Run model:** code is authored on a dev machine; runs on a separate lab PC
   with the camera. The lab PC only does anonymous `git pull` of this public
   repo and holds **no credentials**. Docs must never assume push access or
@@ -42,20 +44,23 @@ well-documented, easy to extend.
 - **Install:** `sudo apt install ros-jazzy-metavision-driver` → v3.0.0
   (2025-12-06). Depends on `openeb_vendor`, so OpenEB lands under
   `/opt/ros/jazzy` — no separate Metavision SDK install. Apache 2.0.
-- **Driver node** (verified in upstream `driver_ros2.cpp`):
+- **Driver node** (verified against the released 3.0.0 source + live
+  hardware):
   - Publishes `~/events` → `event_camera_msgs/msg/EventPacket`
     (binary EVT3 payload; best-effort QoS, KeepLast, default queue 1000).
-  - Services: `~/save_biases`, `~/save_settings`, `~/dump_statistics`.
+  - Services (`std_srvs/srv/Trigger`): `~/save_biases`, `~/save_settings`.
   - Key params: `bias_file`, `serial`, `event_message_time_threshold`
     (default 1 ms), `erc_mode`/`erc_rate` (EVK4 event-rate control),
-    `trail_filter*`, `roi`, `sync_mode`, `use_multithreading`, `frame_id`.
+    `trail_filter*`, `roi`, `sync_mode`, `use_multithreading`.
   - Gen4 sensors (EVK4) do **not** support trigger-out.
   - Upstream launch files: `driver_node.launch.py`,
     `driver_composition.launch.py`, `start_recording.launch.py` (Jazzy+).
 - **udev:** apt install does NOT activate udev rules. EVK4 enumerates as
-  Cypress FX3, vendor ID `04b4`. Rules ship in OpenEB source
-  (`hal_psee_plugins/resources/rules/*.rules`) and in the metavision_driver
-  source tree (`udev/rules.d/`). User must copy to `/etc/udev/rules.d/`, then
+  Cypress FX3, USB `04b4:00f5`. The covering rule is `88-cyusb.rules`
+  (vendor `04b4`, MODE 666; its `RUN+=cy_renumerate.sh` clause produces a
+  harmless udev warning) — `99-evkv2.rules` is vendor `03fd`, EVK2 only.
+  Docs instruct downloading `88-cyusb.rules` from the OpenEB repo to
+  `/etc/udev/rules.d/`, then
   `sudo udevadm control --reload-rules && sudo udevadm trigger`, replug.
 - **Renderer:** `ros-jazzy-event-camera-renderer` v3.0.0. Subscribes
   `~/events` (EventPacket), publishes `~/image_raw` (`sensor_msgs/Image` via
@@ -69,6 +74,13 @@ well-documented, easy to extend.
   `decoder.get_cd_events()` → structured NumPy array, fields
   `x` (u2), `y` (u2), `p` (i1), `t` (i4, sensor time in µs);
   `get_ext_trig_events()` for trigger events.
+- **event_camera_codecs C++ API (verified against the 3.0.0 headers):**
+  subclass `event_camera_codecs::EventProcessor` — `void eventCD(...)`,
+  `bool eventExtTrigger(...)` (returns continue/stop!), `void finished()`,
+  `void rawData(...)`, all pure virtual. Then
+  `DecoderFactory<EventPacket, Proc>::getInstance(*msg)` (nullptr on
+  unknown encoding) and loop `decoder->decode(*msg, &proc)` until it
+  returns false. `event_camera_codecs::EventPacket` aliases the ROS msg.
 - **Renderer node (verified in upstream launch/source):** executable
   `renderer_node`, subscribes `~/events`, publishes `~/image_raw` — our
   launch remaps both into the camera namespace.
@@ -79,39 +91,47 @@ well-documented, easy to extend.
   Our `evk4.launch.py` does the same (decision 2026-06-05: avoid copying
   the event stream between driver and renderer). High-throughput user
   nodes should be C++ components loaded into the same container.
-- **Driver services are `std_srvs/srv/Trigger`** (verified in
-  `driver_ros2.cpp`).
-- **udev detail:** `88-cyusb.rules` (vendor `04b4`, MODE 666) is the rule
-  that covers the EVK4; `99-evkv2.rules` is vendor `03fd` (EVK2 only).
-  Docs instruct downloading `88-cyusb.rules` from the OpenEB repo. Its
-  `RUN+=cy_renumerate.sh` clause produces a harmless udev warning.
+- **Statistics:** the driver prints bandwidth/rate stats to the launch
+  terminal every second (`statistics_print_interval`); the `out` counter
+  only counts inter-process subscribers (0 with intra-process-only
+  consumers is normal).
+- **Released 3.0.0 vs master discrepancies (verified by grepping the
+  3.0.0 tag of `driver_ros2.cpp` + live hardware 2026-06-05):** no
+  `~/dump_statistics` service; no `frame_id` parameter (headers carry the
+  last 4 serial digits, e.g. `1701`); `use_multithreading` default
+  **true**; `trail_filter_threshold` default **0**;
+  `event_message_size_threshold` default **1e9** (~off); trigger
+  duty-cycle param is named `trigger_duty_cycle`. LESSON: upstream master
+  README/source is ahead of the released package — verify against the
+  3.0.0 tag (or the installed binary) before documenting parameters.
 
 ## Roadmap
 
 Done:
-- [x] LICENSE (Apache 2.0), .gitignore, README, CLAUDE.md
-- [x] Package skeletons (`evk4_bringup`, `evk4_examples`)
-- [x] `evk4_bringup/launch/evk4.launch.py` — driver + optional renderer
-      (`viz`, `bias_file`, `serial`, `camera_name` args); fails loud if a
-      wrapped package is missing
-- [x] `evk4_bringup/config/evk4_params.yaml` — defaults + commented tuning
-      knobs (ERC, trail filter, multithreading)
-- [x] `evk4_examples/evk4_examples/event_rate_node.py`
-      (`ros2 run evk4_examples event_rate`) — sensor-data QoS, decodes with
-      `event_camera_py`, logs Mev/s, ON%, msgs/s
-- [x] `docs/installation.md`, `docs/usage.md`, `docs/troubleshooting.md`
-      (recording/playback covered in usage.md)
+- [x] Repo basics: LICENSE (Apache 2.0), .gitignore, README, CLAUDE.md;
+      public remote https://github.com/ModeS7/Event-cam
+- [x] `evk4_bringup`: `evk4.launch.py` (composed driver + optional
+      renderer; `viz`, `bias_file`, `serial`, `camera_name` args; fails
+      loud if a wrapped package is missing) + `evk4_params.yaml`
+- [x] `evk4_examples`: `ros2 run evk4_examples event_rate` (sensor-data
+      QoS, decodes with `event_camera_py`, logs Mev/s, ON%, msgs/s)
+- [x] `evk4_examples_cpp`: same example as a C++ composable component
+      (`ros2 run evk4_examples_cpp event_rate`, or `ros2 component load`
+      into the camera container). NOT yet compiled/validated on the lab
+      PC — no ROS on the dev machine.
+- [x] `docs/`: installation, usage (incl. recording/playback),
+      troubleshooting
+- [x] Full hardware validation on the lab PC (2026-06-05): install, udev,
+      build, launch (viz on/off), `rqt_image_view`, `event_rate`
+      (~1.5–7 Mev/s live), bag record + playback, clean shutdown.
+      Findings folded into docs/launch/params (see verified-facts).
 
-Next:
-- [ ] First hardware validation on the lab PC: `colcon build`, udev, launch,
-      `ros2 topic hz`, `rqt_image_view`, `event_rate` — fix what reality
-      disagrees with
-- [x] Public remote: https://github.com/ModeS7/Event-cam (clone URLs in
-      README/docs point there)
+Next: nothing planned — extend as research needs arise.
 
 ## Conventions
 
-- Apache 2.0 header comment in every source file we author.
+- No per-file license headers (user decision 2026-06-05): the root LICENSE
+  file covers the repo. Do not add copyright boilerplate to source files.
 - Verify package XML/builds with `colcon build` where Jazzy is available;
   otherwise validate `package.xml` as XML and note the limitation.
 - Reference upstream docs rather than duplicating them; pin exact package

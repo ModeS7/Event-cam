@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>evk4_examples_cpp</name>
+  <version>0.1.0</version>
+  <description>
+    C++ example subscriber for the Prophesee EVK4 event camera topics
+    published by evk4_bringup: a composable component decoding
+    event_camera_msgs with event_camera_codecs. Mirrors the Python example
+    in evk4_examples.
+  </description>
+  <maintainer email="modesuka@gmail.com">Modestas</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>event_camera_msgs</depend>
+  <depend>event_camera_codecs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
