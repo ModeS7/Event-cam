@@ -4,8 +4,9 @@ Symptoms are ordered roughly by how often they occur.
 
 ## `E: Unable to locate package ros-jazzy-...`
 
-The ROS 2 apt repository is not configured on this machine — `ros-jazzy-*`
-packages come from `packages.ros.org`, not stock Ubuntu. Enable it (from the
+The ROS 2 apt repository is not configured on this machine — `ros-<distro>-*`
+packages (`ros-jazzy-*`, `ros-humble-*`, …) come from `packages.ros.org`, not
+stock Ubuntu. Enable it (from the
 [official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)):
 
 ```bash
@@ -18,17 +19,22 @@ sudo apt update
 ```
 
 If ROS 2 itself is missing too (`ls /opt/ros/` is empty), install it first:
-`sudo apt install ros-jazzy-desktop ros-dev-tools` (desktop includes
+`sudo apt install ros-$ROS_DISTRO-desktop ros-dev-tools` (desktop includes
 `rqt_image_view` for visualization; `ros-dev-tools` provides `colcon` and
 `rosdep` for the build step).
 
 ## Launch aborts: `required package '...' is not installed`
 
-Our launch file checks dependencies up front. Install them:
+Our launch file checks dependencies up front and prints the exact apt name
+for **your** ROS distro (it derives it from `$ROS_DISTRO`). Install what the
+message names, e.g. on a binary platform:
 
 ```bash
-sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer
+sudo apt install ros-$ROS_DISTRO-metavision-driver ros-$ROS_DISTRO-event-camera-renderer
 ```
+
+On ARM64 (Tier 3) the binary may not exist — build from source if apt can't
+find it (see [installation.md](installation.md), step 2, ARM64).
 
 ## Driver starts but finds no camera
 
@@ -125,7 +131,7 @@ second in the launch terminal (`bw in: ... msgs/s in: ...`), or with
 ## `ModuleNotFoundError: No module named 'event_camera_py'`
 
 ```bash
-sudo apt install ros-jazzy-event-camera-py
+sudo apt install ros-$ROS_DISTRO-event-camera-py
 ```
 
 ## `Package 'evk4_bringup' not found`

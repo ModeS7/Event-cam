@@ -1,47 +1,71 @@
 # Installation
 
-Target platform: **Ubuntu 24.04 + ROS 2 Jazzy** with a Prophesee **EVK4 HD**
-(Sony IMX636). All commands run on the machine the camera is plugged into.
+Run these on the machine the camera is plugged into (lab PC or drone). The dev
+machine where you write code needs only `git` and an editor.
+
+**Only step 2 differs** — and it differs by **CPU architecture** (x86 vs ARM),
+because that decides whether the OpenEB SDK comes from apt or a source build.
+The board itself (NUC, Raspberry Pi, Jetson, …) doesn't matter beyond that.
+Pick your row, do step 2, then steps 3–6 are identical for everyone.
+
+| Tier | Architecture / OS | Status |
+|---|---|---|
+| 1 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-05) |
+| 2 | x86_64 · Ubuntu 22.04 · Humble | expected — same steps, untested |
+| 3 | ARM64 SBC (Raspberry Pi, Jetson, …) · Jazzy or Humble | experimental — may need source-built OpenEB |
+| — | Ubuntu < 22.04 (e.g. original Jetson Nano @ 18.04) | unsupported — ROS 2 is EOL there |
+
+Set your distro once so the commands below copy-paste cleanly:
+
+```bash
+export ROS_DISTRO=jazzy      # jazzy (Tier 1) or humble (Tier 2/3)
+```
 
 ## 1. Prerequisites
 
-- Ubuntu 24.04 with ROS 2 Jazzy installed
-  ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html))
-  — if step 2 below fails with `Unable to locate package`, the ROS 2 apt
-  repository is missing; see
-  [troubleshooting.md](troubleshooting.md#e-unable-to-locate-package-ros-jazzy-)
-- A **USB 3.x** port and cable — the EVK4 can exceed what USB 2 can carry
+- The Ubuntu + ROS 2 version for your tier, installed
+  ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)).
+- A USB 3.x port and cable — the EVK4 can exceed what USB 2 carries.
 
-## 2. Install the driver stack (apt)
+## 2. Install the camera stack
+
+### x86_64 (Tiers 1 & 2)
+
+You can skip this — `rosdep` in step 5 installs the whole stack automatically.
+To pre-install it by hand instead:
 
 ```bash
 sudo apt install \
-  ros-jazzy-metavision-driver \
-  ros-jazzy-event-camera-renderer \
-  ros-jazzy-event-camera-py \
-  ros-jazzy-diagnostic-updater
+  ros-$ROS_DISTRO-metavision-driver \
+  ros-$ROS_DISTRO-event-camera-renderer \
+  ros-$ROS_DISTRO-event-camera-py
 ```
 
-| Package | Purpose | Version (2026-06) |
-|---|---|---|
-| `ros-jazzy-metavision-driver` | Camera driver; bundles OpenEB via `openeb_vendor` | 3.0.0 |
-| `ros-jazzy-event-camera-renderer` | Renders events to `sensor_msgs/Image` | 3.0.0 |
-| `ros-jazzy-event-camera-py` | Python decoder used by `evk4_examples` | 3.0.0 |
-| `ros-jazzy-diagnostic-updater` | Diagnostics support for `evk4_diagnostics` | — |
+OpenEB is bundled via `openeb_vendor` — no separate Metavision SDK. (Validated
+against driver 3.0.0; check yours with `apt policy ros-$ROS_DISTRO-metavision-driver`.)
 
-No separate Metavision SDK installation is needed — OpenEB is installed
-under `/opt/ros/jazzy` as a dependency. Check your installed version with
-`apt policy ros-jazzy-metavision-driver`.
+### ARM64 SBC — Raspberry Pi, Jetson, any ARM board (Tier 3, experimental)
 
-Optional CLI utilities (echo/perf/bag conversion):
-`sudo apt install ros-jazzy-event-camera-tools`
+ROS 2 publishes ARM64 packages, so first just **try the x86 apt command above**
+— it may work. The open question is OpenEB: whether `metavision_driver`'s ARM64
+binary is built on the ROS farm is unconfirmed. If apt can't find it, build
+OpenEB from source, then build the driver against it:
 
-## 3. udev rule (one-time, required)
+1. Build and install OpenEB from source
+   ([Prophesee guide](https://docs.prophesee.ai/stable/installation/linux_openeb.html)).
+   Prophesee notes ARM compilation is untested, so budget time here.
+2. Clone `metavision_driver` and the `event_camera_*` repos into your
+   workspace `src/`; the driver links against the OpenEB you just installed.
+3. Continue to step 5 — `rosdep`/`colcon` build the rest normally.
 
-The EVK4 enumerates as a Cypress FX3 USB device (vendor ID `04b4`). Without
-a udev rule only root can open it, and the driver will fail to find the
-camera. **The apt packages do not install this rule.** Install the rule
-shipped with OpenEB:
+None of this is verified on hardware yet. Also weigh the board: a high event
+rate over USB plus your other workloads can outrun a small SBC's CPU/USB.
+
+## 3. udev rule (one-time, all platforms)
+
+The EVK4 enumerates as a Cypress FX3 device (vendor `04b4`). Without this rule
+only root can open it and the driver won't find the camera — and apt does
+**not** install it. Add the rule from OpenEB:
 
 ```bash
 sudo wget -O /etc/udev/rules.d/88-cyusb.rules \
@@ -49,47 +73,35 @@ sudo wget -O /etc/udev/rules.d/88-cyusb.rules \
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-Then **unplug and replug** the camera.
-
-Notes:
-
-- The rule grants all users read/write access (`MODE="666"`) to any Cypress
-  (`04b4`) USB device.
-- The rule's `RUN+=".../cy_renumerate.sh"` clause refers to a script that
-  only exists with Cypress' own SDK; udev logs a harmless warning about it.
+Then **unplug and replug** the camera. (The rule grants all users access to any
+Cypress `04b4` device; its `cy_renumerate.sh` clause logs a harmless warning.)
 
 ## 4. Verify the camera is visible
 
 ```bash
 lsusb | grep -i 04b4
-# expected (bus/device numbers vary):
 # Bus 002 Device 003: ID 04b4:00f5 Cypress Semiconductor Corp. ...
 ```
 
 ## 5. Build this repo
 
-`colcon` and `rosdep` ship in `ros-dev-tools`, **not** in `ros-jazzy-desktop`:
+`colcon` and `rosdep` come from `ros-dev-tools` (not in `…-desktop`):
 
 ```bash
 sudo apt install ros-dev-tools
+sudo rosdep init && rosdep update    # first time only; init is harmless if repeated
 ```
 
-If rosdep has never been used on this machine, initialize it once
-(`init` errors harmlessly if it was already done):
+Build. `rosdep install` is the portable step — it reads each `package.xml` and
+pulls the right dependencies for your distro (this is what installs the camera
+stack on Tiers 1–2):
 
 ```bash
-sudo rosdep init
-rosdep update
-```
-
-Then build:
-
-```bash
-source /opt/ros/jazzy/setup.bash    # or add to ~/.bashrc
+source /opt/ros/$ROS_DISTRO/setup.bash
 mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 git clone https://github.com/ModeS7/Event-cam.git
 cd ~/ros2_ws
-rosdep install --from-paths src --ignore-src -y   # fails loudly if deps missing
+rosdep install --from-paths src --ignore-src -y
 colcon build
 source install/setup.bash
 ```
@@ -100,13 +112,13 @@ source install/setup.bash
 ros2 launch evk4_bringup evk4.launch.py
 ```
 
-In a second terminal (remember to `source ~/ros2_ws/install/setup.bash`):
+In a second terminal (`source ~/ros2_ws/install/setup.bash` first):
 
 ```bash
-ros2 topic hz /event_camera/events        # messages appear when the scene changes
+ros2 topic hz /event_camera/events     # rate appears when the scene changes
 ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ```
 
-Wave a hand in front of the camera — event cameras only produce data when
-brightness changes. If anything fails, see
+Wave a hand in front of the camera — event cameras only produce data on
+brightness change. If anything fails, see
 [troubleshooting.md](troubleshooting.md).

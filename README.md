@@ -8,26 +8,31 @@ example consumers, and documentation.
 
 > **Status:** core path validated end-to-end on camera hardware
 > (2026-06-05): install, build, live events, visualization, recording,
-> playback, and both example consumers (Python + C++). The diagnostics
-> watchdog (`evk4_diagnostics`) and the composed example launch
-> (`event_rate_composed.launch.py`) are written and build-checked but not
-> yet exercised on hardware.
+> playback, and both example consumers (Python + C++). The composed example
+> launch (`event_rate_composed.launch.py`) is written and build-checked but
+> not yet exercised on hardware.
 
-## Supported platform
+## Supported platforms
 
-| Component | Version |
-|---|---|
-| OS | Ubuntu 24.04 |
-| ROS 2 | Jazzy |
-| Camera | Prophesee EVK4 HD (Sony IMX636, EVT3) |
-| Driver | `ros-jazzy-metavision-driver` 3.0.0 (apt) |
+Camera is always a Prophesee EVK4 HD (Sony IMX636, EVT3). Compute platform is
+tiered by how well-verified it is — full matrix and per-tier steps in
+[docs/installation.md](docs/installation.md):
+
+| Tier | Architecture / OS | Status |
+|---|---|---|
+| 1 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| 2 | x86_64 · Ubuntu 22.04 · Humble | expected, untested |
+| 3 | ARM64 SBC (Raspberry Pi, Jetson, …) | experimental, may need source-built OpenEB |
 
 ## Quickstart
+
+The quickstart below is the **Tier 1** (Jazzy / x86_64) path. For Humble or
+any ARM64 board, follow [docs/installation.md](docs/installation.md) instead.
 
 ```bash
 # 1. Install the driver stack (bundles OpenEB — no separate Metavision SDK)
 sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer \
-                 ros-jazzy-event-camera-py ros-jazzy-diagnostic-updater
+                 ros-jazzy-event-camera-py
 
 # 2. Install the udev rule (one-time; see docs/installation.md §3), then
 #    replug the camera
@@ -76,7 +81,6 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 | `evk4_bringup/` | Launch file (`evk4.launch.py`), driver parameters, bias configs |
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
-| `evk4_diagnostics/` | Stream-health watchdog publishing on `/diagnostics` |
 | `docs/` | Installation, usage, troubleshooting |
 
 ## Documentation

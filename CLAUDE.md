@@ -7,8 +7,21 @@ well-documented, easy to extend.
 
 ## Fixed decisions (do not revisit without a hard technical reason)
 
-- **Platform:** Ubuntu 24.04 + ROS 2 Jazzy. Camera: Prophesee EVK4 (Sony
-  IMX636, EVT3 event format).
+- **Platform (tiered, decision 2026-06-08):** the install path is keyed on
+  CPU **architecture**, not the specific board — x86 gets OpenEB from apt,
+  ARM must source-build it; distro just sets `$ROS_DISTRO`. Tier 1 (validated)
+  = x86_64 + Ubuntu 24.04 + Jazzy. Tier 2 (expected, untested) = x86_64 +
+  22.04 + Humble. Tier 3 (experimental) = any ARM64 SBC on Jazzy or Humble.
+  **Chosen deployment board (2026-06-08): Raspberry Pi 5 16GB**, to run
+  Ubuntu 24.04 + Jazzy — i.e. ARM64 but the SAME distro as the validated x86
+  target, so the only real unknown is building OpenEB on ARM. Pi setup (flash
+  OS, build OpenEB, clone, colcon) happens on the Pi itself; not yet done. A
+  future RGB CSI camera on the Pi uses the libcamera/V4L2 path (not Jetson's
+  Argus). Ubuntu < 22.04 unsupported. Camera: Prophesee EVK4 (IMX636, EVT3).
+  Docs use one `installation.md`: a tier table carries the
+  validated/expected/experimental status, only step 2 branches by platform,
+  steps 3–6 are shared. Keep it scannable — one audience line at the top,
+  NOT per-section role badges (tried 2026-06-08, too noisy, removed).
 - **Wrap, don't write, the driver:** use `ros-event-camera/metavision_driver`
   via apt. This repo contains only launch files, config, example consumer
   nodes, and docs.
@@ -20,12 +33,16 @@ well-documented, easy to extend.
   `viz:=true`, default true).
 - **Layout (user-confirmed):** `evk4_bringup` (launch + config + biases,
   ament_cmake), `evk4_examples` (ament_python, subscriber using
-  `event_camera_py`), `evk4_examples_cpp` (ament_cmake, same example
-  as a composable component using `event_camera_codecs`; added 2026-06-05
-  at user request — one package per language, like the ROS 2 demos), and
-  `evk4_diagnostics` (ament_python, `/diagnostics` watchdog via
-  `diagnostic_updater`; added 2026-06-05 at user request — kept separate
-  from examples per SRP, not launched by evk4.launch.py by design).
+  `event_camera_py`), and `evk4_examples_cpp` (ament_cmake, same example
+  as a composable component using `event_camera_codecs`; one package per
+  language, like the ROS 2 demos).
+- **Diagnostics (decision 2026-06-08):** a surface-level `evk4_diagnostics`
+  watchdog (subscribe to `/events`, report OK/WARN/ERROR rates) was built
+  then **removed** — the real need is *driver-level* diagnostics (USB
+  errors, sensor status, internal queue depth) which only the driver can
+  expose. Do NOT re-add a downstream rate-watcher. If pursued, the path is
+  upstream (feature-request/contribute to `metavision_driver`) or parsing
+  the driver's existing stats log — not a new subscriber node.
 - **Run model:** code is authored on a dev machine; runs on a separate lab PC
   with the camera. The lab PC only does anonymous `git pull` of this public
   repo and holds **no credentials**. Docs must never assume push access or
@@ -128,13 +145,8 @@ Done:
       `/event_rate_cpp`, stats appear in the launch terminal).
       `event_rate_composed.launch.py` (camera + component, one command)
       added later — NOT yet run on the lab PC.
-- [x] `evk4_diagnostics`: `ros2 run evk4_diagnostics camera_monitor` —
-      OK/WARN/ERROR stream watchdog on `/diagnostics` (driver-alive check
-      via node graph; rates as values). `diagnostic_updater` Python API
-      verified against the ros2-jazzy branch source. NOT yet run on the
-      lab PC.
-- [x] `docs/`: installation, usage (incl. recording/playback),
-      troubleshooting
+- [x] `docs/`: installation (tiered, arch-keyed), usage (incl.
+      recording/playback), troubleshooting
 - [x] Full hardware validation on the lab PC (2026-06-05): install, udev,
       build, launch (viz on/off), `rqt_image_view`, `event_rate`
       (~1.5–7 Mev/s live), bag record + playback, clean shutdown.
@@ -144,6 +156,13 @@ Next: nothing planned — extend as research needs arise.
 
 ## Conventions
 
+- **Portability (keep it this way):** never hardcode a ROS distro in code.
+  `package.xml`/`CMakeLists.txt` reference ROS package names (distro/arch
+  agnostic; `rosdep` resolves per platform); `rosdep install --from-paths
+  src` is the canonical install step; the launch `_require()` builds its
+  apt hint from `$ROS_DISTRO`. The only irreducibly non-portable piece is
+  OpenEB-on-ARM (no upstream binary → documented source build). Future
+  features must preserve this — no `ros-jazzy-*` literals in code.
 - No per-file license headers (user decision 2026-06-05): the root LICENSE
   file covers the repo. Do not add copyright boilerplate to source files.
 - Verify package XML/builds with `colcon build` where Jazzy is available;

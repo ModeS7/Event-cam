@@ -18,14 +18,21 @@ from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
 
-def _require(package, apt_package):
-    """Fail loudly at launch time if a wrapped package is missing."""
+def _require(package):
+    """Fail loudly at launch time if a wrapped package is missing.
+
+    The hint is built from $ROS_DISTRO so it is correct on any distro
+    (jazzy, humble, ...), not hardcoded to one.
+    """
     try:
         get_package_share_directory(package)
     except PackageNotFoundError as exc:
+        distro = os.environ.get('ROS_DISTRO', '<distro>')
+        apt_name = f"ros-{distro}-{package.replace('_', '-')}"
         raise RuntimeError(
-            f"required package '{package}' is not installed. "
-            f'Install it with: sudo apt install {apt_package}') from exc
+            f"required package '{package}' is not installed. On a binary "
+            f'platform: sudo apt install {apt_name} '
+            '(on ARM/source platforms, build it for your target).') from exc
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -36,7 +43,7 @@ def _launch_setup(context, *args, **kwargs):
     if viz not in ('true', 'false'):
         raise RuntimeError(f"viz must be 'true' or 'false', got '{viz}'")
 
-    _require('metavision_driver', 'ros-jazzy-metavision-driver')
+    _require('metavision_driver')
     params_file = os.path.join(
         get_package_share_directory('evk4_bringup'), 'config', 'evk4_params.yaml')
 
@@ -63,7 +70,7 @@ def _launch_setup(context, *args, **kwargs):
         ),
     ]
     if viz == 'true':
-        _require('event_camera_renderer', 'ros-jazzy-event-camera-renderer')
+        _require('event_camera_renderer')
         components.append(
             ComposableNode(
                 package='event_camera_renderer',
