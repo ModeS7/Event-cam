@@ -20,9 +20,12 @@ well-documented, easy to extend.
   `viz:=true`, default true).
 - **Layout (user-confirmed):** `evk4_bringup` (launch + config + biases,
   ament_cmake), `evk4_examples` (ament_python, subscriber using
-  `event_camera_py`), and `evk4_examples_cpp` (ament_cmake, same example
+  `event_camera_py`), `evk4_examples_cpp` (ament_cmake, same example
   as a composable component using `event_camera_codecs`; added 2026-06-05
-  at user request — one package per language, like the ROS 2 demos).
+  at user request — one package per language, like the ROS 2 demos), and
+  `evk4_diagnostics` (ament_python, `/diagnostics` watchdog via
+  `diagnostic_updater`; added 2026-06-05 at user request — kept separate
+  from examples per SRP, not launched by evk4.launch.py by design).
 - **Run model:** code is authored on a dev machine; runs on a separate lab PC
   with the camera. The lab PC only does anonymous `git pull` of this public
   repo and holds **no credentials**. Docs must never assume push access or
@@ -123,6 +126,13 @@ Done:
       (`ros2 run evk4_examples_cpp event_rate`, ~2-3 Mev/s live) and
       `ros2 component load` into the camera container (loads as
       `/event_rate_cpp`, stats appear in the launch terminal).
+      `event_rate_composed.launch.py` (camera + component, one command)
+      added later — NOT yet run on the lab PC.
+- [x] `evk4_diagnostics`: `ros2 run evk4_diagnostics camera_monitor` —
+      OK/WARN/ERROR stream watchdog on `/diagnostics` (driver-alive check
+      via node graph; rates as values). `diagnostic_updater` Python API
+      verified against the ros2-jazzy branch source. NOT yet run on the
+      lab PC.
 - [x] `docs/`: installation, usage (incl. recording/playback),
       troubleshooting
 - [x] Full hardware validation on the lab PC (2026-06-05): install, udev,

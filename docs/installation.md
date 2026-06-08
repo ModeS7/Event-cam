@@ -18,7 +18,8 @@ Target platform: **Ubuntu 24.04 + ROS 2 Jazzy** with a Prophesee **EVK4 HD**
 sudo apt install \
   ros-jazzy-metavision-driver \
   ros-jazzy-event-camera-renderer \
-  ros-jazzy-event-camera-py
+  ros-jazzy-event-camera-py \
+  ros-jazzy-diagnostic-updater
 ```
 
 | Package | Purpose | Version (2026-06) |
@@ -26,6 +27,7 @@ sudo apt install \
 | `ros-jazzy-metavision-driver` | Camera driver; bundles OpenEB via `openeb_vendor` | 3.0.0 |
 | `ros-jazzy-event-camera-renderer` | Renders events to `sensor_msgs/Image` | 3.0.0 |
 | `ros-jazzy-event-camera-py` | Python decoder used by `evk4_examples` | 3.0.0 |
+| `ros-jazzy-diagnostic-updater` | Diagnostics support for `evk4_diagnostics` | — |
 
 No separate Metavision SDK installation is needed — OpenEB is installed
 under `/opt/ros/jazzy` as a dependency. Check your installed version with

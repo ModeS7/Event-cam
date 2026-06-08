@@ -73,6 +73,28 @@ subscribed to `events`. Note the renderer subscribes lazily — it logs
 come and go — so with `viz:=true` but no open image viewer, `out: 0` is
 normal.)
 
+## Diagnostics
+
+The driver itself publishes no `/diagnostics` (verified in 3.0.0) — only a
+once-per-second statistics log line. For machine-readable health
+monitoring run the watchdog:
+
+```bash
+ros2 run evk4_diagnostics camera_monitor
+```
+
+It publishes `diagnostic_msgs/DiagnosticArray` on `/diagnostics` at 1 Hz
+and distinguishes the three states that otherwise look identical:
+
+| Level | Meaning |
+|---|---|
+| `OK` | Events flowing (values: msgs/s, MB/s, Mev/s) |
+| `WARN` | Driver alive but no events for > 5 s (`warn_timeout` param) — static scene or stalled stream |
+| `ERROR` | Driver node missing from the ROS graph |
+
+View with `ros2 topic echo /diagnostics` or `rqt_runtime_monitor`. For a
+non-default camera name: `--ros-args -p camera_node:=my_camera`.
+
 ## Consuming events
 
 > **QoS:** the driver publishes **best-effort**. A subscriber with default
@@ -114,8 +136,14 @@ ros2 run evk4_examples_cpp event_rate
 ```
 
 It is built as a **composable component**, so for the zero-copy
-intra-process path you can load it into the running camera container
-instead of starting a separate process:
+intra-process path you can run camera + example composed in one container
+with a single command:
+
+```bash
+ros2 launch evk4_examples_cpp event_rate_composed.launch.py
+```
+
+or load it into an already-running camera container by hand:
 
 ```bash
 ros2 component load /event_camera_container evk4_examples_cpp \

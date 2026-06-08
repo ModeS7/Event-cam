@@ -6,8 +6,12 @@ the community [metavision_driver](https://github.com/ros-event-camera/metavision
 — it contains no driver code of its own, only launch/config glue,
 example consumers, and documentation.
 
-> **Status:** validated end-to-end on camera hardware (2026-06-05) —
-> install, build, live events, visualization, recording, playback.
+> **Status:** core path validated end-to-end on camera hardware
+> (2026-06-05): install, build, live events, visualization, recording,
+> playback, and both example consumers (Python + C++). The diagnostics
+> watchdog (`evk4_diagnostics`) and the composed example launch
+> (`event_rate_composed.launch.py`) are written and build-checked but not
+> yet exercised on hardware.
 
 ## Supported platform
 
@@ -23,7 +27,7 @@ example consumers, and documentation.
 ```bash
 # 1. Install the driver stack (bundles OpenEB — no separate Metavision SDK)
 sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer \
-                 ros-jazzy-event-camera-py
+                 ros-jazzy-event-camera-py ros-jazzy-diagnostic-updater
 
 # 2. Install the udev rule (one-time; see docs/installation.md §3), then
 #    replug the camera
@@ -72,6 +76,7 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 | `evk4_bringup/` | Launch file (`evk4.launch.py`), driver parameters, bias configs |
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
+| `evk4_diagnostics/` | Stream-health watchdog publishing on `/diagnostics` |
 | `docs/` | Installation, usage, troubleshooting |
 
 ## Documentation
