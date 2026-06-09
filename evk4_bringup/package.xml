@@ -19,6 +19,11 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
 
+  <!-- camera_info_publisher.py (calibration) -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

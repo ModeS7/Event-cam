@@ -26,16 +26,19 @@ well-documented, easy to extend.
   via apt. This repo contains only launch files, config, example consumer
   nodes, and docs.
 - **License:** Apache 2.0. Never vendor or commit proprietary Metavision SDK
-  files. Driver + OpenEB are installed by the user via apt.
+  files. Driver + OpenEB are installed by the user separately (apt on x86;
+  apt or source build on ARM). The vendored `88-cyusb.rules` is the only
+  third-party file we ship, and it is Apache-2.0 from OpenEB.
 - **Topic contract (user-confirmed):** default launch publishes BOTH
   `/event_camera/events` (`event_camera_msgs/EventPacket`, always) and
   `/event_camera/image_raw` (`sensor_msgs/Image`, renderer, behind
   `viz:=true`, default true).
-- **Layout (user-confirmed):** `evk4_bringup` (launch + config + biases,
-  ament_cmake), `evk4_examples` (ament_python, subscriber using
-  `event_camera_py`), and `evk4_examples_cpp` (ament_cmake, same example
-  as a composable component using `event_camera_codecs`; one package per
-  language, like the ROS 2 demos).
+- **Layout (user-confirmed):** `evk4_bringup` (launch + config + biases +
+  calibration + camera_info helper, ament_cmake), `evk4_examples`
+  (ament_python, subscriber using `event_camera_py`), `evk4_examples_cpp`
+  (ament_cmake, same example as a composable component using
+  `event_camera_codecs`; one package per language, like the ROS 2 demos),
+  and `evk4_calibration` (ament_python, guided OpenCV intrinsic calibrator).
 - **Diagnostics (decision 2026-06-08):** a surface-level `evk4_diagnostics`
   watchdog (subscribe to `/events`, report OK/WARN/ERROR rates) was built
   then **removed** — the real need is *driver-level* diagnostics (USB
@@ -43,10 +46,31 @@ well-documented, easy to extend.
   expose. Do NOT re-add a downstream rate-watcher. If pursued, the path is
   upstream (feature-request/contribute to `metavision_driver`) or parsing
   the driver's existing stats log — not a new subscriber node.
-- **Run model:** code is authored on a dev machine; runs on a separate lab PC
-  with the camera. The lab PC only does anonymous `git pull` of this public
-  repo and holds **no credentials**. Docs must never assume push access or
-  secrets on the lab PC.
+- **Exposed driver params (policy, 2026-06-09):** broadly-useful
+  mode-selectors are launch args even absent a specific use case (lesson
+  from sync_mode). Args now include `sync_mode`, `trigger_in_mode` (external
+  trigger input — IMU/RGB/sensor sync), `settings` (pixel-mask JSON; also
+  the `save_settings` target), and `params_file` (escape hatch overriding
+  the whole driver YAML → any driver param without enumerating). Long tail
+  (`roni`, `mipi_frame_period`, `statistics_print_interval`,
+  `send_queue_size`, `event_message_size_threshold`) is documented-commented
+  in evk4_params.yaml. NOT exposed: `trigger_out_*` (EVK4/Gen4 unsupported),
+  `from_file` (rosbag play covers it).
+- **Multi-camera readiness (decision 2026-06-09):** the bringup is
+  parameterized per camera (`camera_name`+`serial`), so N cameras = launch
+  N times into separate namespaces/containers; biases and `calibration_url`
+  are already per-launch. Door-openers added: renderer is namespaced under
+  `camera_name` (was `/renderer` — would clash across cameras), and
+  `sync_mode` (standalone/primary/secondary) is a launch arg for hardware
+  time-sync. **Extrinsic/stereo calibration is deliberately NOT built** —
+  untestable with one camera; documented in multi_camera.md as the future
+  extension (a future `evk4_calibration` stereo mode), building on the
+  per-camera intrinsics/frames/sync that already exist. Do not guess at it
+  without real multi-camera hardware.
+- **Run model:** code is authored on a dev machine; runs on a separate
+  runtime machine with the camera (lab PC now, Raspberry Pi 5 next).
+  That machine only does anonymous `git pull` of this public repo and holds
+  **no credentials**. Docs must never assume push access or secrets there.
 
 ## Engineering principles
 
@@ -79,13 +103,56 @@ well-documented, easy to extend.
   Cypress FX3, USB `04b4:00f5`. The covering rule is `88-cyusb.rules`
   (vendor `04b4`, MODE 666; its `RUN+=cy_renumerate.sh` clause produces a
   harmless udev warning) — `99-evkv2.rules` is vendor `03fd`, EVK2 only.
-  Docs instruct downloading `88-cyusb.rules` from the OpenEB repo to
-  `/etc/udev/rules.d/`, then
-  `sudo udevadm control --reload-rules && sudo udevadm trigger`, replug.
+  It is **vendored** at `setup/udev_rules/88-cyusb.rules` (Apache-2.0 from
+  OpenEB — allowed, not proprietary SDK) and copied to `/etc/udev/rules.d/`
+  by the setup script / docs, then `udevadm control --reload-rules &&
+  udevadm trigger`, replug. (Deliberately NOT vendoring pandect-setup's
+  `99-usb.rules`, which is MODE 0666 on ALL usb — a security downgrade.)
+- **Setup script + workspaces (decision 2026-06-08, modeled on
+  AIS-CPS-Lab/pandect-setup):** `setup/install_deps.sh` does a hybrid
+  install — apt for `metavision_driver` + `event_camera_py`, and apt for
+  `event_camera_renderer` too IF a binary exists, else source-build the
+  renderer (+ `event_camera_msgs`/`_codecs` via `vcs import` of the
+  renderer's `.repos`) into `~/workspaces/3rd_party_ws` with
+  `--symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo`
+  (RelWithDebInfo matters: high event rate makes Debug slow). Installs the
+  vendored udev rule, and appends underlay sourcing to `~/.bashrc`. No
+  emoji, `set -euo pipefail`, re-runnable. **arm64 confirmed on the Pi
+  (2026-06-09): `ros-jazzy-metavision-driver`/`event-camera-renderer`/`-py`/
+  `-codecs` all have arm64 binaries (3.0.0, farm build 2026-04-12) — so on
+  Raspberry Pi 5 / Ubuntu 24.04 the whole stack installs via apt, NO OpenEB
+  source build needed.** The script's apt path (not the source fallback) is
+  what runs there.
 - **Renderer:** `ros-jazzy-event-camera-renderer` v3.0.0. Subscribes
   `~/events` (EventPacket), publishes `~/image_raw` (`sensor_msgs/Image` via
   image_transport — lazy, near-zero cost without subscribers). Params:
-  `fps` (default 25), `display_type` (`time_slice` | `sharp`).
+  `fps` (default 25), `display_type` (`time_slice` | `sharp`) — both exposed
+  as `evk4.launch.py` args. Copies the event packet header onto image_raw
+  (verified renderer.cpp:152), so image_raw frame_id == driver frame_id
+  (serial tail on 3.0.0). Publishes NO camera_info.
+- **Tuning + calibration (decision 2026-06-09, not yet hw-validated):**
+  `evk4.launch.py` gained `fps`/`display_type` (→ renderer), `frame_id`
+  (→ driver; 3.0.0 ignores it, uses serial tail), and `calibration_url`
+  (→ starts `camera_info_publisher.py`). camera_info has no native source,
+  so `evk4_bringup/scripts/camera_info_publisher.py` (Python node installed
+  from the ament_cmake pkg via install(PROGRAMS)) loads a standard
+  camera_info YAML and republishes CameraInfo copying each image_raw header
+  (stamp+frame_id) → image_proc rectify pairs them cleanly. Calibration
+  YAMLs live in `config/calibration/` (committed one is a zero-distortion
+  PLACEHOLDER). Docs: tuning.md (fps/biases/ERC), calibration.md
+  (capture→rectify→TF). Biases are runtime params (rqt_reconfigure).
+- **Calibration tool (decision 2026-06-09, user-confirmed):** built our OWN
+  guided calibrator `evk4_calibration` (ament_python, deps rclpy/sensor_msgs/
+  cv_bridge/opencv/numpy) — `ros2 run evk4_calibration calibrate`. OpenCV
+  window: live checkerboard detect + cornerSubPix, X/Y/Size/Skew coverage
+  bars, AUTO-captures distinct views (SPACE forces, `c` calibrates), runs
+  `cv2.calibrateCamera`, writes a camera_info YAML. **Deliberately DROPPED
+  E2VID/e2calib** (user decision): deep-learning reconstruction + Kalibr are
+  too heavy / not "just works", esp. on Pi — do NOT add them back. Goal:
+  students run one command, follow on-screen coverage, done. NOT
+  hw-validated; the real unknown is whether the event-rendered checkerboard
+  detects reliably (flickering board on a screen is the recommended capture).
+  Needs a display (X-forward/VNC on headless Pi).
 - **Decoding:** `ros-jazzy-event-camera-py` v3.0.0 (Python `Decoder` →
   NumPy arrays); `event_camera_codecs` (C++); `event_camera_tools`
   (CLI: echo, perf).
@@ -146,7 +213,14 @@ Done:
       `event_rate_composed.launch.py` (camera + component, one command)
       added later — NOT yet run on the lab PC.
 - [x] `docs/`: installation (tiered, arch-keyed), usage (incl.
-      recording/playback), troubleshooting
+      recording/playback), troubleshooting, tuning, calibration
+- [x] Tuning + calibration + frame_id (2026-06-09, NOT hw-validated):
+      fps/display_type/frame_id/calibration_url launch args,
+      camera_info_publisher.py, config/calibration/ template,
+      docs/tuning.md + docs/calibration.md
+- [x] `evk4_calibration` (2026-06-09, NOT hw-validated): guided OpenCV
+      intrinsic calibrator (auto-capture + coverage bars), writes
+      camera_info YAML. E2VID/e2calib deliberately not used.
 - [x] Full hardware validation on the lab PC (2026-06-05): install, udev,
       build, launch (viz on/off), `rqt_image_view`, `event_rate`
       (~1.5–7 Mev/s live), bag record + playback, clean shutdown.
@@ -156,6 +230,14 @@ Next: nothing planned — extend as research needs arise.
 
 ## Conventions
 
+- **Workspaces (decision 2026-06-08):** underlay/overlay split. x86 = apt
+  deps in `/opt/ros` (underlay) + `~/ros2_ws` overlay (automatic). Where a
+  package has no binary (some ARM) = 3 layers: `/opt/ros` →
+  `~/workspaces/3rd_party_ws` (source-built renderer + `event_camera_msgs`/
+  `_codecs`) → `~/ros2_ws` (this repo). Build deps once so editing our
+  packages only rebuilds the small overlay. Documented in installation.md
+  (step 3 + Workspaces section). Workspace name is `~/workspaces/3rd_party_ws`
+  (pandect convention) — must match the setup script and docs.
 - **Portability (keep it this way):** never hardcode a ROS distro in code.
   `package.xml`/`CMakeLists.txt` reference ROS package names (distro/arch
   agnostic; `rosdep` resolves per platform); `rosdep install --from-paths

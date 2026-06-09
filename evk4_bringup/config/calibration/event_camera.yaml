@@ -1,0 +1,35 @@
+# PLACEHOLDER intrinsic calibration for the EVK4 (IMX636, 1280x720).
+#
+# These numbers are NOT a real calibration — focal length is a guess and
+# distortion is zero, so rectification is a pass-through until you replace it.
+# Generate a real file with `ros2 run camera_calibration cameracalibrator`
+# (see docs/calibration.md) and overwrite this, or point `calibration_url`
+# at your own file.
+#
+# Standard ROS camera_info format (what camera_calibration writes).
+image_width: 1280
+image_height: 720
+camera_name: event_camera
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1000.0, 0.0, 640.0,
+         0.0, 1000.0, 360.0,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.0, 0.0, 0.0, 0.0, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1000.0, 0.0, 640.0, 0.0,
+         0.0, 1000.0, 360.0, 0.0,
+         0.0, 0.0, 1.0, 0.0]

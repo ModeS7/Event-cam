@@ -12,18 +12,27 @@ ros2 launch evk4_bringup evk4.launch.py
 | `serial` | `''` (first camera) | Select a camera by serial number |
 | `bias_file` | `''` (sensor defaults) | Path to a `.bias` file to load |
 | `viz` | `true` | Also run the renderer (image topic) |
+| `fps` | `25.0` | Renderer frame rate, Hz (with `viz:=true`) |
+| `display_type` | `time_slice` | Renderer mode: `time_slice` or `sharp` |
+| `frame_id` | `event_camera_optical_frame` | TF frame (driver 3.0.0 uses the serial tail instead) |
+| `sync_mode` | `standalone` | Hardware sync role: `standalone`/`primary`/`secondary` ([multi_camera.md](multi_camera.md)) |
+| `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`loopback` (sync with other sensors) |
+| `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
+| `calibration_url` | `''` | Path to a camera_info YAML → publish `camera_info` |
+| `params_file` | `''` | Override the driver params YAML (escape hatch for any driver param) |
 
 Examples:
 
 ```bash
 ros2 launch evk4_bringup evk4.launch.py viz:=false           # raw events only
 ros2 launch evk4_bringup evk4.launch.py serial:=00050591     # pick a camera
-ros2 launch evk4_bringup evk4.launch.py bias_file:=~/my.bias # custom biases
+ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 ```
 
-Driver tuning parameters (event rate control, noise filtering, batching)
-live in `evk4_bringup/config/evk4_params.yaml` — see the comments there and
-the [upstream parameter reference](https://github.com/ros-event-camera/metavision_driver).
+Tuning the camera (thresholds, timing, fps, biases) is covered in
+[tuning.md](tuning.md); calibration and undistortion in
+[calibration.md](calibration.md). Driver parameters live in
+`evk4_bringup/config/evk4_params.yaml`.
 
 **Architecture note:** the launch composes driver and renderer into a single
 container process with intra-process communication, so the high-rate event
@@ -39,9 +48,11 @@ zero-copy path.
 |---|---|---|
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (default 25 fps) | `viz:=true` |
+| `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
 
 Message headers carry `frame_id` = last 4 digits of the camera serial
-number (e.g. `1701`) — driver 3.0.0 does not support overriding it.
+number (e.g. `1701`) — driver 3.0.0 does not support overriding it
+(see [calibration.md](calibration.md)).
 
 ## Services (provided by the driver, v3.0.0)
 
@@ -58,8 +69,7 @@ Services only exist while the camera launch is running, and each **fails
 unless its file path was set at startup**: `save_biases` needs the
 `bias_file` launch argument (full workflow:
 [`config/biases/README.md`](../evk4_bringup/config/biases/README.md));
-`save_settings` needs the driver's `settings` parameter, which our launch
-doesn't expose — add it to `evk4_params.yaml` if you need it. For bandwidth and
+`save_settings` needs the `settings` launch argument. For bandwidth and
 rate statistics no service is needed: the driver prints them to the launch
 terminal every second (`statistics_print_interval` parameter), e.g.
 
@@ -147,18 +157,15 @@ Blue pixels are ON events (brightness increased), red are OFF events
 (brightness decreased) — verified in the renderer source (`bgr8`, ON →
 channel 0). A static scene renders black; only change is visible.
 
-The renderer runs with its defaults (25 fps, `time_slice` display). For
-other settings, launch the camera with `viz:=false` and run the upstream
-renderer launch instead:
+Adjust the frame rate and mode with the `fps` and `display_type` launch
+arguments (these affect only the image, not the raw event stream):
 
 ```bash
-ros2 launch event_camera_renderer renderer.launch.py camera:=event_camera \
-    fps:=60.0 type:=sharp     # type: time_slice | sharp
+ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 ```
 
-Note: launched this way the image appears on
-`/event_camera/renderer/image_raw` (the upstream launch namespaces the
-node), not on `/event_camera/image_raw`.
+For an undistorted image, calibrate and rectify — see
+[calibration.md](calibration.md).
 
 ## Bias tuning
 
