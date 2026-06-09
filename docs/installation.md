@@ -12,7 +12,8 @@ doesn't matter beyond that.
 |---|---|---|
 | 1 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-05) |
 | 2 | x86_64 · Ubuntu 22.04 · Humble | expected — same steps, untested |
-| 3 | ARM64 SBC (Raspberry Pi, Jetson, …) · Jazzy or Humble | experimental — may need source-built OpenEB |
+| 3 | ARM64 — Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-09) — apt, no source build |
+| 3 | ARM64 — other SBCs / Humble | expected — apt where binaries exist, else source |
 | — | Ubuntu < 22.04 (e.g. original Jetson Nano @ 18.04) | unsupported — ROS 2 is EOL there |
 
 Set your distro once so the commands copy-paste cleanly:
@@ -66,11 +67,14 @@ sudo apt install \
   ros-$ROS_DISTRO-event-camera-py
 ```
 
-**ARM64 (Tier 3, experimental — not yet run on hardware):** ROS 2 publishes
-ARM64 packages, so the driver and `event_camera_py` may install straight from
-apt (the script tries this). The renderer is built from source into a
-dedicated **deps (underlay) workspace** so it isn't recompiled when you edit
-your own code — using `vcs import` to pull its decode libraries, and
+**ARM64 (Tier 3):** ROS 2 publishes arm64 binaries, and on **Raspberry Pi 5 /
+Ubuntu 24.04 the whole stack installs from apt exactly like x86** (validated
+2026-06-09 — driver opens the camera, ~245 msgs/s, ~7% CPU). Use the same apt
+command as above; **no OpenEB source build is needed.**
+
+Only if you are on an ARM platform where a binary is genuinely missing (apt
+can't find a package) do you build that one from source into a deps (underlay)
+workspace — e.g. the renderer, with `vcs import` for its decode libraries and
 `RelWithDebInfo` because the high event rate makes an unoptimized build slow:
 
 ```bash
@@ -83,10 +87,9 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
-If apt has **no** ARM64 driver binary either, build OpenEB from source first
-([Prophesee guide](https://docs.prophesee.ai/stable/installation/linux_openeb.html);
-ARM is untested upstream, so budget time), then build `metavision_driver` from
-source in the same deps workspace. See the **Workspaces** note at the end.
+If even the driver has no binary on your platform, build OpenEB from source
+first ([Prophesee guide](https://docs.prophesee.ai/stable/installation/linux_openeb.html)),
+then `metavision_driver` against it. See the **Workspaces** note at the end.
 
 ### udev rule (all platforms)
 

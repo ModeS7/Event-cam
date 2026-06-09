@@ -122,7 +122,13 @@ well-documented, easy to extend.
   `-codecs` all have arm64 binaries (3.0.0, farm build 2026-04-12) — so on
   Raspberry Pi 5 / Ubuntu 24.04 the whole stack installs via apt, NO OpenEB
   source build needed.** The script's apt path (not the source fallback) is
-  what runs there.
+  what runs there. **FULL hardware validation on the Pi 5 (2026-06-09):**
+  apt install → colcon build → driver opens camera (IMX636, serial 00051701,
+  1280x720) → events ~245 msgs/s → renderer image_raw ~23.5 Hz → composed
+  pipeline only ~7% CPU on the Pi 5. Tier 3 ARM is effectively Tier 1 on
+  this board. (Pi accessed via Tailscale SSH as user `mode`, sudo pw shared
+  by user; gnome-shell ~44% CPU is the remote-desktop software-render issue,
+  not the camera — go headless for continuous use.)
 - **Renderer:** `ros-jazzy-event-camera-renderer` v3.0.0. Subscribes
   `~/events` (EventPacket), publishes `~/image_raw` (`sensor_msgs/Image` via
   image_transport — lazy, near-zero cost without subscribers). Params:

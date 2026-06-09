@@ -21,8 +21,9 @@ tiered by how well-verified it is — full matrix and per-tier steps in
 | Tier | Architecture / OS | Status |
 |---|---|---|
 | 1 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| 1 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (apt, no source build) |
 | 2 | x86_64 · Ubuntu 22.04 · Humble | expected, untested |
-| 3 | ARM64 SBC (Raspberry Pi, Jetson, …) | experimental, may need source-built OpenEB |
+| 3 | other ARM64 SBCs / Humble | expected — apt where binaries exist |
 
 ## Quickstart
 
