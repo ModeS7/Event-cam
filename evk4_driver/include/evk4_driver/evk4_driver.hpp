@@ -45,6 +45,9 @@ private:
   void configureSync();
   void configureTriggerIn();
   void configureAFK();
+  void configureERAF();         // event rate activity filter
+  void configureDigitalCrop();
+  void configureEventMask();
 
   // Live bias tuning: apply a changed bias parameter straight to the sensor.
   rcl_interfaces::msg::SetParametersResult onSetParameters(

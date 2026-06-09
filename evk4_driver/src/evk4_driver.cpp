@@ -9,7 +9,10 @@
 
 #include <metavision/hal/facilities/i_antiflicker_module.h>
 #include <metavision/hal/facilities/i_camera_synchronization.h>
+#include <metavision/hal/facilities/i_digital_crop.h>
+#include <metavision/hal/facilities/i_digital_event_mask.h>
 #include <metavision/hal/facilities/i_erc_module.h>
+#include <metavision/hal/facilities/i_event_rate_activity_filter_module.h>
 #include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_ll_biases.h>
 #include <metavision/hal/facilities/i_roi.h>
@@ -217,6 +220,9 @@ void EVK4Driver::configureSensor()
   configureSync();
   configureTriggerIn();
   configureAFK();
+  configureERAF();
+  configureDigitalCrop();
+  configureEventMask();
 }
 
 void EVK4Driver::configureERC()
@@ -371,6 +377,100 @@ void EVK4Driver::configureAFK()
   RCLCPP_INFO_STREAM(
     this->get_logger(),
     "AFK enabled [" << low << "-" << high << " Hz, " << mode << "]");
+}
+
+void EVK4Driver::configureERAF()
+{
+  const bool enabled = this->declare_parameter<bool>("eraf_enabled", false);
+  const int ls = this->declare_parameter<int>("eraf_lower_start", 0);
+  const int lp = this->declare_parameter<int>("eraf_lower_stop", 0);
+  const int us = this->declare_parameter<int>("eraf_upper_start", 0);
+  const int up = this->declare_parameter<int>("eraf_upper_stop", 0);
+  if (!enabled) {
+    return;
+  }
+  auto * eraf =
+    cam_.get_device().get_facility<Metavision::I_EventRateActivityFilterModule>();
+  if (eraf == nullptr) {
+    RCLCPP_WARN(this->get_logger(), "event rate activity filter not available on this device");
+    return;
+  }
+  // All four fields must be set together (partial init -> undefined thresholds).
+  Metavision::I_EventRateActivityFilterModule::thresholds th;
+  th.lower_bound_start = static_cast<uint32_t>(ls);
+  th.lower_bound_stop = static_cast<uint32_t>(lp);
+  th.upper_bound_start = static_cast<uint32_t>(us);
+  th.upper_bound_stop = static_cast<uint32_t>(up);
+  eraf->set_thresholds(th);
+  eraf->enable(true);
+  RCLCPP_INFO_STREAM(
+    this->get_logger(),
+    "ERAF enabled [lower " << ls << "/" << lp << ", upper " << us << "/" << up << " ev/s]");
+}
+
+void EVK4Driver::configureDigitalCrop()
+{
+  const bool enabled = this->declare_parameter<bool>("digital_crop_enabled", false);
+  const std::vector<int64_t> region =
+    this->declare_parameter<std::vector<int64_t>>("digital_crop_region", std::vector<int64_t>{});
+  const bool resetOrigin = this->declare_parameter<bool>("digital_crop_reset_origin", false);
+  if (!enabled) {
+    return;
+  }
+  if (region.size() != 4) {
+    RCLCPP_ERROR_STREAM(
+      this->get_logger(),
+      "digital_crop_region must be [x_start,y_start,x_end,y_end], got " << region.size());
+    return;
+  }
+  auto * crop = cam_.get_device().get_facility<Metavision::I_DigitalCrop>();
+  if (crop == nullptr) {
+    RCLCPP_WARN(this->get_logger(), "digital crop not available on this device");
+    return;
+  }
+  const Metavision::I_DigitalCrop::Region r{
+    static_cast<uint32_t>(region[0]), static_cast<uint32_t>(region[1]),
+    static_cast<uint32_t>(region[2]), static_cast<uint32_t>(region[3])};
+  crop->set_window_region(r, resetOrigin);
+  crop->enable(true);
+  RCLCPP_INFO_STREAM(
+    this->get_logger(),
+    "digital crop [" << region[0] << "," << region[1] << " -> " << region[2] << "," << region[3]
+                     << "]" << (resetOrigin ? " (origin reset)" : ""));
+}
+
+void EVK4Driver::configureEventMask()
+{
+  const std::vector<int64_t> pixels =
+    this->declare_parameter<std::vector<int64_t>>("event_mask_pixels", std::vector<int64_t>{});
+  if (pixels.empty()) {
+    return;
+  }
+  if (pixels.size() % 2 != 0) {
+    RCLCPP_ERROR_STREAM(
+      this->get_logger(),
+      "event_mask_pixels must be [x0,y0,x1,y1,...] pairs, got " << pixels.size());
+    return;
+  }
+  auto * mask = cam_.get_device().get_facility<Metavision::I_DigitalEventMask>();
+  if (mask == nullptr) {
+    RCLCPP_WARN(this->get_logger(), "digital event mask not available on this device");
+    return;
+  }
+  const auto & slots = mask->get_pixel_masks();
+  const size_t requested = pixels.size() / 2;
+  if (requested > slots.size()) {
+    RCLCPP_WARN_STREAM(
+      this->get_logger(),
+      "requested " << requested << " masked pixels but only " << slots.size()
+                   << " mask slots available; masking the first " << slots.size());
+  }
+  const size_t count = std::min(requested, slots.size());
+  for (size_t i = 0; i < count; ++i) {
+    slots[i]->set_mask(
+      static_cast<uint32_t>(pixels[2 * i]), static_cast<uint32_t>(pixels[2 * i + 1]), true);
+  }
+  RCLCPP_INFO_STREAM(this->get_logger(), "masked " << count << " pixel(s)");
 }
 
 void EVK4Driver::rawDataCallback(const uint8_t * start, const uint8_t * end)
