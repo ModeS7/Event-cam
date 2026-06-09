@@ -52,7 +52,14 @@ ros2 launch evk4_bringup evk4.launch.py \
 # -> /event_camera/camera_info
 ```
 
-Then rectify (`sudo apt install ros-$ROS_DISTRO-image-proc` if missing):
+Rectification uses `image_proc`, which is **not** part of `ros-desktop` —
+install it first (verified needed on a fresh Pi 5 install, 2026-06-09):
+
+```bash
+sudo apt install ros-$ROS_DISTRO-image-proc
+```
+
+Then rectify:
 
 ```bash
 ros2 run image_proc rectify_node --ros-args \

@@ -20,6 +20,7 @@ ros2 param set /event_camera bias_diff_on 30
 ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
 ```
 
-The service fails with "no bias file specified at startup" if the launch
-did not set `bias_file`. Subsequent launches with the same `bias_file`
-load the saved values.
+If the launch did not set `bias_file`, the service returns
+`success=False` (response `message: 'bias file write failed'`; the driver
+logs `no bias file specified at startup`). Subsequent launches with the same
+`bias_file` load the saved values.
