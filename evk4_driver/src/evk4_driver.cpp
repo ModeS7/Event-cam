@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <map>
 #include <utility>
 #include <vector>
@@ -10,16 +11,21 @@
 #include <metavision/hal/facilities/i_camera_synchronization.h>
 #include <metavision/hal/facilities/i_erc_module.h>
 #include <metavision/hal/facilities/i_event_trail_filter_module.h>
+#include <metavision/hal/facilities/i_ll_biases.h>
 #include <metavision/hal/facilities/i_roi.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
 namespace evk4_driver
 {
+using std::placeholders::_1;
+using std::placeholders::_2;
 
 EVK4Driver::EVK4Driver(const rclcpp::NodeOptions & options)
 : Node("event_camera", options)
 {
   serial_ = this->declare_parameter<std::string>("serial", "");
+  biasFile_ = this->declare_parameter<std::string>("bias_file", "");
+  settingsFile_ = this->declare_parameter<std::string>("settings", "");
   const double tThresh =
     this->declare_parameter<double>("event_message_time_threshold", 0.001);
   messageThresholdTime_ = static_cast<uint64_t>(tThresh * 1e9);
@@ -64,7 +70,20 @@ void EVK4Driver::startCamera()
   height_ = static_cast<uint32_t>(g.get_height());
   RCLCPP_INFO_STREAM(this->get_logger(), "opened EVK4 " << width_ << "x" << height_);
 
+  loadSettings();
+  loadBiasFile();
+  declareBiases();
+
+  saveBiasesSrv_ = this->create_service<std_srvs::srv::Trigger>(
+    "~/save_biases", std::bind(&EVK4Driver::saveBiases, this, _1, _2));
+  saveSettingsSrv_ = this->create_service<std_srvs::srv::Trigger>(
+    "~/save_settings", std::bind(&EVK4Driver::saveSettings, this, _1, _2));
+
   configureSensor();
+
+  // Register AFTER all parameters are declared so declaration does not fire it.
+  paramCbHandle_ = this->add_on_set_parameters_callback(
+    std::bind(&EVK4Driver::onSetParameters, this, _1));
 
   // Raw EVT3 bytes straight from the sensor -> EventPacket (zero decode).
   cam_.raw_data().add_callback(
@@ -74,6 +93,119 @@ void EVK4Driver::startCamera()
 
   cam_.start();
   RCLCPP_INFO(this->get_logger(), "camera started, publishing evt3 EventPackets on ~/events");
+}
+
+void EVK4Driver::loadSettings()
+{
+  if (settingsFile_.empty()) {
+    return;
+  }
+  try {
+    if (!cam_.load(settingsFile_)) {
+      RCLCPP_WARN_STREAM(this->get_logger(), "could not load settings from: " << settingsFile_);
+    } else {
+      RCLCPP_INFO_STREAM(this->get_logger(), "loaded camera settings from: " << settingsFile_);
+    }
+  } catch (const std::exception & e) {
+    RCLCPP_WARN_STREAM(this->get_logger(), "loading settings failed: " << e.what());
+  }
+}
+
+void EVK4Driver::loadBiasFile()
+{
+  if (biasFile_.empty()) {
+    return;
+  }
+  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  if (biases == nullptr) {
+    return;
+  }
+  try {
+    biases->load_from_file(biasFile_);
+    RCLCPP_INFO_STREAM(this->get_logger(), "loaded bias file: " << biasFile_);
+  } catch (const std::exception & e) {
+    RCLCPP_WARN_STREAM(
+      this->get_logger(), "reading bias file failed: " << e.what() << "; using defaults");
+  }
+}
+
+void EVK4Driver::declareBiases()
+{
+  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  if (biases == nullptr) {
+    RCLCPP_WARN(this->get_logger(), "biases not available on this device");
+    return;
+  }
+  const auto all = biases->get_all_biases();
+  for (const auto & b : all) {
+    if (b.first == "bias_diff") {
+      continue;  // computed reference, not independently settable
+    }
+    biasNames_.insert(b.first);
+    this->declare_parameter<int>(b.first, b.second);
+  }
+  RCLCPP_INFO_STREAM(
+    this->get_logger(), "exposed " << biasNames_.size() << " tunable biases (ros2 param set)");
+}
+
+rcl_interfaces::msg::SetParametersResult EVK4Driver::onSetParameters(
+  const std::vector<rclcpp::Parameter> & params)
+{
+  rcl_interfaces::msg::SetParametersResult res;
+  res.successful = true;
+  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  for (const auto & p : params) {
+    if (biasNames_.count(p.get_name()) == 0 || biases == nullptr) {
+      continue;  // not a live bias -> accept without side effect
+    }
+    const int val = static_cast<int>(p.as_int());
+    if (!biases->set(p.get_name(), val)) {
+      RCLCPP_WARN_STREAM(this->get_logger(), "cannot set " << p.get_name() << " to " << val);
+    } else {
+      RCLCPP_INFO_STREAM(
+        this->get_logger(), "bias " << p.get_name() << " -> " << biases->get(p.get_name()));
+    }
+  }
+  return res;
+}
+
+void EVK4Driver::saveBiases(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  if (biasFile_.empty()) {
+    res->success = false;
+    res->message = "no bias file specified at startup";
+    return;
+  }
+  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  try {
+    biases->save_to_file(biasFile_);
+    res->success = true;
+    res->message = "biases written to " + biasFile_;
+  } catch (const std::exception & e) {
+    res->success = false;
+    res->message = std::string("bias file write failed: ") + e.what();
+  }
+}
+
+void EVK4Driver::saveSettings(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> res)
+{
+  if (settingsFile_.empty()) {
+    res->success = false;
+    res->message = "no settings file specified at startup";
+    return;
+  }
+  try {
+    cam_.save(settingsFile_);
+    res->success = true;
+    res->message = "settings written to " + settingsFile_;
+  } catch (const std::exception & e) {
+    res->success = false;
+    res->message = std::string("settings write failed: ") + e.what();
+  }
 }
 
 void EVK4Driver::configureSensor()

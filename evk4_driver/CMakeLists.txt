@@ -27,6 +27,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(event_camera_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 set(MV_TARGETS ${MV_COMPONENTS})
 list(TRANSFORM MV_TARGETS PREPEND "MetavisionSDK::")
@@ -35,7 +36,7 @@ list(TRANSFORM MV_TARGETS PREPEND "MetavisionSDK::")
 add_library(evk4_driver_component SHARED src/evk4_driver.cpp)
 target_include_directories(evk4_driver_component PRIVATE include)
 ament_target_dependencies(evk4_driver_component
-  rclcpp rclcpp_components event_camera_msgs)
+  rclcpp rclcpp_components event_camera_msgs std_srvs)
 target_link_libraries(evk4_driver_component ${MV_TARGETS})
 rclcpp_components_register_nodes(evk4_driver_component "evk4_driver::EVK4Driver")
 
@@ -43,7 +44,7 @@ rclcpp_components_register_nodes(evk4_driver_component "evk4_driver::EVK4Driver"
 add_executable(driver_node src/driver_node.cpp src/evk4_driver.cpp)
 target_include_directories(driver_node PRIVATE include)
 ament_target_dependencies(driver_node
-  rclcpp rclcpp_components event_camera_msgs)
+  rclcpp rclcpp_components event_camera_msgs std_srvs)
 target_link_libraries(driver_node ${MV_TARGETS})
 
 install(TARGETS driver_node DESTINATION lib/${PROJECT_NAME})
