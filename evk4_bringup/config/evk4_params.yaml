@@ -1,51 +1,66 @@
-# Driver (metavision_driver) parameters for evk4.launch.py.
+# Driver parameters for evk4.launch.py (our OpenEB-based evk4_driver).
 #
-# This file is the DRIVER's timing/filtering config. Two related knobs live
-# elsewhere (see docs/tuning.md):
-#   - rendered-video fps          -> evk4.launch.py `fps` / `display_type` args
+# Applied when the camera STARTS -> edit + relaunch to take effect. Two related
+# knobs live elsewhere (see docs/tuning.md):
+#   - rendered-video fps           -> evk4.launch.py `fps` / `display_type` args
 #   - biases (contrast thresholds) -> runtime, `ros2 param set` / rqt_reconfigure
-#
-# Defaults below were verified against the RELEASED 3.0.0 source (the upstream
-# master README differs in places!):
-#   https://github.com/ros-event-camera/metavision_driver/blob/3.0.0/src/driver_ros2.cpp
 #
 # Set from launch arguments (not here): serial, bias_file, frame_id,
 # sync_mode, trigger_in_mode, settings. Everything else is fair game below;
 # `params_file:=<your.yaml>` swaps this whole file.
 /**:
   ros__parameters:
-    encoding: evt3  # the only supported encoding (driver default)
-
     # --- Timing / batching -----------------------------------------------
-    # Events are published once either threshold is reached; in practice the
-    # time threshold governs (the size threshold defaults to ~1 GB, i.e. off).
-    # Smaller = lower latency, more messages.
-    event_message_time_threshold: 0.001  # [s] (driver default: 1 ms)
+    # Raw EVT3 is published once this much wall time has accumulated. Smaller
+    # = lower latency, more/smaller messages.
+    event_message_time_threshold: 0.001  # [s] (default: 1 ms)
 
-    # --- Event Rate Control (EVK4 / Gen4 on-sensor feature) ---------------
-    # Drops events on-sensor to protect USB bandwidth and CPU when the scene
-    # is very active. Uncomment to enable:
-    # erc_mode: enabled       # na | disabled | enabled  (default: na)
-    # erc_rate: 100000000     # [events/s]               (default: 1e8)
+    # =====================================================================
+    # ON-SENSOR FILTERS / FACILITIES  (the EVK4/IMX636 ESP blocks)
+    # Applied at camera start. Full "which knob for which symptom" guidance
+    # in docs/tuning.md. Anything the sensor lacks is skipped with a warning.
+    # =====================================================================
 
-    # --- On-sensor noise filtering ---------------------------------------
-    # trail_filter: true            # (default: false)
+    # --- ERC: Event Rate Controller --------------------------------------
+    # Caps the event rate on-sensor to protect USB bandwidth and CPU.
+    # erc_mode: enabled       # na | disabled | enabled  (default: na = leave alone)
+    # erc_rate: 100000000     # [events/s]
+
+    # --- Trail / STC: on-sensor noise + trail filtering ------------------
+    # trail_filter: true
     # trail_filter_type: trail      # trail | stc_cut_trail | stc_keep_trail
-    # trail_filter_threshold: 5000  # (default: 0)
+    # trail_filter_threshold: 5000  # [us]
+
+    # --- AFK: Anti-Flicker -----------------------------------------------
+    # Removes flickering light (e.g. AC/LED at 100-120 Hz) on-sensor.
+    # afk_enabled: true
+    # afk_freq_low_hz: 100
+    # afk_freq_high_hz: 120
+    # afk_mode: band_stop     # band_stop (reject the band) | band_pass (keep only it)
+
+    # --- Digital Crop: drop pixels outside a rectangle on-sensor ---------
+    # A single hard rectangle [x_start, y_start, x_end, y_end] (cf. ROI windows).
+    # digital_crop_enabled: true
+    # digital_crop_region: [100, 100, 500, 400]
+    # digital_crop_reset_origin: false   # true: remap the cropped corner to (0,0)
+
+    # --- Digital Event Mask: blank out individual hot pixels -------------
+    # Flat list of [x0,y0, x1,y1, ...] pixels to mask (limited # of HW slots).
+    # event_mask_pixels: [320, 240, 640, 360]
 
     # --- Region of interest ----------------------------------------------
     # Keep only pixels in the given rectangle(s); [x, y, w, h] per region.
     # roi: [320, 180, 640, 360]
-    # roni: true                    # invert: treat roi as region of NON-interest
+    # roni: true              # invert: treat roi as region of NON-interest
 
-    # --- Performance ------------------------------------------------------
-    # SDK callback is decoupled from ROS publishing by default (3.0.0):
-    # use_multithreading: false     # (default: true)
-    # send_queue_size: 1000         # outgoing message queue depth (default)
+    # --- ERAF: Event Rate Activity Filter --------------------------------
+    # NOTE: not implemented by the IMX636/EVK4 (skipped with a warning); these
+    # params exist for other Prophesee sensors that do support it.
+    # eraf_enabled: true
+    # eraf_lower_start: 1000
+    # eraf_lower_stop: 2000
+    # eraf_upper_start: 20000000
+    # eraf_upper_stop: 15000000
 
-    # --- Advanced / rarely changed ---------------------------------------
-    # statistics_print_interval: 1.0   # [s] driver stats log cadence
-    # event_message_size_threshold: 1000000000  # [bytes] batch-by-size (~off)
-    # mipi_frame_period: -1            # [us] sensor MIPI timing (-1 = auto)
-    #
-    # Note: trigger_OUT is not exposed — EVK4 (Gen4) does not support it.
+    # Note: trigger-OUT is not exposed -- EVK4 (Gen4) does not support it.
+    # Biases are tuned at RUNTIME (ros2 param set), not here -- see docs/tuning.md.

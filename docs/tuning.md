@@ -24,15 +24,29 @@ ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 ## Driver timing, filtering, ROI (`evk4_params.yaml`)
 
 Edit `evk4_bringup/config/evk4_params.yaml` (rebuild not needed if you used
-`--symlink-install`; otherwise `colcon build` to reinstall it). It is
-commented with verified 3.0.0 defaults. The common knobs:
+`--symlink-install`; otherwise `colcon build` to reinstall it). The common
+knobs:
 
 - `event_message_time_threshold` — message batching window. Smaller = lower
   latency, more/smaller messages.
-- `erc_mode` / `erc_rate` — on-sensor Event Rate Control. Enable when the
-  scene saturates the USB/CPU (see *high CPU* in troubleshooting.md).
-- `trail_filter*` — on-sensor noise/trail filtering.
 - `roi` — restrict to a pixel rectangle to cut data volume.
+
+### On-sensor event filters (the IMX636 ESP blocks)
+
+These run on the sensor *before* events reach USB, so they cut data at the
+source. Set them in `evk4_params.yaml`; they apply when the camera starts. Our
+`evk4_driver` exposes **every facility the EVK4/IMX636 supports** (a facility
+the sensor lacks is skipped with a warning):
+
+| Facility | Params | What it does |
+|---|---|---|
+| **ERC** (Event Rate Controller) | `erc_mode`, `erc_rate` | Caps total events/s on-sensor — enable when a busy scene saturates USB/CPU |
+| **Trail / STC** | `trail_filter`, `trail_filter_type` (`trail`/`stc_cut_trail`/`stc_keep_trail`), `trail_filter_threshold` | Removes noise and event trails |
+| **AFK** (Anti-Flicker) | `afk_enabled`, `afk_freq_low_hz`, `afk_freq_high_hz`, `afk_mode` | Rejects flickering light in a frequency band (`band_stop`) or keeps only it (`band_pass`) |
+| **Digital Crop** | `digital_crop_enabled`, `digital_crop_region`, `digital_crop_reset_origin` | Drops all pixels outside one hard rectangle (vs ROI's windows) |
+| **Event Mask** | `event_mask_pixels` | Blanks out individual hot pixels (limited number of hardware slots) |
+| **ROI / RONI** | `roi`, `roni` | Keep (or, with `roni`, exclude) one or more `[x,y,w,h]` windows |
+| **ERAF** (Event Rate Activity Filter) | `eraf_*` | *Not available on the EVK4/IMX636* — skipped with a warning; the params exist for other Prophesee sensors |
 
 ## Biases — contrast thresholds (runtime)
 
@@ -64,4 +78,7 @@ Persist a tuned set to a `.bias` file and reload it on the next launch — see
   lower `bias_fo`, or enable `trail_filter`.
 - **Missing faint motion** → lower `bias_diff_on`/`bias_diff_off`.
 - **CPU/USB saturated** → enable `erc_mode`, set `erc_rate`, or add an `roi`.
+- **Flickering lights (AC/LED) flooding events** → enable `afk_enabled` with a
+  `band_stop` around the flicker frequency (e.g. 100–120 Hz); `bias_hpf` and
+  `erc_rate` help too.
 - **Blurry rendered image** → raise `fps` or use `display_type:=sharp`.

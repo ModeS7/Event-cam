@@ -2,13 +2,14 @@
 #
 # Install the Event-cam dependencies (Prophesee EVK4 stack) for ROS 2.
 #
-# Layout (matches the AIS-CPS-Lab convention): the driver and the Python
-# decoder come from apt, but event_camera_renderer and its decode libraries
-# (event_camera_codecs / event_camera_msgs, pulled via the renderer's .repos)
-# are built FROM SOURCE into a dedicated 3rd-party (underlay) workspace. That
-# keeps the rendering/decoding code a controlled, modifiable copy, cleanly
-# separated from the apt system install (/opt/ros) and from your own overlay
-# (~/ros2_ws). This repo (the overlay) is built separately afterwards.
+# Layout (matches the AIS-CPS-Lab convention): OpenEB (the Metavision SDK open
+# edition) and the Python decoder come from apt, but event_camera_renderer and
+# its decode libraries (event_camera_codecs / event_camera_msgs, pulled via the
+# renderer's .repos) are built FROM SOURCE into a dedicated 3rd-party (underlay)
+# workspace. That keeps the rendering/decoding code a controlled, modifiable
+# copy, cleanly separated from the apt system install (/opt/ros) and from your
+# own overlay (~/ros2_ws). Our own evk4_driver (built on OpenEB) lives in this
+# repo (the overlay) and is built separately afterwards.
 #
 # Usage:
 #   export ROS_DISTRO=jazzy            # or humble
@@ -29,11 +30,11 @@ UDEV_DST="/etc/udev/rules.d"
 
 echo "Event-cam dependency install (ROS_DISTRO=$ROS_DISTRO)"
 
-echo "[1/4] apt: build tools, driver, Python decoder..."
+echo "[1/4] apt: build tools, OpenEB (Metavision SDK), Python decoder..."
 sudo apt update
 sudo apt install -y \
   ros-dev-tools \
-  ros-"$ROS_DISTRO"-metavision-driver \
+  ros-"$ROS_DISTRO"-openeb-vendor \
   ros-"$ROS_DISTRO"-event-camera-py
 sudo rosdep init 2>/dev/null || true
 rosdep update

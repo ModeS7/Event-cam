@@ -53,13 +53,14 @@ git clone https://github.com/ModeS7/Event-cam.git
 ```
 
 Everything below explains what it does and is the manual equivalent. It is the
-**same on every platform** (driver + decoder are arm64/x86 binaries; the
-renderer is built from source either way):
+**same on every platform** (OpenEB + decoder are arm64/x86 binaries; the
+renderer is built from source either way). Our own `evk4_driver` is built from
+this repo (step 4) directly on OpenEB — there is no separate driver to install:
 
 ```bash
-# 1. driver + Python decoder from apt (OpenEB rides along via openeb_vendor)
+# 1. OpenEB (the Metavision SDK open edition) + Python decoder from apt
 sudo apt install ros-dev-tools \
-  ros-$ROS_DISTRO-metavision-driver \
+  ros-$ROS_DISTRO-openeb-vendor \
   ros-$ROS_DISTRO-event-camera-py
 sudo rosdep init 2>/dev/null || true; rosdep update
 
