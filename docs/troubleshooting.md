@@ -50,8 +50,8 @@ find it (see [installation.md](installation.md), step 2, ARM64).
    ls -l /dev/bus/usb/002/003   # must be rw for everyone: crw-rw-rw-
    ```
    If not, the udev rule is missing — see
-   [installation.md §3](installation.md#3-udev-rule-one-time-required),
-   then replug.
+   [installation.md](installation.md#udev-rule-all-platforms) (step 3, udev
+   rule), then replug.
 3. Another process may hold the camera (e.g. a second driver instance or
    Metavision Studio). Only one consumer can open it.
 
