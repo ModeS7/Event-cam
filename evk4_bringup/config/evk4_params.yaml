@@ -15,6 +15,13 @@
     # = lower latency, more/smaller messages.
     event_message_time_threshold: 0.001  # [s] (default: 1 ms)
 
+    # --- Performance / diagnostics ---------------------------------------
+    # use_multithreading: true        # capture on a worker thread (default) so
+    #                                 # the SDK callback never blocks on ROS at
+    #                                 # high event rates; false = pack inline
+    # statistics_print_interval: 1.0  # [s] per-second "msgs/s, MB/s" log;
+    #                                 # 0 disables it
+
     # =====================================================================
     # ON-SENSOR FILTERS / FACILITIES  (the EVK4/IMX636 ESP blocks)
     # Applied at camera start. Full "which knob for which symptom" guidance

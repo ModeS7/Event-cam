@@ -33,6 +33,8 @@ EVK4Driver::EVK4Driver(const rclcpp::NodeOptions & options)
   const double tThresh =
     this->declare_parameter<double>("event_message_time_threshold", 0.001);
   messageThresholdTime_ = static_cast<uint64_t>(tThresh * 1e9);
+  useMultithreading_ = this->declare_parameter<bool>("use_multithreading", true);
+  statsInterval_ = this->declare_parameter<double>("statistics_print_interval", 1.0);
 
   // Match the metavision_driver publisher QoS exactly so the existing
   // event_camera_renderer / codecs subscribe without a QoS mismatch.
@@ -51,6 +53,11 @@ EVK4Driver::~EVK4Driver()
     }
   } catch (const std::exception & e) {
     RCLCPP_WARN_STREAM(this->get_logger(), "error stopping camera: " << e.what());
+  }
+  keepRunning_ = false;
+  queueCv_.notify_all();
+  if (workerThread_.joinable()) {
+    workerThread_.join();
   }
 }
 
@@ -89,14 +96,40 @@ void EVK4Driver::startCamera()
   paramCbHandle_ = this->add_on_set_parameters_callback(
     std::bind(&EVK4Driver::onSetParameters, this, _1));
 
+  // Optional worker thread for multithreaded capture.
+  if (useMultithreading_) {
+    workerThread_ = std::thread(&EVK4Driver::processingThread, this);
+  }
+
   // Raw EVT3 bytes straight from the sensor -> EventPacket (zero decode).
+  // Single-threaded: pack+publish inline. Multithreaded: enqueue fast and let
+  // the worker pack+publish, so this SDK callback never blocks on ROS.
   cam_.raw_data().add_callback(
     [this](const uint8_t * data, size_t size) {
-      this->rawDataCallback(data, data + size);
+      const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+      if (useMultithreading_) {
+        {
+          std::lock_guard<std::mutex> lock(queueMutex_);
+          queue_.push_front(RawChunk{std::vector<uint8_t>(data, data + size), t});
+        }
+        queueCv_.notify_one();
+      } else {
+        this->rawDataCallback(data, data + size, t);
+      }
     });
 
+  if (statsInterval_ > 0.0) {
+    statsTimer_ = this->create_wall_timer(
+      std::chrono::duration<double>(statsInterval_),
+      std::bind(&EVK4Driver::printStats, this));
+  }
+
   cam_.start();
-  RCLCPP_INFO(this->get_logger(), "camera started, publishing evt3 EventPackets on ~/events");
+  RCLCPP_INFO_STREAM(
+    this->get_logger(),
+    "camera started, publishing evt3 EventPackets on ~/events"
+      << (useMultithreading_ ? " (multithreaded)" : ""));
 }
 
 void EVK4Driver::loadSettings()
@@ -473,16 +506,13 @@ void EVK4Driver::configureEventMask()
   RCLCPP_INFO_STREAM(this->get_logger(), "masked " << count << " pixel(s)");
 }
 
-void EVK4Driver::rawDataCallback(const uint8_t * start, const uint8_t * end)
+void EVK4Driver::rawDataCallback(const uint8_t * start, const uint8_t * end, uint64_t t)
 {
   // Lazy: only build packets while something is subscribed.
   if (eventPub_->get_subscription_count() == 0) {
     msg_.reset();
     return;
   }
-  const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    std::chrono::system_clock::now().time_since_epoch()).count();
-
   if (!msg_) {
     msg_ = std::make_unique<EventPacketMsg>();
     msg_->header.frame_id = frameId_;
@@ -501,10 +531,47 @@ void EVK4Driver::rawDataCallback(const uint8_t * start, const uint8_t * end)
     msg_->events.size() > messageThresholdSize_)
   {
     reserveSize_ = std::max(reserveSize_, msg_->events.size());
+    statBytes_.fetch_add(msg_->events.size(), std::memory_order_relaxed);
+    statMsgs_.fetch_add(1, std::memory_order_relaxed);
     eventPub_->publish(std::move(msg_));
     msg_.reset();
     lastMessageTime_ = t;
   }
+}
+
+void EVK4Driver::processingThread()
+{
+  while (keepRunning_) {
+    RawChunk chunk;
+    {
+      std::unique_lock<std::mutex> lock(queueMutex_);
+      queueCv_.wait_for(
+        lock, std::chrono::milliseconds(100),
+        [this] { return !queue_.empty() || !keepRunning_; });
+      if (queue_.empty()) {
+        continue;
+      }
+      chunk = std::move(queue_.back());
+      queue_.pop_back();
+    }
+    rawDataCallback(chunk.data.data(), chunk.data.data() + chunk.data.size(), chunk.t);
+  }
+}
+
+void EVK4Driver::printStats()
+{
+  const double dt = statsInterval_ > 0.0 ? statsInterval_ : 1.0;
+  const size_t msgs = statMsgs_.exchange(0, std::memory_order_relaxed);
+  const size_t bytes = statBytes_.exchange(0, std::memory_order_relaxed);
+  size_t q = 0;
+  if (useMultithreading_) {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    q = queue_.size();
+  }
+  RCLCPP_INFO_STREAM(
+    this->get_logger(),
+    static_cast<long>(msgs / dt) << " msgs/s, " << (bytes / dt) / 1e6 << " MB/s"
+      << (useMultithreading_ ? " (queue " + std::to_string(q) + ")" : ""));
 }
 
 }  // namespace evk4_driver

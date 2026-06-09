@@ -5,10 +5,15 @@
 #ifndef EVK4_DRIVER__EVK4_DRIVER_HPP_
 #define EVK4_DRIVER__EVK4_DRIVER_HPP_
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <event_camera_msgs/msg/event_packet.hpp>
@@ -60,8 +65,10 @@ private:
     const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
     std::shared_ptr<std_srvs::srv::Trigger::Response> res);
 
-  // Called from the SDK raw-data thread with a chunk of raw EVT3 bytes.
-  void rawDataCallback(const uint8_t * start, const uint8_t * end);
+  void processingThread();   // multithreaded-capture worker
+  void printStats();         // per-second stats line
+  // Packs a chunk of raw EVT3 bytes (captured at time t) into an EventPacket.
+  void rawDataCallback(const uint8_t * start, const uint8_t * end, uint64_t t);
 
   using EventPacketMsg = event_camera_msgs::msg::EventPacket;
 
@@ -87,6 +94,23 @@ private:
   uint64_t messageThresholdTime_{1000000};       // ns (1 ms default)
   size_t messageThresholdSize_{1000000000};      // bytes (~off by default)
   size_t reserveSize_{0};
+
+  // Optional multithreaded capture: the SDK raw-data callback enqueues bytes
+  // and a worker thread packs/publishes EventPackets, so the SDK thread never
+  // blocks on ROS at high event rates.
+  struct RawChunk { std::vector<uint8_t> data; uint64_t t; };
+  bool useMultithreading_{true};
+  std::deque<RawChunk> queue_;
+  std::mutex queueMutex_;
+  std::condition_variable queueCv_;
+  std::thread workerThread_;
+  std::atomic<bool> keepRunning_{true};
+
+  // Per-second statistics (msgs/s, MB/s) on a wall timer; interval <=0 disables.
+  double statsInterval_{1.0};
+  rclcpp::TimerBase::SharedPtr statsTimer_;
+  std::atomic<size_t> statMsgs_{0};
+  std::atomic<size_t> statBytes_{0};
 };
 }  // namespace evk4_driver
 
