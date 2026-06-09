@@ -14,16 +14,16 @@ example consumers, and documentation.
 
 ## Supported platforms
 
-Camera is always a Prophesee EVK4 HD (Sony IMX636, EVT3). Compute platform is
-tiered by how well-verified it is — full matrix and per-tier steps in
-[docs/installation.md](docs/installation.md):
+Camera is always a Prophesee EVK4 HD (Sony IMX636, EVT3). The install steps are
+the same on every platform (see [docs/installation.md](docs/installation.md));
+the table just records where it's been validated:
 
-| Tier | Architecture / OS | Status |
-|---|---|---|
-| 1 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
-| 1 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (apt, no source build) |
-| 2 | x86_64 · Ubuntu 22.04 · Humble | expected, untested |
-| 3 | other ARM64 SBCs / Humble | expected — apt where binaries exist |
+| Platform | Status |
+|---|---|
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| x86_64 · Ubuntu 22.04 · Humble | expected, untested |
+| Other ARM64 SBCs / Humble | expected |
 
 ## Quickstart
 

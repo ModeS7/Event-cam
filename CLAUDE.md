@@ -110,19 +110,24 @@ well-documented, easy to extend.
   `99-usb.rules`, which is MODE 0666 on ALL usb — a security downgrade.)
 - **Setup script + workspaces (decision 2026-06-08, modeled on
   AIS-CPS-Lab/pandect-setup):** `setup/install_deps.sh` does a hybrid
-  install — apt for `metavision_driver` + `event_camera_py`, and apt for
-  `event_camera_renderer` too IF a binary exists, else source-build the
-  renderer (+ `event_camera_msgs`/`_codecs` via `vcs import` of the
-  renderer's `.repos`) into `~/workspaces/3rd_party_ws` with
-  `--symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo`
-  (RelWithDebInfo matters: high event rate makes Debug slow). Installs the
-  vendored udev rule, and appends underlay sourcing to `~/.bashrc`. No
-  emoji, `set -euo pipefail`, re-runnable. **arm64 confirmed on the Pi
-  (2026-06-09): `ros-jazzy-metavision-driver`/`event-camera-renderer`/`-py`/
-  `-codecs` all have arm64 binaries (3.0.0, farm build 2026-04-12) — so on
-  Raspberry Pi 5 / Ubuntu 24.04 the whole stack installs via apt, NO OpenEB
-  source build needed.** The script's apt path (not the source fallback) is
-  what runs there. **FULL hardware validation on the Pi 5 (2026-06-09):**
+  install — apt for `metavision_driver` + `event_camera_py` ONLY, and
+  **always source-build** `event_camera_renderer` (+ `event_camera_msgs`/
+  `_codecs` via `vcs import` of the renderer's `.repos`) into
+  `~/workspaces/3rd_party_ws` with `--symlink-install --cmake-args
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo` (RelWithDebInfo matters: high event rate
+  makes Debug slow). Installs the vendored udev rule, and appends deps-ws
+  sourcing to `~/.bashrc` AND `/etc/skel/.bashrc`. No emoji, `set -euo
+  pipefail`, re-runnable. **CORRECTION 2026-06-09:** I had briefly changed
+  this to apt-prefer the renderer (source only as fallback), but that
+  defeated the teacher's (AIS-CPS-Lab) EXPLICIT design — the renderer +
+  decode libs must ALWAYS be a separate SOURCE workspace (modifiable,
+  separated from apt and from our overlay). Reverted to always-source on
+  every platform. Do NOT re-introduce the apt-prefer shortcut.
+  **arm64 confirmed (2026-06-09): the apt parts
+  (`ros-jazzy-metavision-driver`/`-py`/`-codecs`/`-renderer`) all have
+  arm64 binaries (3.0.0, 2026-04-12) — so OpenEB needs NO source build; only
+  the renderer is built from source, by design.** **FULL hardware validation
+  on the Pi 5 (2026-06-09):**
   apt install → colcon build → driver opens camera (IMX636, serial 00051701,
   1280x720) → events ~245 msgs/s → renderer image_raw ~23.5 Hz → composed
   pipeline only ~7% CPU on the Pi 5. Tier 3 ARM is effectively Tier 1 on
@@ -236,14 +241,15 @@ Next: nothing planned — extend as research needs arise.
 
 ## Conventions
 
-- **Workspaces (decision 2026-06-08):** underlay/overlay split. x86 = apt
-  deps in `/opt/ros` (underlay) + `~/ros2_ws` overlay (automatic). Where a
-  package has no binary (some ARM) = 3 layers: `/opt/ros` →
-  `~/workspaces/3rd_party_ws` (source-built renderer + `event_camera_msgs`/
-  `_codecs`) → `~/ros2_ws` (this repo). Build deps once so editing our
-  packages only rebuilds the small overlay. Documented in installation.md
-  (step 3 + Workspaces section). Workspace name is `~/workspaces/3rd_party_ws`
-  (pandect convention) — must match the setup script and docs.
+- **Workspaces (decision 2026-06-08, revised 2026-06-09):** ALWAYS 3 layers
+  on every platform (matches the teacher's AIS-CPS-Lab convention):
+  `/opt/ros` (ROS + apt driver/decoder) → `~/workspaces/3rd_party_ws`
+  (source-built `event_camera_renderer` + `event_camera_msgs`/`_codecs`) →
+  `~/ros2_ws` (this repo). The middle layer is source ON PURPOSE so the
+  rendering/decoding code is modifiable and separated — not an apt fallback.
+  Build deps once so editing our packages only rebuilds the small overlay.
+  Workspace name `~/workspaces/3rd_party_ws` must match the setup script and
+  docs. Documented in installation.md (step 3 + Workspaces section).
 - **Portability (keep it this way):** never hardcode a ROS distro in code.
   `package.xml`/`CMakeLists.txt` reference ROS package names (distro/arch
   agnostic; `rosdep` resolves per platform); `rosdep install --from-paths
