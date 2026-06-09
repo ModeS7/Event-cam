@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>evk4_driver</name>
+  <version>0.0.1</version>
+  <description>
+    Prophesee EVK4 ROS 2 driver node built directly on OpenEB (the open
+    edition of the Metavision SDK). Phase 0 prototype: opens the camera,
+    publishes raw EVT3 as event_camera_msgs/EventPacket, and configures the
+    on-sensor Anti-Flicker (AFK) facility.
+  </description>
+  <maintainer email="modesuka@gmail.com">Modestas</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>event_camera_msgs</depend>
+  <!-- OpenEB / Metavision SDK (open edition); provides find_package(MetavisionSDK) -->
+  <depend>openeb_vendor</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

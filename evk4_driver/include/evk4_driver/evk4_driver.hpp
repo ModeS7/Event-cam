@@ -1,0 +1,63 @@
+// Phase 0 prototype: minimal Prophesee EVK4 driver node on OpenEB / Metavision
+// SDK. Opens the camera, forwards raw EVT3 as event_camera_msgs/EventPacket,
+// and (optionally) configures the on-sensor Anti-Flicker (AFK) facility.
+#ifndef EVK4_DRIVER__EVK4_DRIVER_HPP_
+#define EVK4_DRIVER__EVK4_DRIVER_HPP_
+
+#include <cstdint>
+#include <memory>
+#include <string>
+
+#include <event_camera_msgs/msg/event_packet.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+// OpenEB is a subset of the full SDK; both define METAVISION_VERSION via CMake.
+// The Camera class moved from sdk/driver to sdk/stream in Metavision 5.
+#if defined(METAVISION_VERSION) && METAVISION_VERSION < 5
+#include <metavision/sdk/driver/camera.h>
+#else
+#include <metavision/sdk/stream/camera.h>
+#endif
+
+namespace evk4_driver
+{
+class EVK4Driver : public rclcpp::Node
+{
+public:
+  explicit EVK4Driver(const rclcpp::NodeOptions & options);
+  ~EVK4Driver() override;
+
+private:
+  void startCamera();
+  void configureAFK();
+  // Called from the SDK raw-data thread with a chunk of raw EVT3 bytes.
+  void rawDataCallback(const uint8_t * start, const uint8_t * end);
+
+  using EventPacketMsg = event_camera_msgs::msg::EventPacket;
+
+  rclcpp::Publisher<EventPacketMsg>::SharedPtr eventPub_;
+  Metavision::Camera cam_;
+
+  std::string serial_;
+  std::string frameId_{"event_camera"};
+  std::string encoding_{"evt3"};
+  uint32_t width_{0};
+  uint32_t height_{0};
+  uint32_t seq_{0};
+
+  // Outgoing packet, accumulated across raw-data callbacks until a threshold.
+  EventPacketMsg::UniquePtr msg_;
+  uint64_t lastMessageTime_{0};
+  uint64_t messageThresholdTime_{1000000};       // ns (1 ms default)
+  size_t messageThresholdSize_{1000000000};      // bytes (~off by default)
+  size_t reserveSize_{0};
+
+  // Anti-Flicker (AFK) configuration.
+  bool afkEnabled_{false};
+  int afkFreqLow_{100};
+  int afkFreqHigh_{120};
+  std::string afkMode_{"band_stop"};
+};
+}  // namespace evk4_driver
+
+#endif  // EVK4_DRIVER__EVK4_DRIVER_HPP_
