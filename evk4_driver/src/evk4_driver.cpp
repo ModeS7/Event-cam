@@ -24,6 +24,7 @@ EVK4Driver::EVK4Driver(const rclcpp::NodeOptions & options)
 : Node("event_camera", options)
 {
   serial_ = this->declare_parameter<std::string>("serial", "");
+  frameId_ = this->declare_parameter<std::string>("frame_id", "event_camera_optical_frame");
   biasFile_ = this->declare_parameter<std::string>("bias_file", "");
   settingsFile_ = this->declare_parameter<std::string>("settings", "");
   const double tThresh =

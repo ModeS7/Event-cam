@@ -5,15 +5,15 @@
   <version>0.1.0</version>
   <description>
     Launch files and configuration for the Prophesee EVK4 event camera,
-    wrapping the metavision_driver. Publishes raw event_camera_msgs and an
-    optional rendered image topic.
+    using our OpenEB-based evk4_driver. Publishes raw event_camera_msgs and
+    an optional rendered image topic.
   </description>
   <maintainer email="modesuka@gmail.com">Modestas</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>metavision_driver</exec_depend>
+  <exec_depend>evk4_driver</exec_depend>
   <exec_depend>event_camera_renderer</exec_depend>
   <exec_depend>rclcpp_components</exec_depend>
   <exec_depend>launch</exec_depend>

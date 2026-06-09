@@ -52,7 +52,7 @@ def _launch_setup(context, *args, **kwargs):
     fps = float(LaunchConfiguration('fps').perform(context))
     display_type = LaunchConfiguration('display_type').perform(context)
 
-    _require('metavision_driver')
+    _require('evk4_driver')
     # params_file holds the long tail of driver params; default to ours, but
     # let users swap in their own without editing the package.
     params_file = LaunchConfiguration('params_file').perform(context) or os.path.join(
@@ -65,11 +65,11 @@ def _launch_setup(context, *args, **kwargs):
     # rosbag2, rqt) still receive normal DDS copies.
     components = [
         ComposableNode(
-            package='metavision_driver',
-            plugin='metavision_driver::DriverROS2',
+            package='evk4_driver',
+            plugin='evk4_driver::EVK4Driver',
             name=camera_name,
-            # frame_id is honored by newer drivers; driver 3.0.0 ignores it
-            # and stamps the last 4 serial digits instead (see docs).
+            # Our OpenEB-based driver honors frame_id (unlike metavision_driver
+            # 3.0.0, which ignored it and stamped the serial tail).
             # sync_mode (standalone/primary/secondary) hardware-syncs multiple
             # cameras over the sync cable; trigger_in_mode records an external
             # trigger pin for syncing with other sensors (IMU/RGB/...).
