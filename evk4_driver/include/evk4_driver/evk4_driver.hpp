@@ -1,6 +1,6 @@
-// Phase 0 prototype: minimal Prophesee EVK4 driver node on OpenEB / Metavision
-// SDK. Opens the camera, forwards raw EVT3 as event_camera_msgs/EventPacket,
-// and (optionally) configures the on-sensor Anti-Flicker (AFK) facility.
+// Prophesee EVK4 driver node on OpenEB / Metavision SDK. Opens the camera,
+// forwards raw EVT3 as event_camera_msgs/EventPacket, and configures the
+// on-sensor facilities (ERC, Trail/STC, ROI, sync, external trigger in, AFK).
 #ifndef EVK4_DRIVER__EVK4_DRIVER_HPP_
 #define EVK4_DRIVER__EVK4_DRIVER_HPP_
 
@@ -29,7 +29,16 @@ public:
 
 private:
   void startCamera();
+  // On-sensor facility configuration, applied after open and before start.
+  // Each reads its own parameters; absent/"off" values leave the sensor default.
+  void configureSensor();
+  void configureERC();
+  void configureTrailFilter();
+  void configureROI();
+  void configureSync();
+  void configureTriggerIn();
   void configureAFK();
+
   // Called from the SDK raw-data thread with a chunk of raw EVT3 bytes.
   void rawDataCallback(const uint8_t * start, const uint8_t * end);
 
@@ -51,12 +60,6 @@ private:
   uint64_t messageThresholdTime_{1000000};       // ns (1 ms default)
   size_t messageThresholdSize_{1000000000};      // bytes (~off by default)
   size_t reserveSize_{0};
-
-  // Anti-Flicker (AFK) configuration.
-  bool afkEnabled_{false};
-  int afkFreqLow_{100};
-  int afkFreqHigh_{120};
-  std::string afkMode_{"band_stop"};
 };
 }  // namespace evk4_driver
 
