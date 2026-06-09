@@ -1,8 +1,8 @@
-"""Phase 0 prototype bringup: OpenEB-based evk4_driver + renderer, composed.
+"""Standalone test bringup: evk4_driver + renderer composed in one container.
 
-Validates that our raw-EVT3 EventPacket output drives the existing
-event_camera_renderer unchanged (format compatibility), and gives a composed
-pipeline to measure CPU / throughput against the old metavision_driver.
+A minimal driver-only launch (no evk4_bringup config) for exercising
+evk4_driver directly: it publishes raw EVT3 as EventPacket and the renderer
+turns it into image_raw, all intra-process in a single container.
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument

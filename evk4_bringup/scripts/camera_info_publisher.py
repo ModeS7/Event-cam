@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Publish CameraInfo matched to image_raw, so image_proc can rectify.
 
-The metavision_driver / renderer publish no CameraInfo. This node loads a
+The driver and renderer publish no CameraInfo. This node loads a
 standard ROS camera_info YAML (the format `camera_calibration` writes) and
 republishes it as sensor_msgs/CameraInfo with the SAME header as each
 incoming image_raw — same timestamp so image_proc can pair them, same

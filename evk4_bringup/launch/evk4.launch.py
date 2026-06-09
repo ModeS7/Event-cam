@@ -1,4 +1,4 @@
-"""Bring up the Prophesee EVK4: metavision_driver plus optional renderer.
+"""Bring up the Prophesee EVK4: our evk4_driver plus optional renderer.
 
 Topic contract (with default arguments):
 
@@ -21,20 +21,25 @@ from launch_ros.descriptions import ComposableNode
 
 
 def _require(package):
-    """Fail loudly at launch time if a wrapped package is missing.
+    """Fail loudly at launch time if a required package is missing.
 
-    The hint is built from $ROS_DISTRO so it is correct on any distro
-    (jazzy, humble, ...), not hardcoded to one.
+    Our own packages (evk4_*) are built from this repo; everything else is an
+    apt/source dependency, with the hint derived from $ROS_DISTRO (so it is
+    correct on any distro, not hardcoded to one).
     """
     try:
         get_package_share_directory(package)
     except PackageNotFoundError as exc:
-        distro = os.environ.get('ROS_DISTRO', '<distro>')
-        apt_name = f"ros-{distro}-{package.replace('_', '-')}"
+        if package.startswith('evk4_'):
+            hint = ('build this repo: cd ~/ros2_ws && colcon build '
+                    '--symlink-install && source install/setup.bash')
+        else:
+            distro = os.environ.get('ROS_DISTRO', '<distro>')
+            apt_name = f"ros-{distro}-{package.replace('_', '-')}"
+            hint = (f'install it (binary platform: sudo apt install {apt_name}; '
+                    'ARM/source platforms: build it for your target)')
         raise RuntimeError(
-            f"required package '{package}' is not installed. On a binary "
-            f'platform: sudo apt install {apt_name} '
-            '(on ARM/source platforms, build it for your target).') from exc
+            f"required package '{package}' is not found. {hint}") from exc
 
 
 def _launch_setup(context, *args, **kwargs):

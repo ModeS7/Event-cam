@@ -80,10 +80,11 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 echo "source ~/workspaces/3rd_party_ws/install/setup.bash" >> ~/.bashrc
 ```
 
-(If you are on a platform where even the driver has no apt binary, build OpenEB
+(If you are on a platform where `openeb_vendor` has no apt binary, build OpenEB
 from source first
-[[Prophesee guide]](https://docs.prophesee.ai/stable/installation/linux_openeb.html),
-then `metavision_driver` against it.) See the **Workspaces** note at the end.
+[[Prophesee guide]](https://docs.prophesee.ai/stable/installation/linux_openeb.html);
+our `evk4_driver` then builds against it like any other underlay.) See the
+**Workspaces** note at the end.
 
 ### udev rule (all platforms)
 

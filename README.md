@@ -1,16 +1,18 @@
 # Event-cam — Plug-and-play ROS 2 setup for the Prophesee EVK4
 
-ROS 2 launch files, configuration, and example code for getting a Prophesee
-EVK4 event camera publishing events with minimal setup. This repo **wraps**
-the community [metavision_driver](https://github.com/ros-event-camera/metavision_driver)
-— it contains no driver code of its own, only launch/config glue,
-example consumers, and documentation.
+ROS 2 launch files, configuration, example code, and an **OpenEB-based driver**
+for getting a Prophesee EVK4 event camera publishing events with minimal setup.
+The `evk4_driver` node is built directly on
+[OpenEB](https://github.com/prophesee-ai/openeb) (the open edition of the
+Metavision SDK) and exposes every on-sensor facility the EVK4 supports; the
+rest of the repo is launch/config glue, example consumers, calibration, and
+documentation.
 
-> **Status:** core path validated end-to-end on camera hardware
-> (2026-06-05): install, build, live events, visualization, recording,
-> playback, and both example consumers (Python + C++). The composed example
-> launch (`event_rate_composed.launch.py`) is written and build-checked but
-> not yet exercised on hardware.
+> **Status:** `evk4_driver` (OpenEB-based) is validated end-to-end on a
+> Raspberry Pi 5 (2026-06-09) — live events, renderer, Python/C++ examples,
+> calibration, and recording — exposing all on-sensor facilities (ERC,
+> Trail/STC, ROI, sync, AFK, Digital Crop, Event Mask). x86 re-validation of
+> the new driver is pending.
 
 ## Supported platforms
 
@@ -27,31 +29,26 @@ the table just records where it's been validated:
 
 ## Quickstart
 
-The quickstart below is the **Tier 1** (Jazzy / x86_64) path. For Humble or
-any ARM64 board, follow [docs/installation.md](docs/installation.md) instead.
+The same steps work on every platform; for Humble or distro specifics see
+[docs/installation.md](docs/installation.md).
 
 ```bash
-# 1. Install the driver stack (bundles OpenEB — no separate Metavision SDK)
-sudo apt install ros-jazzy-metavision-driver ros-jazzy-event-camera-renderer \
-                 ros-jazzy-event-camera-py
-
-# 2. Clone into a colcon workspace
+# 1. Clone into a colcon workspace
 mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
 git clone https://github.com/ModeS7/Event-cam.git
 
-# 3. Install the udev rule (one-time, vendored in the repo), then replug
-sudo cp Event-cam/setup/udev_rules/88-cyusb.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
+# 2. Install dependencies + udev rule: OpenEB (Metavision SDK open edition)
+#    via apt, event_camera_renderer from source. Then unplug/replug the camera.
+export ROS_DISTRO=jazzy
+~/ros2_ws/src/Event-cam/setup/install_deps.sh
 
-# 4. Build and run (wave a hand — event cameras need motion!)
-cd ~/ros2_ws && colcon build && source install/setup.bash
+# 3. Build and run (wave a hand — event cameras need motion!)
+cd ~/ros2_ws
+source ~/workspaces/3rd_party_ws/install/setup.bash
+colcon build --symlink-install && source install/setup.bash
 ros2 launch evk4_bringup evk4.launch.py
 ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ```
-
-On ARM (Raspberry Pi, Jetson) or for a one-command dependency install, run
-`Event-cam/setup/install_deps.sh` instead of steps 1+3 — see
-[docs/installation.md](docs/installation.md).
 
 ![Rendered event stream in rqt_image_view](docs/images/rqt_image_view.png)
 

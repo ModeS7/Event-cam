@@ -43,9 +43,8 @@ You now have `/cam0/events`, `/cam1/events`, `/cam0/image_raw`,
 Without hardware sync the two event streams drift, and any 3D reconstruction
 that assumes simultaneous observations will be wrong. `sync_mode` sets the
 driver's role; the **physical sync cable** must connect the primary's sync
-output to each secondary's sync input — see the
-[metavision_driver](https://github.com/ros-event-camera/metavision_driver) and
-Prophesee EVK4 manual for the connector and signal details.
+output to each secondary's sync input — see the Prophesee EVK4 manual for the
+connector and signal details.
 
 `primary` and `secondary` are only for an actual synced rig: a lone `primary`
 coordinates with sync hardware and may not stream on its own (observed

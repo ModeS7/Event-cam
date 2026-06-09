@@ -23,18 +23,21 @@ If ROS 2 itself is missing too (`ls /opt/ros/` is empty), install it first:
 `rqt_image_view` for visualization; `ros-dev-tools` provides `colcon` and
 `rosdep` for the build step).
 
-## Launch aborts: `required package '...' is not installed`
+## Launch aborts: `required package '...' is not found`
 
-Our launch file checks dependencies up front and prints the exact apt name
-for **your** ROS distro (it derives it from `$ROS_DISTRO`). Install what the
-message names, e.g. on a binary platform:
+Our launch file checks its dependencies up front. Our own packages (`evk4_*`)
+are built from this repo, so a "not found" there means you still need to build:
 
 ```bash
-sudo apt install ros-$ROS_DISTRO-metavision-driver ros-$ROS_DISTRO-event-camera-renderer
+cd ~/ros2_ws && colcon build --symlink-install && source install/setup.bash
 ```
 
-On ARM64 (Tier 3) the binary may not exist — build from source if apt can't
-find it (see [installation.md](installation.md), step 2, ARM64).
+OpenEB comes from apt; the renderer is source-built (see
+[installation.md](installation.md)):
+
+```bash
+sudo apt install ros-$ROS_DISTRO-openeb-vendor
+```
 
 ## Driver starts but finds no camera
 
