@@ -8,8 +8,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 > **Do [tuning.md](tuning.md) first.** Calibration works on the rendered
 > image, so it inherits whatever the sensor produces: at stock settings the
 > stream is noisy and unbounded, which makes the board hard to detect and
-> the preview laggy. The commands below use the recommended tuned config
-> from that page.
+> the preview laggy. The commands below launch with the `~/my_params.yaml`
+> you created there.
 
 > **Scope:** this calibrates and rectifies the **rendered `image_raw`**. The
 > raw event stream is not an image, so event-level undistortion is a separate
@@ -46,10 +46,10 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 ## 1. Run the guided calibrator
 
 ```bash
-# terminal 1 -- camera + renderer, with the tuned config (rate cap);
+# terminal 1 -- camera + renderer with your tuned config (from tuning.md);
 # 'sharp' display mode is cleanest to detect on
 ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
-    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+    params_file:=$HOME/my_params.yaml
 ```
 
 ```bash
@@ -103,11 +103,11 @@ pointer instead of being serialized between processes, which matters at
 high frame rates on small boards:
 
 ```bash
-# terminal 1 -- camera + camera_info + rectification in one container
-# (keep the tuned params_file from step 1 here too)
+# terminal 1 -- camera + camera_info + rectification in one container,
+# still with your tuned config
 ros2 launch evk4_bringup evk4.launch.py \
     calibration_url:=$(pwd)/event_camera.yaml rectify:=true \
-    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+    params_file:=$HOME/my_params.yaml
 ```
 
 ```bash

@@ -1,28 +1,35 @@
 # Tuning
 
 The default launch runs the sensor at **stock settings** — predictable, but
-noisy and unbounded. The validated better setup is explicit and two commands
-away:
+noisy and unbounded. This page sets up your tuned configuration once; the
+result is a file, `~/my_params.yaml`, that **every later page (calibration,
+rectification) launches with**.
 
 ```bash
-# 1. launch with the recommended config (ERC rate cap; see the file for what/why)
-ros2 launch evk4_bringup evk4.launch.py \
-    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+# 1. create your config from the validated recommended one (ERC rate cap;
+#    see the file's comments for what each setting does and why)
+cp $(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml \
+   ~/my_params.yaml
 
-# 2. cut sensor noise live (30 = balanced, 50 = very quiet), any spare terminal
+# 2. launch with it -- as you will from now on
+ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
+
+# 3. cut sensor noise live (30 = balanced, 50 = very quiet), any spare terminal
 ros2 param set /event_camera bias_diff_on 30
 ros2 param set /event_camera bias_diff_off 30
 ```
 
-Persist the biases once you like them (see the workflow below) and you never
-re-tune. The rest of this page explains every knob behind that recipe.
+Edit `~/my_params.yaml` freely (it is yours, outside the repo — `git pull`
+never touches it); persist the biases once you like them (workflow below)
+and you never re-tune. The rest of this page explains every knob behind
+that recipe.
 
 There are three places to tune the EVK4, by how often you change them:
 
 | What | Where | When |
 |---|---|---|
 | Rendered-video fps, display mode | `evk4.launch.py` launch args | per launch |
-| Driver timing, filtering, ROI | `evk4_bringup/config/evk4_params.yaml` | persistent config |
+| Driver timing, filtering, ROI | `~/my_params.yaml` (driver params YAML) | persistent config |
 | Biases (contrast thresholds) | runtime: `ros2 param set` / `rqt_reconfigure` | live, while running |
 
 ## Rendered video (fps, display mode)
@@ -38,25 +45,15 @@ ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 - `display_type` — `time_slice` (all events in the frame window) or `sharp`
   (auto-tuned event count for crisper edges).
 
-## Driver timing, filtering, ROI (`evk4_params.yaml`)
+## Driver timing, filtering, ROI (the params YAML)
 
-These live in a driver params YAML, applied when the camera starts. Three
-ways to change them, in order of recommendation:
-
-1. **Use the shipped tuned config** (ERC already enabled — see the recipe at
-   the top of this page): `params_file:=.../evk4_params_recommended.yaml`.
-2. **A personal copy outside the repo** — the cloned sources stay unmodified,
-   so `git pull` updates never conflict with local settings:
-   ```bash
-   cp ~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml ~/my_params.yaml
-   # edit ~/my_params.yaml, then:
-   ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
-   ```
-3. **Edit the default in place** at
-   `~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml` (takes
-   effect on next launch with a `--symlink-install` build; otherwise rebuild).
-   Quick for experiments, but the modified file will collide with future
-   `git pull` updates — prefer option 2 for permanent settings.
+These live in the driver params YAML, applied when the camera starts. The
+normal place to change them is **your `~/my_params.yaml`** (created in the
+recipe above): edit, relaunch with `params_file:=$HOME/my_params.yaml`,
+done. (Editing the in-repo defaults at
+`evk4_bringup/config/evk4_params.yaml` also works for quick experiments —
+with a `--symlink-install` build it takes effect on the next launch — but
+the modified file will collide with future `git pull` updates.)
 
 The common knobs:
 
@@ -67,7 +64,7 @@ The common knobs:
 ### On-sensor event filters (the IMX636 ESP blocks)
 
 These run on the sensor *before* events reach USB, so they cut data at the
-source. Set them in `evk4_params.yaml`; they apply when the camera starts. Our
+source. Set them in your `~/my_params.yaml`; they apply when the camera starts. Our
 `evk4_driver` exposes **every facility the EVK4/IMX636 supports** (a facility
 the sensor lacks is skipped with a warning):
 
@@ -112,7 +109,7 @@ ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
 
 Every later launch with the same `bias_file` starts from your tuned values.
 Division of labor: **biases live in the `.bias` file** (the camera writes it);
-**everything else (ERC, trail filter, AFK, crop) lives in `evk4_params.yaml`**.
+**everything else (ERC, trail filter, AFK, crop) lives in the params YAML** (`~/my_params.yaml`).
 Details: [`../evk4_bringup/config/biases/README.md`](../evk4_bringup/config/biases/README.md).
 
 ## Reducing background noise (speckle at a static scene)
@@ -131,7 +128,7 @@ live (`ros2 param set`), so watch the image while you tune:
    change at typical noise levels; lead with step 1.)
 4. Enable the on-sensor **STC filter** (`trail_filter: true`,
    `trail_filter_type: stc_cut_trail`, `trail_filter_threshold: 10000` in
-   `evk4_params.yaml` + relaunch) — removes isolated events, which is
+   `~/my_params.yaml` + relaunch) — removes isolated events, which is
    exactly what background noise is. Note: with noise fully silenced, the
    rendered image updates only when something actually changes — a "frozen"
    viewer at a static scene is then correct, not broken.
@@ -153,7 +150,7 @@ Event-pipeline CPU scales with the event rate. An unbounded busy scene
 demand more than a small board has: on a Pi 5, renderer + rectify + a viewer
 saturated all four cores and the display dropped to ~12 fps even though
 nothing was broken. The fix is to cap the rate **on the sensor** with ERC in
-`evk4_params.yaml`:
+your `~/my_params.yaml`:
 
 ```yaml
 erc_mode: enabled
