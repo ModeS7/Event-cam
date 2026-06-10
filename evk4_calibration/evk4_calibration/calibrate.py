@@ -100,6 +100,18 @@ class Calibrator(Node):
     def _on_image(self, msg):
         self._latest = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
 
+    @staticmethod
+    def _event_gray(frame):
+        """Polarity-aware grayscale: ON (blue) -> white, OFF (red) -> black.
+
+        Plain luma conversion maps the renderer's blue/red polarity colors to
+        nearly the same gray, destroying the checkerboard contrast. Polarity
+        IS the contrast in an event-rendered image.
+        """
+        b = frame[:, :, 0].astype(np.int16)
+        r = frame[:, :, 2].astype(np.int16)
+        return np.clip(128 + (b - r) // 2, 0, 255).astype(np.uint8)
+
     def _detect_loop(self):
         """Worker: detect at half resolution, refine at full, auto-capture."""
         while self._running:
@@ -107,7 +119,7 @@ class Calibrator(Node):
             if frame is None:
                 time.sleep(0.05)
                 continue
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = self._event_gray(frame)
             small = cv2.resize(gray, None, fx=0.5, fy=0.5,
                                interpolation=cv2.INTER_AREA)
             found, corners = cv2.findChessboardCorners(
