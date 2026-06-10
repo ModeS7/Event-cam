@@ -40,9 +40,24 @@ ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 
 ## Driver timing, filtering, ROI (`evk4_params.yaml`)
 
-Edit `evk4_bringup/config/evk4_params.yaml` (rebuild not needed if you used
-`--symlink-install`; otherwise `colcon build` to reinstall it). The common
-knobs:
+These live in a driver params YAML, applied when the camera starts. Three
+ways to change them, in order of recommendation:
+
+1. **Use the shipped tuned config** (ERC already enabled — see the recipe at
+   the top of this page): `params_file:=.../evk4_params_recommended.yaml`.
+2. **Your own copy** — keeps the repo clean and survives `git pull`:
+   ```bash
+   cp ~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml ~/my_params.yaml
+   # edit ~/my_params.yaml, then:
+   ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
+   ```
+3. **Edit the default in place** at
+   `~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml` (takes
+   effect on next launch with a `--symlink-install` build; otherwise rebuild).
+   Quick for experiments, but your checkout now differs from git — prefer 2
+   for permanent settings.
+
+The common knobs:
 
 - `event_message_time_threshold` — message batching window. Smaller = lower
   latency, more/smaller messages.
