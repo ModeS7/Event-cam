@@ -16,6 +16,11 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   whole board appear. A printed board moved briskly also works.
 - A machine with a **display** for the calibration window (run on a desktop,
   or over X-forwarding / VNC if the camera is on a headless Pi).
+- **A focused lens — check this first.** Defocus is easy to miss on an event
+  camera and ruins corner detection (edges render thick and soft, board
+  corners look rounded). To focus: aim at the flickering board at your
+  working distance, watch `image_raw` live, and turn the lens focus ring
+  until the square edges are as thin and crisp as possible.
 
 ## 1. Run the guided calibrator
 

@@ -62,6 +62,15 @@ OpenEB comes from apt; the renderer is source-built (see
 sudo apt install ros-$ROS_DISTRO-openeb-vendor
 ```
 
+## Edges look thick and soft, fine detail is mush
+
+Check the **lens focus** before blaming biases or filters — defocus is easy
+to miss on an event camera because there is no static image to judge by, and
+it quietly degrades everything downstream (checkerboard detection in
+particular). Aim at a flickering high-contrast target (e.g. the calibration
+checkerboard) at your working distance, watch `image_raw`, and turn the
+focus ring until edges are as thin as possible.
+
 ## Driver starts but finds no camera
 
 1. Is the camera enumerated at all?
