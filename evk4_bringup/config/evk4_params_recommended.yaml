@@ -18,10 +18,11 @@
   ros__parameters:
     event_message_time_threshold: 0.001  # [s] default batching (1 ms)
 
-    # ERC: cap the on-sensor event rate. Protects CPU on small boards -- an
-    # unbounded busy scene (>10 Mev/s) can saturate a Pi 5 and collapse the
-    # display frame rate; 10 Mev/s is generous for visualization and most
-    # processing. Raise if your algorithm needs more.
+    # ERC: cap the on-sensor event rate. Protects CPU on small boards.
+    # Validated on a Pi 5 (2026-06): 10 Mev/s (~35 MB/s) renders smoothly and
+    # the scene still looks good; a 100 Mev/s cap (~180 MB/s peak) stutters
+    # badly. Raise beyond 10 M only if a downstream algorithm needs it (the
+    # raw stream handles more; live rendering does not).
     erc_mode: enabled
     erc_rate: 10000000
 

@@ -157,13 +157,15 @@ nothing was broken. The fix is to cap the rate **on the sensor** with ERC in
 
 ```yaml
 erc_mode: enabled
-erc_rate: 5000000      # max events/s the sensor will emit; applies at launch
+erc_rate: 10000000     # max events/s the sensor will emit; applies at launch
 ```
 
-5 Mev/s is plenty for visualization; raise it if a downstream algorithm
-needs more. Also close viewers/rectification you are not using — every
-subscriber adds work, and the lazy pipeline stops computing what nobody
-watches.
+10 Mev/s (~35 MB/s) is the validated sweet spot on a Pi 5 — smooth
+rendering and the scene still looks good; at a 100 Mev/s cap (~180 MB/s
+peak) the display stutters unusably. Raise beyond 10 M only for downstream
+algorithms that consume the raw stream. Also close viewers/rectification
+you are not using — every subscriber adds work, and the lazy pipeline stops
+computing what nobody watches.
 
 ## Which knob for which symptom
 
