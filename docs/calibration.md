@@ -83,20 +83,24 @@ install it first (verified needed on a fresh Pi 5 install, 2026-06-09):
 sudo apt install ros-$ROS_DISTRO-image-proc
 ```
 
-Then rectify:
+The simplest way to rectify is to let the launch compose it into the camera
+container (`rectify:=true`) — the image then reaches `image_proc` as a
+pointer instead of being serialized between processes, which matters at
+high frame rates on small boards:
 
 ```bash
-# terminal 2 -- rectification (prints NOTHING when healthy; that is normal)
-ros2 run image_proc rectify_node --ros-args \
-    -r image:=/event_camera/image_raw \
-    -r camera_info:=/event_camera/camera_info \
-    -r image_rect:=/event_camera/image_rect
+# terminal 1 -- camera + camera_info + rectification in one container
+ros2 launch evk4_bringup evk4.launch.py \
+    calibration_url:=$(pwd)/event_camera.yaml rectify:=true
 ```
 
 ```bash
-# terminal 3 -- view the undistorted image
+# terminal 2 -- view the undistorted image
 ros2 run rqt_image_view rqt_image_view /event_camera/image_rect
 ```
+
+(`image_proc rectify_node` can also be run as a standalone node remapped to
+the same topics; the composed form is just cheaper.)
 
 To judge the calibration, hold something straight (door frame, monitor edge)
 near the image **corners**: straight lines in `image_rect` = good; curved or

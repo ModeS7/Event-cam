@@ -50,6 +50,7 @@ def _launch_setup(context, *args, **kwargs):
     trigger_in_mode = LaunchConfiguration('trigger_in_mode').perform(context)
     settings = LaunchConfiguration('settings').perform(context)
     calibration_url = LaunchConfiguration('calibration_url').perform(context)
+    rectify = LaunchConfiguration('rectify').perform(context).lower()
     viz = LaunchConfiguration('viz').perform(context).lower()
     if viz not in ('true', 'false'):
         raise RuntimeError(f"viz must be 'true' or 'false', got '{viz}'")
@@ -128,6 +129,25 @@ def _launch_setup(context, *args, **kwargs):
                 extra_arguments=[{'use_intra_process_comms': True}],
             ))
 
+    # Optional in-container rectification: the image reaches image_proc as a
+    # pointer (no serialization), only the rectified output leaves the
+    # container for subscribers.
+    if rectify == 'true':
+        if not calibration_url:
+            raise RuntimeError('rectify:=true needs calibration_url')
+        _require('image_proc')
+        components.append(
+            ComposableNode(
+                package='image_proc',
+                plugin='image_proc::RectifyNode',
+                name='rectify',
+                namespace=camera_name,
+                remappings=[('image', f'/{camera_name}/image_raw'),
+                            ('camera_info', f'/{camera_name}/camera_info'),
+                            ('image_rect', f'/{camera_name}/image_rect')],
+                extra_arguments=[{'use_intra_process_comms': True}],
+            ))
+
     return [
         ComposableNodeContainer(
             name=f'{camera_name}_container',
@@ -192,5 +212,9 @@ def generate_launch_description():
             'calibration_url', default_value='',
             description='Path to a camera_info YAML; when set, publish '
                         '<camera_name>/camera_info for image_proc rectification.'),
+        DeclareLaunchArgument(
+            'rectify', default_value='false',
+            description='Also publish <camera_name>/image_rect (undistorted), '
+                        'composed in-container; needs calibration_url.'),
         OpaqueFunction(function=_launch_setup),
     ])

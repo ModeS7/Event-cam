@@ -23,6 +23,8 @@
   <depend>rclcpp_components</depend>
   <depend>sensor_msgs</depend>
   <depend>camera_calibration_parsers</depend>
+  <!-- rectify:=true loads image_proc::RectifyNode into the container -->
+  <exec_depend>image_proc</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

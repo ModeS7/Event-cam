@@ -35,6 +35,7 @@ ros2 launch evk4_bringup evk4.launch.py
 | `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`loopback` (sync with other sensors) |
 | `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
 | `calibration_url` | `''` | Path to a camera_info YAML → publish `camera_info` |
+| `rectify` | `false` | Also publish undistorted `image_rect` (needs `calibration_url`) |
 | `params_file` | `''` | Override the driver params YAML (escape hatch for any driver param) |
 
 Examples:
