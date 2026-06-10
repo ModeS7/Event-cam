@@ -39,7 +39,8 @@
     # trail_filter_threshold: 5000  # [us]
 
     # --- AFK: Anti-Flicker -----------------------------------------------
-    # Removes flickering light (e.g. AC/LED at 100-120 Hz) on-sensor.
+    # Removes flickering light on-sensor. Lamps flicker at 2x the mains
+    # frequency: 100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US).
     # afk_enabled: true
     # afk_freq_low_hz: 100
     # afk_freq_high_hz: 120

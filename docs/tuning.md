@@ -119,8 +119,10 @@ live (`ros2 param set`), so watch the image while you tune:
    exactly what background noise is. Note: with noise fully silenced, the
    rendered image updates only when something actually changes — a "frozen"
    viewer at a static scene is then correct, not broken.
-5. Room lighting flicker (LED/fluorescent, 100/120 Hz) can masquerade as
-   uniform noise — try `afk_enabled: true` (band-stop 100–120 Hz).
+5. Room lighting flicker can masquerade as uniform noise. Lamps flicker at
+   **twice the mains frequency** (light peaks on both AC half-cycles):
+   100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US) — try
+   `afk_enabled: true`; the default 100–120 Hz band-stop covers both.
 6. Individual hot pixels: blank them on-sensor with `event_mask_pixels`.
 
 Fewer events also means less USB traffic, decoding, and rendering work —
