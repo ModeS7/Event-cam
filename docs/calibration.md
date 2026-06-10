@@ -21,10 +21,10 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 - A **blinking asymmetric circle grid** shown on a screen. One ships with
   this repo — open [`docs/circle_grid.html`](circle_grid.html) in any browser
   on the screen the camera will look at and press **F11** for fullscreen.
-  Defaults match the calibrator (`grid_size:=4x11` — the standard OpenCV
-  asymmetric grid). The page draws it rotated so it fills a landscape
-  monitor; rotation does not affect detection, so `grid_size` stays
-  `4x11` either way. URL parameters: `?cols=4&rows=11&hz=2&portrait`. Set the monitor to **100%
+  Defaults match the calibrator (`grid_size:=5x17`, an OpenCV asymmetric
+  grid drawn rotated — its bounding box is then exactly 16:9, filling a
+  widescreen monitor; rotation does not affect detection). URL
+  parameters: `?cols=5&rows=17&hz=2&portrait`. Set the monitor to **100%
   brightness** (avoids backlight flicker events).
 
   *Why circles and not a checkerboard?* A circle center is the centroid of
@@ -69,7 +69,7 @@ ros2 param set /event_camera bias_diff_off 30
 # terminal 2 -- the calibrator
 # grid_size = circles per row x rows (circle_grid.html defaults)
 ros2 run evk4_calibration calibrate --ros-args \
-    -p grid_size:=4x11 \
+    -p grid_size:=5x17 \
     -r image_raw:=/event_camera/image_raw
 ```
 

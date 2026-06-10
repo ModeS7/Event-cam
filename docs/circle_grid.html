@@ -12,14 +12,15 @@ html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;j
 // Blinking asymmetric circle grid for evk4_calibration (docs/calibration.md).
 // Open fullscreen (F11) on the screen the camera looks at.
 //
-// The lattice is OpenCV's standard asymmetric grid, default 4x11 (4 circles
-// per row, 11 rows, odd rows offset) — matching the calibrator's
-// grid_size:=4x11. It is DRAWN rotated 90 degrees so it fills a landscape
-// monitor; rotation does not affect detection, so grid_size stays 4x11.
-// URL parameters: ?cols=4&rows=11&hz=2&portrait (portrait = draw upright).
+// The lattice is an OpenCV asymmetric grid, default 5x17 (5 circles per
+// row, 17 rows, odd rows offset) — matching the calibrator's
+// grid_size:=5x17. It is DRAWN rotated 90 degrees, which makes its
+// bounding box exactly 16:9 so it fills a widescreen monitor; rotation
+// does not affect detection.
+// URL parameters: ?cols=5&rows=17&hz=2&portrait (portrait = draw upright).
 const q = new URLSearchParams(location.search);
-const COLS = parseInt(q.get('cols') || '4');     // lattice: circles per row
-const ROWS = parseInt(q.get('rows') || '11');    // lattice: rows
+const COLS = parseInt(q.get('cols') || '5');     // lattice: circles per row
+const ROWS = parseInt(q.get('rows') || '17');    // lattice: rows
 const HZ = parseFloat(q.get('hz') || '2');
 const PORTRAIT = q.get('portrait') !== null;
 const c = document.getElementById('c'), x = c.getContext('2d');
