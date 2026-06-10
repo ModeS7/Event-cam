@@ -15,14 +15,14 @@
 
   <exec_depend>evk4_driver</exec_depend>
   <exec_depend>event_camera_renderer</exec_depend>
-  <exec_depend>rclcpp_components</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
 
-  <!-- camera_info_publisher.py (calibration) -->
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>python3-yaml</exec_depend>
+  <!-- camera_info component (calibration) -->
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>sensor_msgs</depend>
+  <depend>camera_calibration_parsers</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

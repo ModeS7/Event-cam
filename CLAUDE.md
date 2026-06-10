@@ -164,11 +164,13 @@ well-documented, easy to extend.
   camera_info.
 - **camera_info / calibration:** `evk4.launch.py` args `fps`/`display_type`
   (→ renderer), `frame_id` (→ driver; honored), `calibration_url` (→ starts
-  `camera_info_publisher.py`). camera_info has no native source, so
-  `evk4_bringup/scripts/camera_info_publisher.py` (Python node installed via
-  `install(PROGRAMS)`) loads a standard camera_info YAML and republishes
-  CameraInfo copying each image_raw header (stamp+frame_id) → `image_proc`
-  rectify pairs them cleanly. Calibration YAMLs live in `config/calibration/`
+  the camera_info component). camera_info has no native source, so
+  `evk4_bringup::CameraInfoPublisher` (C++ composable component, composed
+  into the camera container with intra-process comms — a Python version
+  cost ~50% of a Pi core touching every frame) loads a standard camera_info
+  YAML via `camera_calibration_parsers` and republishes CameraInfo copying
+  each image_raw header (stamp+frame_id) → `image_proc` rectify pairs them
+  cleanly. Calibration YAMLs live in `config/calibration/`
   (committed one is a zero-distortion PLACEHOLDER). Docs: tuning.md, calibration.md.
 - **Calibration tool (decision 2026-06-09, user-confirmed):** built our OWN
   guided calibrator `evk4_calibration` (ament_python, deps rclpy/sensor_msgs/

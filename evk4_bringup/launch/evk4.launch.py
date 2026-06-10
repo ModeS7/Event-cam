@@ -16,7 +16,6 @@ from launch.actions import DeclareLaunchArgument
 from launch.actions import OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
-from launch_ros.actions import Node
 from launch_ros.descriptions import ComposableNode
 
 
@@ -110,7 +109,26 @@ def _launch_setup(context, *args, **kwargs):
                 extra_arguments=[{'use_intra_process_comms': True}],
             ))
 
-    nodes = [
+    # camera_info enables image_proc rectification. It is derived from
+    # image_raw, so it only makes sense when the renderer runs. Composed into
+    # the same container so images arrive intra-process (pointer, no copy).
+    if calibration_url:
+        if viz != 'true':
+            raise RuntimeError(
+                'calibration_url needs the rendered image; run with viz:=true')
+        components.append(
+            ComposableNode(
+                package='evk4_bringup',
+                plugin='evk4_bringup::CameraInfoPublisher',
+                name='camera_info_publisher',
+                namespace=camera_name,
+                parameters=[{'calibration_url': calibration_url}],
+                remappings=[('image_raw', f'/{camera_name}/image_raw'),
+                            ('camera_info', f'/{camera_name}/camera_info')],
+                extra_arguments=[{'use_intra_process_comms': True}],
+            ))
+
+    return [
         ComposableNodeContainer(
             name=f'{camera_name}_container',
             namespace='',
@@ -120,25 +138,6 @@ def _launch_setup(context, *args, **kwargs):
             output='screen',
         ),
     ]
-
-    # camera_info enables image_proc rectification. It is derived from
-    # image_raw, so it only makes sense when the renderer runs.
-    if calibration_url:
-        if viz != 'true':
-            raise RuntimeError(
-                'calibration_url needs the rendered image; run with viz:=true')
-        nodes.append(
-            Node(
-                package='evk4_bringup',
-                executable='camera_info_publisher.py',
-                name='camera_info_publisher',
-                namespace=camera_name,
-                output='screen',
-                parameters=[{'calibration_url': calibration_url}],
-                remappings=[('image_raw', f'/{camera_name}/image_raw'),
-                            ('camera_info', f'/{camera_name}/camera_info')],
-            ))
-    return nodes
 
 
 def generate_launch_description():
