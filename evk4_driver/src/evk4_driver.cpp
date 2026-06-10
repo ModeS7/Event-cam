@@ -12,6 +12,7 @@
 #include <metavision/hal/facilities/i_digital_crop.h>
 #include <metavision/hal/facilities/i_digital_event_mask.h>
 #include <metavision/hal/facilities/i_erc_module.h>
+#include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_event_rate_activity_filter_module.h>
 #include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_ll_biases.h>
@@ -79,7 +80,11 @@ void EVK4Driver::startCamera()
   const auto & g = cam_.geometry();
   width_ = static_cast<uint32_t>(g.get_width());
   height_ = static_cast<uint32_t>(g.get_height());
-  RCLCPP_INFO_STREAM(this->get_logger(), "opened EVK4 " << width_ << "x" << height_);
+  auto * hwid = cam_.get_device().get_facility<Metavision::I_HW_Identification>();
+  RCLCPP_INFO_STREAM(
+    this->get_logger(),
+    "opened EVK4 " << width_ << "x" << height_
+                   << (hwid ? ", serial " + hwid->get_serial() : ""));
 
   loadSettings();
   loadBiasFile();
