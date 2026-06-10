@@ -22,6 +22,8 @@ checkerboard on a screen, or a printed board moved briskly. Needs a display
 """
 
 import math
+import threading
+import time
 
 import cv2
 import numpy as np
@@ -81,6 +83,15 @@ class Calibrator(Node):
         self._imgpoints = []         # per-sample refined corners
         self._size = None            # (w, h)
         self._last_capture_t = 0.0
+        # Detection runs on a worker thread: on a noisy event image,
+        # findChessboardCorners can take seconds per frame (especially on a
+        # Pi), which would freeze the GUI loop if run inline.
+        self._det_lock = threading.Lock()
+        self._det = (False, None)    # latest (found, corners)
+        self._force_next = False
+        self._running = True
+        self._worker = threading.Thread(target=self._detect_loop, daemon=True)
+        self._worker.start()
         self.create_subscription(Image, 'image_raw', self._on_image, 10)
         self.get_logger().info(
             f'calibrate: board {cols}x{rows}, square {self._square} m, '
@@ -89,21 +100,43 @@ class Calibrator(Node):
     def _on_image(self, msg):
         self._latest = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
 
+    def _detect_loop(self):
+        """Worker: detect at half resolution, refine at full, auto-capture."""
+        while self._running:
+            frame = self._latest
+            if frame is None:
+                time.sleep(0.05)
+                continue
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            small = cv2.resize(gray, None, fx=0.5, fy=0.5,
+                               interpolation=cv2.INTER_AREA)
+            found, corners = cv2.findChessboardCorners(
+                small, self._grid, _FIND_FLAGS)
+            if found:
+                # back to full resolution, then sub-pixel refine there so the
+                # half-res search costs no calibration accuracy
+                corners = cv2.cornerSubPix(
+                    gray, corners * 2.0, (11, 11), (-1, -1), _SUBPIX)
+                h, w = gray.shape
+                force, self._force_next = self._force_next, False
+                self._maybe_capture(
+                    _board_params(corners, *self._grid, w, h), corners,
+                    force=force)
+            with self._det_lock:
+                self._det = (found, corners if found else None)
+
     def tick(self):
-        """Detect, auto-capture, and draw the UI. Runs on the main thread."""
+        """Draw the live view + latest detection. Runs on the main thread."""
         if self._latest is None:
             return
         frame = self._latest
         h, w = frame.shape[:2]
         self._size = (w, h)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        found, corners = cv2.findChessboardCorners(gray, self._grid, _FIND_FLAGS)
         view = frame.copy()
+        with self._det_lock:
+            found, corners = self._det
         if found:
-            corners = cv2.cornerSubPix(
-                gray, corners, (11, 11), (-1, -1), _SUBPIX)
-            cv2.drawChessboardCorners(view, self._grid, corners, found)
-            self._maybe_capture(_board_params(corners, *self._grid, w, h), corners)
+            cv2.drawChessboardCorners(view, self._grid, corners, True)
         self._draw_overlay(view, found)
         cv2.imshow('evk4 calibrate', view)
 
@@ -121,16 +154,12 @@ class Calibrator(Node):
         self.get_logger().info(f'captured view {len(self._params)}')
 
     def force_capture(self):
-        """Capture the current detection regardless of coverage (SPACE)."""
-        if self._latest is None:
-            return
-        gray = cv2.cvtColor(self._latest, cv2.COLOR_BGR2GRAY)
-        found, corners = cv2.findChessboardCorners(gray, self._grid, _FIND_FLAGS)
-        if found:
-            corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), _SUBPIX)
-            h, w = self._latest.shape[:2]
-            self._maybe_capture(_board_params(corners, *self._grid, w, h),
-                                corners, force=True)
+        """Capture the next detection regardless of coverage (SPACE)."""
+        self._force_next = True
+
+    def stop(self):
+        self._running = False
+        self._worker.join(timeout=2.0)
 
     def _coverage(self):
         """Per-parameter coverage fraction in [0,1] from captured samples."""
@@ -174,6 +203,8 @@ class Calibrator(Node):
         cols, rows = self._grid
         objp = np.zeros((cols * rows, 3), np.float32)
         objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2) * self._square
+        self.get_logger().info(
+            f'calibrating on {len(self._imgpoints)} views (takes a moment)...')
         rms, k, d, _, _ = cv2.calibrateCamera(
             [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None)
         self.get_logger().info(f'calibration RMS reprojection error: {rms:.3f} px')
@@ -216,7 +247,7 @@ def main(args=None):
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.005)
             node.tick()
-            key = cv2.waitKey(1) & 0xFF
+            key = cv2.waitKey(15) & 0xFF
             if key in (ord('q'), 27):
                 break
             if key == ord(' '):
@@ -226,6 +257,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        node.stop()
         cv2.destroyAllWindows()
         node.destroy_node()
         rclpy.try_shutdown()
