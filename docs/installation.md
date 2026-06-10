@@ -25,6 +25,10 @@ export ROS_DISTRO=jazzy      # jazzy (Ubuntu 24.04) or humble (Ubuntu 22.04)
 
 ## 1. Prerequisites
 
+- **New to ROS 2?** These docs explain everything event-camera-specific but
+  assume the basics (what nodes, topics, and launch files are). The
+  [official ROS 2 beginner tutorials](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools.html)
+  cover those in an hour or two and make everything here much easier to follow.
 - The Ubuntu + ROS 2 version for your platform, installed
   ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)).
   If a `ros-...` package is "unable to locate", the ROS 2 apt repo is missing —
