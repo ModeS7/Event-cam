@@ -1,0 +1,34 @@
+# Recommended tuned driver config — validated on EVK4 hardware (Pi 5, 2026-06).
+#
+# The default launch uses evk4_params.yaml (stock sensor defaults, nothing
+# enabled) so out-of-box behavior is predictable. THIS file is the explicit
+# "better" setup; use it with:
+#
+#   ros2 launch evk4_bringup evk4.launch.py \
+#       params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+#
+# Then reduce sensor noise with live biases (see docs/tuning.md; persist them
+# with bias_file + the save_biases service):
+#
+#   ros2 param set /event_camera bias_diff_on 30     # 30 = balanced, 50 = very quiet
+#   ros2 param set /event_camera bias_diff_off 30
+#
+# What this file changes vs stock and why:
+/**:
+  ros__parameters:
+    event_message_time_threshold: 0.001  # [s] default batching (1 ms)
+
+    # ERC: cap the on-sensor event rate. Protects CPU on small boards -- an
+    # unbounded busy scene (>10 Mev/s) can saturate a Pi 5 and collapse the
+    # display frame rate; 10 Mev/s is generous for visualization and most
+    # processing. Raise if your algorithm needs more.
+    erc_mode: enabled
+    erc_rate: 10000000
+
+    # STC trail filter: removes isolated noise events on-sensor for a clean
+    # image. NOTE the documented trade-off: with noise fully silenced, the
+    # rendered image only updates when something changes -- a static scene
+    # then looks frozen (which is correct). Uncomment for a fully quiet image:
+    # trail_filter: true
+    # trail_filter_type: stc_cut_trail
+    # trail_filter_threshold: 10000

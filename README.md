@@ -58,6 +58,10 @@ lab): blue = ON events (brightness increased), red = OFF events
 
 Full instructions: [docs/installation.md](docs/installation.md).
 
+The camera starts at **stock sensor defaults**. For the validated tuned setup
+(noise suppression + an event-rate cap that keeps small boards responsive),
+see the recipe at the top of [docs/tuning.md](docs/tuning.md).
+
 ## Topic contract
 
 `evk4.launch.py` brings up the camera under the `/event_camera` namespace:

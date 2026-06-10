@@ -1,5 +1,22 @@
 # Tuning
 
+The default launch runs the sensor at **stock settings** — predictable, but
+noisy and unbounded. The validated better setup is explicit and two commands
+away:
+
+```bash
+# 1. launch with the recommended config (ERC rate cap; see the file for what/why)
+ros2 launch evk4_bringup evk4.launch.py \
+    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+
+# 2. cut sensor noise live (30 = balanced, 50 = very quiet), any spare terminal
+ros2 param set /event_camera bias_diff_on 30
+ros2 param set /event_camera bias_diff_off 30
+```
+
+Persist the biases once you like them (see the workflow below) and you never
+re-tune. The rest of this page explains every knob behind that recipe.
+
 There are three places to tune the EVK4, by how often you change them:
 
 | What | Where | When |
