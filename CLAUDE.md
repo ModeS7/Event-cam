@@ -151,9 +151,9 @@ well-documented, easy to extend.
   design (renderer + decode libs are a modifiable SOURCE workspace, separate
   from apt and from our overlay) — do NOT re-introduce an apt-prefer shortcut.
   **Pi 5 validation (2026-06-09, our driver):** events ~248 msgs/s, renderer
-  image_raw ~24 Hz, composed pipeline ~7.9% CPU. (Pi accessed via Tailscale
-  SSH as user `mode`; go headless for continuous use — gnome-shell
-  software-render eats CPU, not the camera.)
+  image_raw ~24 Hz, composed pipeline ~7.9% CPU. (On a Pi with a desktop
+  session, go headless for continuous use — gnome-shell software rendering
+  eats CPU, not the camera.)
 - **Renderer:** `event_camera_renderer` (source-built into 3rd_party_ws).
   Subscribes `~/events` (EventPacket), publishes `~/image_raw`
   (`sensor_msgs/Image` via image_transport — lazy, near-zero cost without
