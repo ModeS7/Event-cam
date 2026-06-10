@@ -2,6 +2,29 @@
 
 Symptoms are ordered roughly by how often they occur.
 
+## Stream is seconds behind, frames smushed together, high CPU, or topics silently empty
+
+If the pipeline degrades badly — image lagging tens of seconds behind reality,
+multiple time slices blended into one frame, node CPU far above normal
+(40-60% instead of ~10%), or some subscribers receiving nothing while others
+work — and **restarting the nodes does not help**, the cause is usually stale
+Fast DDS shared-memory state from a killed ROS process. Force-killing nodes
+(`kill -9`, crashes) leaves transport files and port-mutex semaphores behind in
+`/dev/shm`, and they poison communication for every later process.
+
+Recovery:
+
+```bash
+pkill -f ros2; pkill -f component_container; sleep 2
+rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_* /dev/shm/fast_datasharing*
+ros2 daemon stop
+# then launch again as usual
+```
+
+Prevention: stop nodes with Ctrl+C (SIGINT), never `kill -9`. (Hard-killing
+the driver can also wedge the camera's USB controller — see the replug note
+below.)
+
 ## `E: Unable to locate package ros-jazzy-...`
 
 The ROS 2 apt repository is not configured on this machine — `ros-<distro>-*`
@@ -45,8 +68,11 @@ sudo apt install ros-$ROS_DISTRO-openeb-vendor
    ```bash
    lsusb | grep -i 04b4
    ```
-   Nothing → bad cable/port. Use USB 3.x, try another port, check
-   `sudo dmesg -w` while replugging.
+   Nothing → bad cable/port, or the camera's USB controller is wedged from a
+   hard-killed driver (`kill -9` mid-stream can knock the EVK4 off the bus
+   entirely — always stop the driver with Ctrl+C). Unplug and replug the
+   camera; use USB 3.x, try another port, check `sudo dmesg -w` while
+   replugging.
 2. Permissions (the most common cause). With the device from `lsusb`
    (`Bus 002 Device 003` → `/dev/bus/usb/002/003`):
    ```bash
