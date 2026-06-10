@@ -79,10 +79,13 @@ noise at default settings. The ladder, mildest first — the bias steps are
 live (`ros2 param set`), so watch the image while you tune:
 
 1. Raise the contrast thresholds: `bias_diff_on` / `bias_diff_off` 30–50.
-   Costs sensitivity to faint motion.
+   Costs sensitivity to faint motion. **This is by far the biggest lever**
+   (validated on the EVK4: 50/50 silenced a static scene almost completely).
 2. Lower `bias_fo` (negative values = stronger photoreceptor low-pass =
    less temporal noise). Costs a little motion sharpness.
 3. Raise `bias_hpf` to reject slow-drift / ambient-flicker events.
+   (On the IMX636 the effect of steps 2–3 is subtle — don't expect a visible
+   change at typical noise levels; lead with step 1.)
 4. Enable the on-sensor **STC filter** (`trail_filter: true`,
    `trail_filter_type: stc_cut_trail`, `trail_filter_threshold: 10000` in
    `evk4_params.yaml` + relaunch) — removes isolated events, which is
