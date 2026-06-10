@@ -45,7 +45,8 @@ ways to change them, in order of recommendation:
 
 1. **Use the shipped tuned config** (ERC already enabled — see the recipe at
    the top of this page): `params_file:=.../evk4_params_recommended.yaml`.
-2. **Your own copy** — keeps the repo clean and survives `git pull`:
+2. **A personal copy outside the repo** — the cloned sources stay unmodified,
+   so `git pull` updates never conflict with local settings:
    ```bash
    cp ~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml ~/my_params.yaml
    # edit ~/my_params.yaml, then:
@@ -54,8 +55,8 @@ ways to change them, in order of recommendation:
 3. **Edit the default in place** at
    `~/ros2_ws/src/Event-cam/evk4_bringup/config/evk4_params.yaml` (takes
    effect on next launch with a `--symlink-install` build; otherwise rebuild).
-   Quick for experiments, but your checkout now differs from git — prefer 2
-   for permanent settings.
+   Quick for experiments, but the modified file will collide with future
+   `git pull` updates — prefer option 2 for permanent settings.
 
 The common knobs:
 
