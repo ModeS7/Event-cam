@@ -58,7 +58,7 @@ each its own output file and `calibration_url`:
 ```bash
 # calibrate cam0
 ros2 run evk4_calibration calibrate --ros-args \
-    -p grid_size:=4x11 -p output:=cam0.yaml \
+    -p grid_size:=11x4 -p output:=cam0.yaml \
     -r image_raw:=/cam0/image_raw
 # ...then cam1 with output:=cam1.yaml and image_raw:=/cam1/image_raw
 

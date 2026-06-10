@@ -12,14 +12,15 @@ html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;j
 // Blinking asymmetric circle grid for evk4_calibration (docs/calibration.md).
 // Open fullscreen (F11) on the screen the camera looks at.
 //
-// Defaults match the calibrator's defaults: grid_size 4x11 = 4 circles per
-// row, 11 rows, odd rows offset by half a pitch (OpenCV asymmetric grid).
-// Override via URL parameters, e.g. circle_grid.html?cols=4&rows=11&hz=2
+// Defaults match the calibrator's defaults: grid_size 11x4 = 11 circles per
+// row, 4 rows, odd rows offset by half a pitch (OpenCV asymmetric grid,
+// landscape to fill a monitor). Override via URL parameters, e.g.
+// circle_grid.html?cols=11&rows=4&hz=2
 // Keep the blink slow (a few Hz): the camera sees the dots appear and
 // disappear; each phase paints the full grid as events.
 const q = new URLSearchParams(location.search);
-const COLS = parseInt(q.get('cols') || '4');
-const ROWS = parseInt(q.get('rows') || '11');
+const COLS = parseInt(q.get('cols') || '11');
+const ROWS = parseInt(q.get('rows') || '4');
 const HZ = parseFloat(q.get('hz') || '2');
 const c = document.getElementById('c'), x = c.getContext('2d');
 let on = true;
