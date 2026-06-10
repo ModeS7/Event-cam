@@ -13,7 +13,13 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 - A **checkerboard** of known geometry. A **flickering** checkerboard shown on
   a screen works best: an event camera only sees change, so flashing makes the
-  whole board appear. A printed board moved briskly also works.
+  whole board appear. One ships with this repo — open
+  [`docs/checkerboard.html`](checkerboard.html) in any browser on the screen
+  the camera will look at and press **F11** for fullscreen. Defaults match the
+  calibrator (9x7 squares = `board_size:=8x6`, blinking at 2 Hz); change them
+  with URL parameters, e.g. `checkerboard.html?cols=10&rows=8&hz=4`. Set the
+  monitor to **100% brightness** (avoids backlight flicker events). A printed
+  board moved briskly also works.
 - A machine with a **display** for the calibration window (run on a desktop,
   or over X-forwarding / VNC if the camera is on a headless Pi).
 - **A focused lens — check this first.** Defocus is easy to miss on an event
