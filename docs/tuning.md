@@ -72,12 +72,38 @@ ros2 run rqt_reconfigure rqt_reconfigure
 Persist a tuned set to a `.bias` file and reload it on the next launch — see
 [`../evk4_bringup/config/biases/README.md`](../evk4_bringup/config/biases/README.md).
 
+## Reducing background noise (speckle at a static scene)
+
+Some salt-and-pepper events at a motionless scene are normal sensor shot
+noise at default settings. The ladder, mildest first — the bias steps are
+live (`ros2 param set`), so watch the image while you tune:
+
+1. Raise the contrast thresholds: `bias_diff_on` / `bias_diff_off` 30–50.
+   Costs sensitivity to faint motion.
+2. Lower `bias_fo` (negative values = stronger photoreceptor low-pass =
+   less temporal noise). Costs a little motion sharpness.
+3. Raise `bias_hpf` to reject slow-drift / ambient-flicker events.
+4. Enable the on-sensor **STC filter** (`trail_filter: true`,
+   `trail_filter_type: stc_cut_trail`, `trail_filter_threshold: 10000` in
+   `evk4_params.yaml` + relaunch) — removes isolated events, which is
+   exactly what background noise is. Note: with noise fully silenced, the
+   rendered image updates only when something actually changes — a "frozen"
+   viewer at a static scene is then correct, not broken.
+5. Room lighting flicker (LED/fluorescent, 100/120 Hz) can masquerade as
+   uniform noise — try `afk_enabled: true` (band-stop 100–120 Hz).
+6. Individual hot pixels: blank them on-sensor with `event_mask_pixels`.
+
+Fewer events also means less USB traffic, decoding, and rendering work —
+on a Raspberry Pi 5 a busy scene at default biases cost ~45% CPU with the
+viewer open; raising the thresholds dropped it substantially (idle pipeline
+~8–16%). Tuning the sensor IS the CPU optimization.
+
 ## Which knob for which symptom
 
-- **Too much noise / sparkle** → raise `bias_diff_on`/`bias_diff_off`, or
-  lower `bias_fo`, or enable `trail_filter`.
+- **Too much noise / sparkle** → the noise ladder above.
 - **Missing faint motion** → lower `bias_diff_on`/`bias_diff_off`.
-- **CPU/USB saturated** → enable `erc_mode`, set `erc_rate`, or add an `roi`.
+- **CPU/USB saturated** → tune away noise events (above), enable `erc_mode` +
+  `erc_rate`, or add an `roi` / `digital_crop_region`.
 - **Flickering lights (AC/LED) flooding events** → enable `afk_enabled` with a
   `band_stop` around the flicker frequency (e.g. 100–120 Hz); `bias_hpf` and
   `erc_rate` help too.
