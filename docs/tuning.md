@@ -69,8 +69,18 @@ ros2 run rqt_reconfigure rqt_reconfigure
 | `bias_hpf` | High-pass — rejects slow/global light changes |
 | `bias_refr` | Refractory period — minimum time between events per pixel |
 
-Persist a tuned set to a `.bias` file and reload it on the next launch — see
-[`../evk4_bringup/config/biases/README.md`](../evk4_bringup/config/biases/README.md).
+**Recommended workflow — tune once, persist, forget:** don't re-tune at every
+session and don't hand-edit bias values. Launch with `bias_file:=/path/to/my.bias`,
+tune live while watching the image, then freeze the result:
+
+```bash
+ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
+```
+
+Every later launch with the same `bias_file` starts from your tuned values.
+Division of labor: **biases live in the `.bias` file** (the camera writes it);
+**everything else (ERC, trail filter, AFK, crop) lives in `evk4_params.yaml`**.
+Details: [`../evk4_bringup/config/biases/README.md`](../evk4_bringup/config/biases/README.md).
 
 ## Reducing background noise (speckle at a static scene)
 
@@ -100,6 +110,25 @@ Fewer events also means less USB traffic, decoding, and rendering work —
 on a Raspberry Pi 5 a busy scene at default biases cost ~45% CPU with the
 viewer open; raising the thresholds dropped it substantially (idle pipeline
 ~8–16%). Tuning the sensor IS the CPU optimization.
+
+## When the frame rate collapses on a busy scene
+
+Event-pipeline CPU scales with the event rate. An unbounded busy scene
+(sensitive biases pointed at a flickering screen reaches >10 Mev/s) can
+demand more than a small board has: on a Pi 5, renderer + rectify + a viewer
+saturated all four cores and the display dropped to ~12 fps even though
+nothing was broken. The fix is to cap the rate **on the sensor** with ERC in
+`evk4_params.yaml`:
+
+```yaml
+erc_mode: enabled
+erc_rate: 5000000      # max events/s the sensor will emit; applies at launch
+```
+
+5 Mev/s is plenty for visualization; raise it if a downstream algorithm
+needs more. Also close viewers/rectification you are not using — every
+subscriber adds work, and the lazy pipeline stops computing what nobody
+watches.
 
 ## Which knob for which symptom
 
