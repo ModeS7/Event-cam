@@ -176,7 +176,7 @@ well-documented, easy to extend.
   our OWN guided calibrator `evk4_calibration` (ament_python, deps rclpy/
   sensor_msgs/cv_bridge/opencv/numpy) — `ros2 run evk4_calibration calibrate`.
   Uses a **blinking ASYMMETRIC CIRCLE GRID** (`docs/circle_grid.html`,
-  default `grid_size:=11x4` (landscape)): detection = |B-R| polarity-contrast image →
+  default `grid_size:=4x11`; the page draws the lattice rotated to fill a landscape monitor (rotation-independent detection, verified synthetically)): detection = |B-R| polarity-contrast image →
   GaussianBlur → SimpleBlobDetector → `cv2.findCirclesGrid(ASYMMETRIC|
   CLUSTERING)`, on a worker thread (GUI never blocks); X/Y/Size/Skew coverage
   bars, auto-capture, `cv2.calibrateCamera` with `CALIB_FIX_K3` (narrow-FOV

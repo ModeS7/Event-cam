@@ -19,7 +19,7 @@ OpenCV calibration and write a camera_info YAML that evk4_bringup's
     # 2. this tool (grid_size = circles per row x rows, docs/circle_grid.html
     #    defaults; spacing only matters for absolute scale)
     ros2 run evk4_calibration calibrate --ros-args \\
-        -p grid_size:=11x4 \\
+        -p grid_size:=4x11 \\
         -r image_raw:=/event_camera/image_raw
 
 Keys: SPACE force-capture · c calibrate · q quit.
@@ -87,7 +87,7 @@ class Calibrator(Node):
     def __init__(self):
         super().__init__('calibrate')
         cols, rows = (int(v) for v in
-                      self.declare_parameter('grid_size', '11x4').value.split('x'))
+                      self.declare_parameter('grid_size', '4x11').value.split('x'))
         self._grid = (cols, rows)
         # OpenCV asymmetric-grid convention: the vertical row pitch; the
         # horizontal pitch within a row is twice this. Only affects absolute

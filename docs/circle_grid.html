@@ -12,34 +12,38 @@ html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;j
 // Blinking asymmetric circle grid for evk4_calibration (docs/calibration.md).
 // Open fullscreen (F11) on the screen the camera looks at.
 //
-// Defaults match the calibrator's defaults: grid_size 11x4 = 11 circles per
-// row, 4 rows, odd rows offset by half a pitch (OpenCV asymmetric grid,
-// landscape to fill a monitor). Override via URL parameters, e.g.
-// circle_grid.html?cols=11&rows=4&hz=2
-// Keep the blink slow (a few Hz): the camera sees the dots appear and
-// disappear; each phase paints the full grid as events.
+// The lattice is OpenCV's standard asymmetric grid, default 4x11 (4 circles
+// per row, 11 rows, odd rows offset) — matching the calibrator's
+// grid_size:=4x11. It is DRAWN rotated 90 degrees so it fills a landscape
+// monitor; rotation does not affect detection, so grid_size stays 4x11.
+// URL parameters: ?cols=4&rows=11&hz=2&portrait (portrait = draw upright).
 const q = new URLSearchParams(location.search);
-const COLS = parseInt(q.get('cols') || '11');
-const ROWS = parseInt(q.get('rows') || '4');
+const COLS = parseInt(q.get('cols') || '4');     // lattice: circles per row
+const ROWS = parseInt(q.get('rows') || '11');    // lattice: rows
 const HZ = parseFloat(q.get('hz') || '2');
+const PORTRAIT = q.get('portrait') !== null;
 const c = document.getElementById('c'), x = c.getContext('2d');
 let on = true;
 function draw() {
-  // OpenCV asymmetric grid: row pitch P vertically, 2P between columns,
-  // odd rows shifted right by P. Fit it into the window with a margin.
-  const P = Math.floor(Math.min(
-    innerWidth / (2 * COLS + 1), innerHeight / (ROWS + 1)) * 0.9);
-  const R = Math.floor(P * 0.35);            // dot radius
-  c.width = (2 * COLS + 1) * P;
-  c.height = (ROWS + 1) * P;
+  // Lattice (in pitch units): row i, circle j at ((2j + i%2), i).
+  const spanA = 2 * (COLS - 1) + 1;   // across the rows
+  const spanB = ROWS - 1;             // along the rows
+  const W = (PORTRAIT ? spanA : spanB) + 2;   // canvas, with 1-pitch margins
+  const H = (PORTRAIT ? spanB : spanA) + 2;
+  const P = Math.floor(Math.min(innerWidth / W, innerHeight / H) * 0.95);
+  const R = Math.floor(P * 0.35);
+  c.width = W * P;
+  c.height = H * P;
   x.fillStyle = '#000';
   x.fillRect(0, 0, c.width, c.height);
   if (!on) return;
   x.fillStyle = '#fff';
   for (let i = 0; i < ROWS; i++) {
     for (let j = 0; j < COLS; j++) {
-      const cx = (2 * j + i % 2 + 1) * P;
-      const cy = (i + 1) * P;
+      const la = (2 * j + i % 2) + 1;
+      const lb = i + 1;
+      const cx = (PORTRAIT ? la : lb) * P;
+      const cy = (PORTRAIT ? lb : la) * P;
       x.beginPath();
       x.arc(cx, cy, R, 0, 2 * Math.PI);
       x.fill();
