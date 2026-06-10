@@ -3,10 +3,11 @@
 Run these on the machine the camera is plugged into (lab PC, Raspberry Pi, or
 any host). The dev machine where you write code needs only `git` and an editor.
 
-**The install steps are the same on every platform** — driver + decoder from
-apt (arm64 and x86 binaries both exist), renderer + decode libs from source.
-The board (NUC, Raspberry Pi, Jetson, …) doesn't change the procedure; the
-table below just records where it's been validated.
+**The install steps are the same on every platform** — OpenEB + the Python
+decoder from apt (arm64 and x86 binaries both exist), the renderer from
+source, and our own driver built from this repo. The board (NUC, Raspberry
+Pi, Jetson, …) doesn't change the procedure; the table below just records
+where it's been validated.
 
 | Platform | Status |
 |---|---|
@@ -24,7 +25,7 @@ export ROS_DISTRO=jazzy      # jazzy (Ubuntu 24.04) or humble (Ubuntu 22.04)
 
 ## 1. Prerequisites
 
-- The Ubuntu + ROS 2 version for your tier, installed
+- The Ubuntu + ROS 2 version for your platform, installed
   ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)).
   If a `ros-...` package is "unable to locate", the ROS 2 apt repo is missing —
   see [troubleshooting.md](troubleshooting.md#e-unable-to-locate-package-ros-jazzy-).
@@ -135,7 +136,7 @@ ROS 2 layers workspaces: each one you `source` stacks on top of the previous
 rarely-changing dependencies in a lower layer so editing your own code only
 rebuilds your own packages. **Three layers, on every platform:**
 
-- `/opt/ros/$ROS_DISTRO` — ROS + the apt driver/decoder (underlay 0)
+- `/opt/ros/$ROS_DISTRO` — ROS + apt OpenEB/decoder (underlay 0)
 - `~/workspaces/3rd_party_ws` — source-built renderer + `event_camera_codecs`/
   `_msgs`, deliberately separated so you can modify the rendering/decoding code
   without touching the system install or your own packages (underlay 1)

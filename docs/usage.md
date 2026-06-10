@@ -30,7 +30,7 @@ ros2 launch evk4_bringup evk4.launch.py
 | `viz` | `true` | Also run the renderer (image topic) |
 | `fps` | `25.0` | Renderer frame rate, Hz (with `viz:=true`) |
 | `display_type` | `time_slice` | Renderer mode: `time_slice` or `sharp` |
-| `frame_id` | `event_camera_optical_frame` | TF frame (driver 3.0.0 uses the serial tail instead) |
+| `frame_id` | `event_camera_optical_frame` | TF frame stamped on all messages |
 | `sync_mode` | `standalone` | Hardware sync role: `standalone`/`primary`/`secondary` ([multi_camera.md](multi_camera.md)) |
 | `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`loopback` (sync with other sensors) |
 | `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
@@ -66,11 +66,11 @@ zero-copy path.
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (default 25 fps) | `viz:=true` |
 | `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
 
-Message headers carry `frame_id` = last 4 digits of the camera serial
-number (e.g. `1701`) — driver 3.0.0 does not support overriding it
+Message headers carry the `frame_id` launch argument (default
+`event_camera_optical_frame`) — set it to match your robot's TF tree
 (see [calibration.md](calibration.md)).
 
-## Services (provided by the driver, v3.0.0)
+## Services (provided by the driver)
 
 | Service | Type | Effect |
 |---|---|---|
@@ -87,17 +87,18 @@ unless its file path was set at startup**: `save_biases` needs the
 [`config/biases/README.md`](../evk4_bringup/config/biases/README.md));
 `save_settings` needs the `settings` launch argument. For bandwidth and
 rate statistics no service is needed: the driver prints them to the launch
-terminal every second (`statistics_print_interval` parameter), e.g.
+terminal every second (`statistics_print_interval` parameter, 0 disables):
 
 ```
-[event_camera]: bw in: 9.75 MB/s, msgs/s in: 247, out: 247, maxq: 1
+[event_camera]: 254 msgs/s, 7.81 MB/s (queue 0)
 ```
 
-(`out` counts published messages and is 0 only while *nothing* is
-subscribed to `events`. Note the renderer subscribes lazily — it logs
-`subscribing to events!` / `unsubscribing from events!` as image viewers
-come and go — so with `viz:=true` but no open image viewer, `out: 0` is
-normal.)
+That counts *published* event packets — the driver publishes lazily, so
+`0 msgs/s` just means nothing is currently subscribed to `events`. Note the
+renderer itself subscribes lazily too (it logs `subscribing to events!` /
+`unsubscribing from events!` as image viewers come and go), so with
+`viz:=true` but no open image viewer, `0 msgs/s` is normal. `queue` is the
+capture worker's backlog; 0 means it is keeping up.
 
 ## Consuming events
 
@@ -171,7 +172,9 @@ ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 
 Blue pixels are ON events (brightness increased), red are OFF events
 (brightness decreased) — verified in the renderer source (`bgr8`, ON →
-channel 0). A static scene renders black; only change is visible.
+channel 0). A static scene renders black; only change is visible. The
+frame rate follows scene activity: a quiet scene updates rarely (correct,
+not frozen — see [tuning.md](tuning.md)), a busy one at the full `fps`.
 
 Adjust the frame rate and mode with the `fps` and `display_type` launch
 arguments (these affect only the image, not the raw event stream):

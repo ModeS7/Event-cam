@@ -7,7 +7,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 > **Scope:** this calibrates and rectifies the **rendered `image_raw`**. The
 > raw event stream is not an image, so event-level undistortion is a separate
-> downstream step (see the end). Not yet validated on hardware.
+> downstream step (see the end). The full loop (capture, calibrate, rectify)
+> is hardware-validated on a Raspberry Pi 5 (2026-06-10).
 
 ## What you need
 
@@ -109,22 +110,20 @@ To keep a calibration with the repo, copy the YAML into
 `camera_info` copies `image_raw`'s `frame_id`, so the two always share a frame
 and `image_proc` pairs them cleanly — regardless of what the driver stamped.
 
-Note the `frame_id` launch arg is passed to the driver but **driver 3.0.0
-ignores it and stamps the last 4 digits of the serial number** (e.g. `1701`);
-newer drivers honor it. Check the actual frame with:
+The driver stamps every message with the `frame_id` launch argument
+(default `event_camera_optical_frame`). Verify with:
 
 ```bash
 ros2 topic echo /event_camera/events --once    # look at header.frame_id
 ```
 
 To place the camera in a robot TF tree, publish a static transform from your
-base frame to that camera frame (substitute your mount offsets and the frame
-the messages actually carry):
+base frame to the camera frame (substitute your mount offsets):
 
 ```bash
 ros2 run tf2_ros static_transform_publisher \
     --x 0.10 --y 0 --z 0.05 --yaw 0 --pitch 0 --roll 0 \
-    --frame-id base_link --child-frame-id 1701
+    --frame-id base_link --child-frame-id event_camera_optical_frame
 ```
 
 ## Event-level undistortion (downstream)

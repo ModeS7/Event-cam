@@ -2,9 +2,16 @@
 
 ROS 2 launch files, configuration, example code, and an **OpenEB-based driver**
 for getting a Prophesee EVK4 event camera publishing events with minimal setup.
+
+An **event camera** has no frames: each pixel independently reports the moments
+its brightness changes ("events", microsecond-timed, ~millisecond latency).
+That gives extreme dynamic range and no motion blur — and a data stream that
+needs different tooling than normal video, which is what this repo provides.
+
 The `evk4_driver` node is built directly on
 [OpenEB](https://github.com/prophesee-ai/openeb) (the open edition of the
-Metavision SDK) and exposes every on-sensor facility the EVK4 supports; the
+Metavision SDK) and exposes every on-sensor feature the EVK4 supports (rate
+limiting, noise/flicker filters, region cropping, pixel masking, sync); the
 rest of the repo is launch/config glue, example consumers, calibration, and
 documentation.
 
@@ -29,8 +36,9 @@ the table just records where it's been validated:
 
 ## Quickstart
 
-The same steps work on every platform; for Humble or distro specifics see
-[docs/installation.md](docs/installation.md).
+Prerequisite: Ubuntu 24.04 with ROS 2 Jazzy installed (any platform — see
+[docs/installation.md](docs/installation.md) for Humble, Raspberry Pi
+specifics, and what each step does).
 
 ```bash
 # 1. Clone into a colcon workspace
@@ -83,6 +91,7 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 
 | Path | Purpose |
 |---|---|
+| `evk4_driver/` | The camera driver: C++ composable node on OpenEB, publishes raw EVT3 events, exposes all sensor facilities |
 | `evk4_bringup/` | Launch file, driver params, bias + calibration configs, `camera_info` helper |
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
@@ -102,4 +111,5 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 ## License
 
 Apache 2.0 (see [LICENSE](LICENSE)). This repo never contains proprietary
-Metavision SDK files; the driver and OpenEB are installed separately via apt.
+Metavision SDK files; OpenEB (the open edition) is installed separately via
+apt, and our driver builds against it from this repo.

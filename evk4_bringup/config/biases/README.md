@@ -6,7 +6,7 @@ refractory period `bias_refr`). Factory defaults are a good starting point;
 this directory is the conventional home for tuned `.bias` files (none are
 committed by default).
 
-To create one (verified against driver 3.0.0):
+To create one:
 
 ```bash
 # 1. Launch with bias_file pointing where the file should go.
@@ -20,7 +20,6 @@ ros2 param set /event_camera bias_diff_on 30
 ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
 ```
 
-If the launch did not set `bias_file`, the service returns
-`success=False` (response `message: 'bias file write failed'`; the driver
-logs `no bias file specified at startup`). Subsequent launches with the same
-`bias_file` load the saved values.
+If the launch did not set `bias_file`, the service returns `success=False`
+with `message: 'no bias file specified at startup'`. Subsequent launches
+with the same `bias_file` load the saved values.

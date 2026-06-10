@@ -93,7 +93,7 @@ focus ring until edges are as thin as possible.
 3. Another process may hold the camera (e.g. a second driver instance or
    Metavision Studio). Only one consumer can open it.
 
-## `cannot open default on attempt 1, retrying ...` then `giving up!`
+## `failed to open camera: ... Camera not found` (but `lsusb` shows it)
 
 The camera exists but can't be opened — almost always it's held by another
 process. A previous launch that didn't shut down cleanly is the usual
@@ -102,7 +102,8 @@ process):
 
 ```bash
 pgrep -af component_container      # any leftover instance?
-pkill -9 -f component_container
+pkill -INT -f component_container  # graceful stop (never -9: see the
+                                   # shared-memory section above)
 ```
 
 If it still fails, unplug/replug the camera to reset the USB handle, confirm
@@ -110,15 +111,10 @@ with `lsusb | grep -i 04b4`, and launch again.
 
 ## Service call hangs: `waiting for service to become available...`
 
-Two causes:
-
-1. The `save_biases` / `save_settings` services live inside the driver node —
-   they only exist **while the camera launch is running**. Call them from a
-   second terminal.
-2. The service doesn't exist in your driver version. Notably
-   `dump_statistics` appears in the upstream master-branch docs but is NOT in
-   the released 3.0.0 apt package. Check what actually exists with
-   `ros2 node info /event_camera` (Service Servers section).
+The `save_biases` / `save_settings` services live inside the driver node —
+they only exist **while the camera launch is running**. Call them from a
+second terminal. List what actually exists with
+`ros2 node info /event_camera` (Service Servers section).
 
 ## `ros2 topic list` / `ros2 node list` show things that aren't running
 
@@ -153,17 +149,18 @@ QoS mismatch — the most common student bug. The driver publishes
 - Was the camera launched with `viz:=false`? Check
   `ros2 topic list | grep image_raw`.
 
-## Very high CPU load or dropped messages
+## Very high CPU load, dropped messages, or frame rate collapsing
 
-In busy scenes the EVK4 can emit hundreds of Mev/s. In
-`evk4_bringup/config/evk4_params.yaml`:
+Event-pipeline CPU scales with the event rate, and in busy scenes the EVK4
+can emit tens of Mev/s — more than small boards can process with the full
+display pipeline running. Cap the rate on the sensor: `erc_mode: enabled` +
+`erc_rate` in the driver params (the shipped
+`evk4_params_recommended.yaml` does this; see
+[tuning.md](tuning.md)). Also close viewers/rectification you are not
+using, and raise `event_message_time_threshold` for fewer, larger messages.
 
-- Enable on-sensor event rate control: `erc_mode: enabled` and set
-  `erc_rate`.
-- Increase `event_message_time_threshold` (fewer, larger messages).
-
-Check the actual rates in the statistics line the driver prints every
-second in the launch terminal (`bw in: ... msgs/s in: ...`), or with
+Check actual rates in the statistics line the driver prints every second in
+the launch terminal (`254 msgs/s, 7.81 MB/s (queue 0)`), or with
 `ros2 run evk4_examples event_rate`.
 
 ## `ModuleNotFoundError: No module named 'event_camera_py'`
