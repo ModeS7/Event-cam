@@ -101,6 +101,8 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 
 ## Documentation
 
+In reading order — each page builds on the previous one:
+
 - [docs/installation.md](docs/installation.md) — apt packages, udev rule, build, smoke test
 - [docs/usage.md](docs/usage.md) — launch arguments, consuming events, QoS, recording
 - [docs/tuning.md](docs/tuning.md) — fps, thresholds/biases, ERC, noise filtering

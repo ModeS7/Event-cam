@@ -5,6 +5,12 @@ undistortion out of the box. This repo provides a self-contained, guided
 calibrator (`evk4_calibration`) plus the wiring to publish `camera_info` and
 rectify with `image_proc` — no deep learning, no external toolboxes.
 
+> **Do [tuning.md](tuning.md) first.** Calibration works on the rendered
+> image, so it inherits whatever the sensor produces: at stock settings the
+> stream is noisy and unbounded, which makes the board hard to detect and
+> the preview laggy. The commands below use the recommended tuned config
+> from that page.
+
 > **Scope:** this calibrates and rectifies the **rendered `image_raw`**. The
 > raw event stream is not an image, so event-level undistortion is a separate
 > downstream step (see the end). The full loop (capture, calibrate, rectify)
@@ -40,8 +46,16 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 ## 1. Run the guided calibrator
 
 ```bash
-# terminal 1 -- camera + renderer; 'sharp' mode is cleanest to detect on
-ros2 launch evk4_bringup evk4.launch.py display_type:=sharp
+# terminal 1 -- camera + renderer, with the tuned config (rate cap);
+# 'sharp' display mode is cleanest to detect on
+ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
+    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+```
+
+```bash
+# any spare terminal -- cut sensor noise so the board stands out
+ros2 param set /event_camera bias_diff_on 30
+ros2 param set /event_camera bias_diff_off 30
 ```
 
 ```bash
@@ -90,8 +104,10 @@ high frame rates on small boards:
 
 ```bash
 # terminal 1 -- camera + camera_info + rectification in one container
+# (keep the tuned params_file from step 1 here too)
 ros2 launch evk4_bringup evk4.launch.py \
-    calibration_url:=$(pwd)/event_camera.yaml rectify:=true
+    calibration_url:=$(pwd)/event_camera.yaml rectify:=true \
+    params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
 ```
 
 ```bash
