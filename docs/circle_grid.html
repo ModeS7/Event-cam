@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blinking asymmetric circle grid for event-camera calibration</title>
+<style>
+html,body{margin:0;height:100%;background:#000;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Blinking asymmetric circle grid for evk4_calibration (docs/calibration.md).
+// Open fullscreen (F11) on the screen the camera looks at.
+//
+// Defaults match the calibrator's defaults: grid_size 4x11 = 4 circles per
+// row, 11 rows, odd rows offset by half a pitch (OpenCV asymmetric grid).
+// Override via URL parameters, e.g. circle_grid.html?cols=4&rows=11&hz=2
+// Keep the blink slow (a few Hz): the camera sees the dots appear and
+// disappear; each phase paints the full grid as events.
+const q = new URLSearchParams(location.search);
+const COLS = parseInt(q.get('cols') || '4');
+const ROWS = parseInt(q.get('rows') || '11');
+const HZ = parseFloat(q.get('hz') || '2');
+const c = document.getElementById('c'), x = c.getContext('2d');
+let on = true;
+function draw() {
+  // OpenCV asymmetric grid: row pitch P vertically, 2P between columns,
+  // odd rows shifted right by P. Fit it into the window with a margin.
+  const P = Math.floor(Math.min(
+    innerWidth / (2 * COLS + 1), innerHeight / (ROWS + 1)) * 0.9);
+  const R = Math.floor(P * 0.35);            // dot radius
+  c.width = (2 * COLS + 1) * P;
+  c.height = (ROWS + 1) * P;
+  x.fillStyle = '#000';
+  x.fillRect(0, 0, c.width, c.height);
+  if (!on) return;
+  x.fillStyle = '#fff';
+  for (let i = 0; i < ROWS; i++) {
+    for (let j = 0; j < COLS; j++) {
+      const cx = (2 * j + i % 2 + 1) * P;
+      const cy = (i + 1) * P;
+      x.beginPath();
+      x.arc(cx, cy, R, 0, 2 * Math.PI);
+      x.fill();
+    }
+  }
+}
+setInterval(() => { on = !on; draw(); }, 1000 / (2 * HZ));
+window.addEventListener('resize', draw);
+draw();
+</script>
+</body>
+</html>

@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
 """Guided intrinsic calibration for the EVK4 — a self-contained OpenCV tool.
 
-A window shows the live rendered image with the detected checkerboard. Move
-the board around; the tool AUTO-CAPTURES views that improve coverage (the
+Uses a blinking ASYMMETRIC CIRCLE GRID (open docs/circle_grid.html fullscreen
+on a monitor). Circle centers are centroids of many events, which makes them
+robust to the speckle and soft edges of event-rendered images — the reason
+every modern event-camera calibrator (E-Calib, eKalibr) uses circles rather
+than checkerboards.
+
+A window shows the live rendered image with the detected grid. Move the
+camera around; the tool AUTO-CAPTURES views that improve coverage (the
 X / Y / Size / Skew bars fill up). When coverage is good, press `c` to run
 OpenCV calibration and write a camera_info YAML that evk4_bringup's
 `calibration_url` consumes.
 
-    # 1. camera + renderer (sharp mode is easiest to detect on)
-    ros2 launch evk4_bringup evk4.launch.py display_type:=sharp
-    # 2. this tool (8x6 = inner corners, 0.025 = square size in metres)
-    ros2 run evk4_calibration calibrate --ros-args \
-        -p board_size:=8x6 -p square_size:=0.025 \
+    # 1. camera + renderer, with your tuned params (see docs/tuning.md)
+    ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \\
+        params_file:=$HOME/my_params.yaml
+    # 2. this tool (grid_size = circles per row x rows, docs/circle_grid.html
+    #    defaults; spacing only matters for absolute scale)
+    ros2 run evk4_calibration calibrate --ros-args \\
+        -p grid_size:=4x11 \\
         -r image_raw:=/event_camera/image_raw
 
 Keys: SPACE force-capture · c calibrate · q quit.
 
-An event camera only "sees" change, so the board shows up best as a FLICKERING
-checkerboard on a screen, or a printed board moved briskly. Needs a display
-(run on a desktop, or over X-forwarding / VNC).
+Needs a display (run on a desktop, or over X-forwarding / VNC).
 """
 
 import math
@@ -39,24 +45,35 @@ from sensor_msgs.msg import Image
 _TARGET_SPAN = {'x': 0.6, 'y': 0.6, 'size': 0.35, 'skew': 0.3}
 _CAPTURE_DIST = 0.12   # min param-space distance for a new auto-capture
 _READY_FRAC = 0.7      # every bar must reach this fraction
-_SUBPIX = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-_FIND_FLAGS = (cv2.CALIB_CB_ADAPTIVE_THRESH | cv2.CALIB_CB_NORMALIZE_IMAGE |
-               cv2.CALIB_CB_FAST_CHECK)
 
 
-def _board_params(corners, cols, rows, w, h):
+def _make_blob_detector():
+    """Blob detector tuned for event-rendered dots: bright, ragged blobs."""
+    p = cv2.SimpleBlobDetector_Params()
+    p.filterByColor = True
+    p.blobColor = 255              # dots are bright on the contrast image
+    p.filterByArea = True
+    p.minArea = 25
+    p.maxArea = 30000
+    p.filterByCircularity = False  # event blobs have ragged outlines
+    p.filterByConvexity = False
+    p.filterByInertia = False
+    return cv2.SimpleBlobDetector_create(p)
+
+
+def _grid_params(centers, cols, rows, w, h):
     """Reduce a detection to (x, y, size, skew) in [0,1] for coverage tracking.
 
-    Mirrors what camera_calibration uses: board centre position, how much of
+    Mirrors what camera_calibration uses: grid centre position, how much of
     the frame it fills, and how tilted it is away from fronto-parallel.
     """
-    pts = corners.reshape(-1, 2)
+    pts = centers.reshape(-1, 2)
     x = float(pts[:, 0].mean()) / w
     y = float(pts[:, 1].mean()) / h
     bw = pts[:, 0].max() - pts[:, 0].min()
     bh = pts[:, 1].max() - pts[:, 1].min()
     size = math.sqrt(max(bw * bh, 1.0) / (w * h))
-    # skew from the angle at the top-left corner (90 deg = fronto-parallel)
+    # skew from the angle at the first corner (90 deg = fronto-parallel)
     tl, tr, bl = pts[0], pts[cols - 1], pts[(rows - 1) * cols]
     a, b = tr - tl, bl - tl
     cos = abs(np.dot(a, b)) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9)
@@ -65,82 +82,74 @@ def _board_params(corners, cols, rows, w, h):
 
 
 class Calibrator(Node):
-    """Collect well-distributed checkerboard views and calibrate on demand."""
+    """Collect well-distributed circle-grid views and calibrate on demand."""
 
     def __init__(self):
         super().__init__('calibrate')
         cols, rows = (int(v) for v in
-                      self.declare_parameter('board_size', '8x6').value.split('x'))
+                      self.declare_parameter('grid_size', '4x11').value.split('x'))
         self._grid = (cols, rows)
-        self._square = self.declare_parameter('square_size', 0.025).value
+        # OpenCV asymmetric-grid convention: the vertical row pitch; the
+        # horizontal pitch within a row is twice this. Only affects absolute
+        # scale (extrinsics), not the intrinsics used for rectification.
+        self._spacing = self.declare_parameter('spacing', 0.02).value
         self._min_samples = self.declare_parameter('min_samples', 20).value
         self._camera_name = self.declare_parameter('camera_name', 'event_camera').value
         self._output = self.declare_parameter('output', 'event_camera.yaml').value
 
         self._bridge = CvBridge()
+        self._blob = _make_blob_detector()
         self._latest = None          # most recent frame (bgr)
         self._params = []            # per-sample [x,y,size,skew]
-        self._imgpoints = []         # per-sample refined corners
+        self._imgpoints = []         # per-sample circle centers
         self._size = None            # (w, h)
         self._last_capture_t = 0.0
-        # Detection runs on a worker thread: on a noisy event image,
-        # findChessboardCorners can take seconds per frame (especially on a
-        # Pi), which would freeze the GUI loop if run inline.
+        # Detection runs on a worker thread so a slow search can never
+        # freeze the GUI loop.
         self._det_lock = threading.Lock()
-        self._det = (False, None)    # latest (found, corners)
+        self._det = (False, None)    # latest (found, centers)
         self._force_next = False
         self._running = True
         self._worker = threading.Thread(target=self._detect_loop, daemon=True)
         self._worker.start()
         self.create_subscription(Image, 'image_raw', self._on_image, 10)
         self.get_logger().info(
-            f'calibrate: board {cols}x{rows}, square {self._square} m, '
-            f'output {self._output}')
+            f'calibrate: asymmetric circle grid {cols}x{rows}, '
+            f'spacing {self._spacing} m, output {self._output}')
 
     def _on_image(self, msg):
         self._latest = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
 
     @staticmethod
-    def _event_gray(frame):
-        """Polarity-aware grayscale: ON (blue) -> white, OFF (red) -> black.
+    def _event_contrast(frame):
+        """Event activity as a bright-on-dark image, polarity-independent.
 
-        Plain luma conversion maps the renderer's blue/red polarity colors to
-        nearly the same gray, destroying the checkerboard contrast. Polarity
-        IS the contrast in an event-rendered image.
+        The renderer colors ON events blue and OFF events red; |B - R| is
+        bright wherever events happened, whatever their polarity — so the
+        blinking dots are bright blobs in both blink phases.
         """
-        b = frame[:, :, 0].astype(np.int16)
-        r = frame[:, :, 2].astype(np.int16)
-        return np.clip(128 + (b - r) // 2, 0, 255).astype(np.uint8)
+        return cv2.absdiff(frame[:, :, 0], frame[:, :, 2])
 
     def _detect_loop(self):
-        """Worker: detect at half resolution, refine at full, auto-capture."""
+        """Worker: find the circle grid in the latest frame, auto-capture."""
         while self._running:
             frame = self._latest
             if frame is None:
                 time.sleep(0.05)
                 continue
-            gray = self._event_gray(frame)
-            # Event squares are speckle clouds, not solid fills; without
-            # smoothing, corner refinement converges on noise centroids
-            # instead of the true square junctions. The blur is symmetric,
-            # so it does not shift the junctions themselves.
-            gray = cv2.GaussianBlur(gray, (9, 9), 0)
-            small = cv2.resize(gray, None, fx=0.5, fy=0.5,
-                               interpolation=cv2.INTER_AREA)
-            found, corners = cv2.findChessboardCorners(
-                small, self._grid, _FIND_FLAGS)
+            gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
+            found, centers = cv2.findCirclesGrid(
+                gray, self._grid,
+                flags=cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING,
+                blobDetector=self._blob)
             if found:
-                # back to full resolution, then sub-pixel refine there so the
-                # half-res search costs no calibration accuracy
-                corners = cv2.cornerSubPix(
-                    gray, corners * 2.0, (11, 11), (-1, -1), _SUBPIX)
                 h, w = gray.shape
                 force, self._force_next = self._force_next, False
                 self._maybe_capture(
-                    _board_params(corners, *self._grid, w, h), corners,
+                    _grid_params(centers, *self._grid, w, h), centers,
                     force=force)
             with self._det_lock:
-                self._det = (found, corners if found else None)
+                self._det = (found, centers if found else None)
 
     def tick(self):
         """Draw the live view + latest detection. Runs on the main thread."""
@@ -151,13 +160,13 @@ class Calibrator(Node):
         self._size = (w, h)
         view = frame.copy()
         with self._det_lock:
-            found, corners = self._det
+            found, centers = self._det
         if found:
-            cv2.drawChessboardCorners(view, self._grid, corners, True)
+            cv2.drawChessboardCorners(view, self._grid, centers, True)
         self._draw_overlay(view, found)
         cv2.imshow('evk4 calibrate', view)
 
-    def _maybe_capture(self, params, corners, force=False):
+    def _maybe_capture(self, params, centers, force=False):
         now = self.get_clock().now().nanoseconds * 1e-9
         if not force:
             if now - self._last_capture_t < 0.3:
@@ -166,7 +175,7 @@ class Calibrator(Node):
                     np.linalg.norm(params - p) for p in self._params) < _CAPTURE_DIST:
                 return
         self._params.append(params)
-        self._imgpoints.append(corners)
+        self._imgpoints.append(centers)
         self._last_capture_t = now
         self.get_logger().info(f'captured view {len(self._params)}')
 
@@ -204,7 +213,7 @@ class Calibrator(Node):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         status = (f'samples {len(self._params)}/{self._min_samples}  '
                   + ('READY - press C' if self.ready()
-                     else ('board OK' if found else 'show the board')))
+                     else ('grid OK' if found else 'show the circle grid')))
         cv2.putText(view, status, (10, view.shape[0] - 14),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
         cv2.putText(view, 'SPACE capture  C calibrate  Q quit', (10, 18),
@@ -218,12 +227,17 @@ class Calibrator(Node):
                 f'{self._min_samples}+ with good coverage)')
             return False
         cols, rows = self._grid
+        # Asymmetric grid object points (OpenCV convention): row pitch =
+        # spacing, odd rows offset by spacing, columns 2*spacing apart.
         objp = np.zeros((cols * rows, 3), np.float32)
-        objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2) * self._square
+        for i in range(rows):
+            for j in range(cols):
+                objp[i * cols + j] = ((2 * j + i % 2) * self._spacing,
+                                      i * self._spacing, 0)
         self.get_logger().info(
             f'calibrating on {len(self._imgpoints)} views (takes a moment)...')
         # FIX_K3: with a narrow-FOV lens the 6th-order radial term is
-        # unconstrained by realistic board coverage and overfits wildly.
+        # unconstrained by realistic coverage and overfits wildly.
         rms, k, d, _, _ = cv2.calibrateCamera(
             [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None,
             flags=cv2.CALIB_FIX_K3)

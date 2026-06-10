@@ -7,7 +7,7 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 > **Do [tuning.md](tuning.md) first.** Calibration works on the rendered
 > image, so it inherits whatever the sensor produces: at stock settings the
-> stream is noisy and unbounded, which makes the board hard to detect and
+> stream is noisy and unbounded, which makes the pattern hard to detect and
 > the preview laggy. The commands below launch with the `~/my_params.yaml`
 > you created there.
 
@@ -18,27 +18,33 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 ## What you need
 
-- A **checkerboard** of known geometry. A **flickering** checkerboard shown on
-  a screen works best: an event camera only sees change, so flashing makes the
-  whole board appear. One ships with this repo — open
-  [`docs/checkerboard.html`](checkerboard.html) in any browser on the screen
-  the camera will look at and press **F11** for fullscreen. Defaults match the
-  calibrator (9x7 squares = `board_size:=8x6`, blinking at 2 Hz); change them
-  with URL parameters, e.g. `checkerboard.html?cols=10&rows=8&hz=4`. Set the
-  monitor to **100% brightness** (avoids backlight flicker events). A printed
-  board moved briskly also works.
+- A **blinking asymmetric circle grid** shown on a screen. One ships with
+  this repo — open [`docs/circle_grid.html`](circle_grid.html) in any browser
+  on the screen the camera will look at and press **F11** for fullscreen.
+  Defaults match the calibrator (`grid_size:=4x11` — 4 circles per row, 11
+  rows, odd rows offset); change them with URL parameters, e.g.
+  `circle_grid.html?cols=4&rows=11&hz=2`. Set the monitor to **100%
+  brightness** (avoids backlight flicker events).
+
+  *Why circles and not a checkerboard?* A circle center is the centroid of
+  hundreds of events, so it stays accurate on the speckly, soft-edged images
+  an event camera produces — checkerboard corners have to be localized as
+  single points on exactly those bad edges, and drift badly. Published
+  event-camera calibrators reached the same conclusion
+  ([E-Calib](https://github.com/mohammedsalah98/E_Calib),
+  [eKalibr](https://github.com/Unsigned-Long/eKalibr)).
 - A machine with a **display** for the calibration window (run on a desktop,
   or over X-forwarding / VNC if the camera is on a headless Pi).
 - **A focused lens — check this first.** Defocus is easy to miss on an event
-  camera and ruins corner detection (edges render thick and soft, board
-  corners look rounded). To focus: aim at the flickering board at your
-  working distance, watch `image_raw` live, and turn the lens focus ring
-  until the square edges are as thin and crisp as possible. Moving the
-  board (or camera) closer and further while you turn the ring makes the
-  sweet spot much easier to find — sharpness changes fastest right around
-  the correct focus distance.
+  camera and degrades the calibration (circle detection tolerates it better
+  than checkerboard corners did, but accuracy still suffers). To focus: aim
+  at the blinking grid at your working distance, watch `image_raw` live, and
+  turn the lens focus ring until the dots are as small and crisp as
+  possible. Moving the screen (or camera) closer and further while you turn
+  the ring makes the sweet spot much easier to find — sharpness changes
+  fastest right around the correct focus distance.
 - **Expect a choppy preview.** The rendered image only refreshes when events
-  arrive — with a blinking board that is a couple of updates per second, so
+  arrive — with a blinking grid that is a couple of updates per second, so
   the calibration window feels laggy. That is normal (see tuning.md); move
   the camera slowly and hold each pose for a blink or two so the
   auto-capture can see it.
@@ -53,22 +59,23 @@ ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
 ```
 
 ```bash
-# any spare terminal -- cut sensor noise so the board stands out
+# any spare terminal -- cut sensor noise so the dots stand out
 ros2 param set /event_camera bias_diff_on 30
 ros2 param set /event_camera bias_diff_off 30
 ```
 
 ```bash
 # terminal 2 -- the calibrator
-# board_size = inner corners (cols x rows); square_size = square edge in metres
+# grid_size = circles per row x rows (circle_grid.html defaults)
 ros2 run evk4_calibration calibrate --ros-args \
-    -p board_size:=8x6 -p square_size:=0.025 \
+    -p grid_size:=4x11 \
     -r image_raw:=/event_camera/image_raw
 ```
 
-A window opens showing the live image and the detected board. Move the board
-to cover the whole field of view — near and far, all corners, and tilted at
-angles. The four bars (X / Y / Size / Skew) fill green as coverage improves;
+A window opens showing the live image; when the grid is detected, colored
+markers appear ON the dots (verify that — markers wandering between dots
+means a detection problem). Move the camera to cover the whole field of
+view — near and far, into all four image corners, and tilted at angles. The four bars (X / Y / Size / Skew) fill green as coverage improves;
 the tool **auto-captures** good views, so just keep moving until it says
 `READY`. Then press **`c`** to calibrate.
 
