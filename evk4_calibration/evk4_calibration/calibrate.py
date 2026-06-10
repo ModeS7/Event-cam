@@ -120,6 +120,11 @@ class Calibrator(Node):
                 time.sleep(0.05)
                 continue
             gray = self._event_gray(frame)
+            # Event squares are speckle clouds, not solid fills; without
+            # smoothing, corner refinement converges on noise centroids
+            # instead of the true square junctions. The blur is symmetric,
+            # so it does not shift the junctions themselves.
+            gray = cv2.GaussianBlur(gray, (9, 9), 0)
             small = cv2.resize(gray, None, fx=0.5, fy=0.5,
                                interpolation=cv2.INTER_AREA)
             found, corners = cv2.findChessboardCorners(
@@ -217,13 +222,16 @@ class Calibrator(Node):
         objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2) * self._square
         self.get_logger().info(
             f'calibrating on {len(self._imgpoints)} views (takes a moment)...')
+        # FIX_K3: with a narrow-FOV lens the 6th-order radial term is
+        # unconstrained by realistic board coverage and overfits wildly.
         rms, k, d, _, _ = cv2.calibrateCamera(
-            [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None)
+            [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None,
+            flags=cv2.CALIB_FIX_K3)
         self.get_logger().info(f'calibration RMS reprojection error: {rms:.3f} px')
-        self._write_yaml(k, d)
+        self._write_yaml(k, d, rms)
         return True
 
-    def _write_yaml(self, k, d):
+    def _write_yaml(self, k, d, rms):
         w, h = self._size
         dist = list(np.asarray(d).flatten()[:5])
         dist += [0.0] * (5 - len(dist))
@@ -245,6 +253,8 @@ class Calibrator(Node):
                                   'data': [float(x) for x in proj]},
         }
         with open(self._output, 'w') as f:
+            f.write(f'# RMS reprojection error: {rms:.3f} px '
+                    f'({len(self._imgpoints)} views)\n')
             yaml.safe_dump(calib, f, default_flow_style=None, sort_keys=False)
         self.get_logger().info(
             f'wrote {self._output} — relaunch with '
