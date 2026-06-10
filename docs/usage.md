@@ -1,5 +1,21 @@
 # Usage
 
+## One terminal per running node
+
+A ROS 2 session is several programs running at once, each holding its own
+terminal:
+
+- `ros2 launch ...` and `ros2 run ...` start a node and keep running until
+  you press **Ctrl+C** — give each its own terminal. A terminal that shows
+  nothing after such a command is usually a node working quietly, not a hang.
+- One-shot commands (`ros2 param set`, `ros2 service call`, `ros2 topic
+  list`, ...) finish on their own and can be typed into any spare terminal.
+- Source the workspace in every new terminal (the setup script adds this to
+  `~/.bashrc` so new terminals are ready automatically).
+
+When docs below show multiple `launch`/`run` commands together, each one
+goes in its own terminal.
+
 ## Launching the camera
 
 ```bash

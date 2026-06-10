@@ -33,10 +33,12 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 ## 1. Run the guided calibrator
 
 ```bash
-# camera + renderer; 'sharp' mode gives the cleanest board to detect on
+# terminal 1 -- camera + renderer; 'sharp' mode is cleanest to detect on
 ros2 launch evk4_bringup evk4.launch.py display_type:=sharp
+```
 
-# in another terminal: the calibrator
+```bash
+# terminal 2 -- the calibrator
 # board_size = inner corners (cols x rows); square_size = square edge in metres
 ros2 run evk4_calibration calibrate --ros-args \
     -p board_size:=8x6 -p square_size:=0.025 \
@@ -57,9 +59,11 @@ and writes `event_camera.yaml` in the current directory.
 ## 2. Publish camera_info and rectify
 
 Point `calibration_url` at the file you just made; the `camera_info_publisher`
-echoes it as `CameraInfo` stamped to match each `image_raw` frame:
+echoes it as `CameraInfo` stamped to match each `image_raw` frame. Each
+long-running command below gets its own terminal (see usage.md):
 
 ```bash
+# terminal 1 -- the camera, with the calibration wired in
 ros2 launch evk4_bringup evk4.launch.py \
     calibration_url:=$(pwd)/event_camera.yaml
 # -> /event_camera/camera_info
@@ -75,12 +79,21 @@ sudo apt install ros-$ROS_DISTRO-image-proc
 Then rectify:
 
 ```bash
+# terminal 2 -- rectification (prints NOTHING when healthy; that is normal)
 ros2 run image_proc rectify_node --ros-args \
     -r image:=/event_camera/image_raw \
     -r camera_info:=/event_camera/camera_info \
     -r image_rect:=/event_camera/image_rect
+```
+
+```bash
+# terminal 3 -- view the undistorted image
 ros2 run rqt_image_view rqt_image_view /event_camera/image_rect
 ```
+
+To judge the calibration, hold something straight (door frame, monitor edge)
+near the image **corners**: straight lines in `image_rect` = good; curved or
+smeared corners = recalibrate with better corner coverage.
 
 To keep a calibration with the repo, copy the YAML into
 `evk4_bringup/config/calibration/` (it ships a zero-distortion placeholder).
