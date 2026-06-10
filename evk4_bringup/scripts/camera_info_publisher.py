@@ -14,6 +14,8 @@ driver stamped.
         -r camera_info:=/event_camera/camera_info
 """
 
+import struct
+
 import yaml
 
 import rclpy
@@ -47,13 +49,24 @@ class CameraInfoPublisher(Node):
         self._info = _load_camera_info(url)
         self._pub = self.create_publisher(CameraInfo, 'camera_info', 10)
         # image_transport publishes image_raw with default (reliable) QoS.
-        self._sub = self.create_subscription(Image, 'image_raw', self._on_image, 10)
+        # raw=True delivers the serialized bytes: we only need the 16-byte
+        # header, and full deserialization of a 2.7 MB image at 25 Hz costs
+        # a third of a Pi core.
+        self._sub = self.create_subscription(
+            Image, 'image_raw', self._on_image, 10, raw=True)
         self.get_logger().info(
             f'publishing camera_info from {url} '
             f'({self._info.width}x{self._info.height})')
 
-    def _on_image(self, image):
-        self._info.header = image.header   # same stamp and frame_id
+    def _on_image(self, raw):
+        # CDR layout: 4-byte encapsulation (byte 1 odd = little-endian), then
+        # header.stamp.sec (int32), .nanosec (uint32), frame_id length
+        # (uint32, includes the trailing NUL), frame_id bytes.
+        fmt = '<iII' if raw[1] & 1 else '>iII'
+        sec, nanosec, slen = struct.unpack_from(fmt, raw, 4)
+        self._info.header.stamp.sec = sec
+        self._info.header.stamp.nanosec = nanosec
+        self._info.header.frame_id = raw[16:15 + slen].decode('utf-8', 'replace')
         self._pub.publish(self._info)
 
 
