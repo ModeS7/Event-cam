@@ -20,7 +20,15 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   camera and ruins corner detection (edges render thick and soft, board
   corners look rounded). To focus: aim at the flickering board at your
   working distance, watch `image_raw` live, and turn the lens focus ring
-  until the square edges are as thin and crisp as possible.
+  until the square edges are as thin and crisp as possible. Moving the
+  board (or camera) closer and further while you turn the ring makes the
+  sweet spot much easier to find — sharpness changes fastest right around
+  the correct focus distance.
+- **Expect a choppy preview.** The rendered image only refreshes when events
+  arrive — with a blinking board that is a couple of updates per second, so
+  the calibration window feels laggy. That is normal (see tuning.md); move
+  the camera slowly and hold each pose for a blink or two so the
+  auto-capture can see it.
 
 ## 1. Run the guided calibrator
 
