@@ -110,7 +110,7 @@ class Calibrator(Node):
 
         self._bridge = CvBridge()
         self._blob = _make_blob_detector()
-        self._latest = None          # most recent frame (bgr)
+        self._latest = None          # most recent (frame bgr, header)
         self._frame_seq = 0          # bumped per received frame
         self._params = []            # per-sample [x,y,size,skew]
         self._imgpoints = []         # per-sample circle centers
@@ -134,22 +134,9 @@ class Calibrator(Node):
     # ----------------------------------------------------------------- input
     def _on_image(self, msg):
         frame = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
-        self._latest = frame
+        self._latest = (frame, msg.header)
         self._size = (msg.width, msg.height)
         self._frame_seq += 1
-        # Annotated view for rqt_image_view; skipped entirely when nobody
-        # is watching (the publisher is lazy like the rest of the pipeline).
-        if self._pub.get_subscription_count() == 0:
-            return
-        view = frame.copy()
-        with self._det_lock:
-            found, centers = self._det
-        if found:
-            cv2.drawChessboardCorners(view, self._grid, centers, True)
-        self._draw_overlay(view, found)
-        out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
-        out.header = msg.header
-        self._pub.publish(out)
 
     @staticmethod
     def _event_contrast(frame):
@@ -177,7 +164,7 @@ class Calibrator(Node):
                 time.sleep(0.02)
                 continue
             seen = self._frame_seq
-            frame = self._latest
+            frame, header = self._latest
             gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
             small = cv2.resize(gray, None, fx=0.5, fy=0.5,
                                interpolation=cv2.INTER_AREA)
@@ -197,6 +184,17 @@ class Calibrator(Node):
                     _grid_params(centers, *self._grid, w, h), centers)
             with self._det_lock:
                 self._det = (bool(found), centers if found else None)
+            # Annotated view, drawn on the exact frame that was analyzed so
+            # markers always sit on the dots they were found in. Lazy:
+            # composed only while someone watches.
+            if self._pub.get_subscription_count() > 0:
+                view = frame.copy()
+                if found:
+                    cv2.drawChessboardCorners(view, self._grid, centers, True)
+                self._draw_overlay(view, bool(found))
+                out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
+                out.header = header
+                self._pub.publish(out)
             if not self._done and self.ready():
                 self._done = True
                 self._finish()
