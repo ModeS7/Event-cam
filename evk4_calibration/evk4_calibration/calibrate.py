@@ -36,6 +36,7 @@ import yaml
 import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Image
 
 # Detection runs beside the camera pipeline, often on a small board; without
@@ -155,8 +156,14 @@ class Calibrator(Node):
         self._det_lock = threading.Lock()
         self._det = (False, None)    # latest (found, centers)
         self._running = True
-        self._pub = self.create_publisher(Image, '~/overlay', 10)
-        self.create_subscription(Image, 'image_raw', self._on_image, 10)
+        # Depth-1 queues: only the NEWEST frame matters to a live view and
+        # to detection. A deeper queue silently adds a standing several-
+        # hundred-ms delay whenever the callback is briefly slower than the
+        # frame rate (it fills once and never drains).
+        self._pub = self.create_publisher(Image, '~/overlay', 1)
+        self.create_subscription(
+            Image, 'image_raw', self._on_image,
+            QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT))
         self._worker = threading.Thread(target=self._detect_loop, daemon=True)
         self._worker.start()
         self.get_logger().info(
