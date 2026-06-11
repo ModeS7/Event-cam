@@ -77,11 +77,12 @@ ros2 param set /event_camera bias_diff_off 100
 (Or put these values in a calibration copy of your params file. They revert
 to your YAML's values on the next launch.)
 
-(Equivalent pieces, if you ever want them separately: `evk4.launch.py` for
-the camera, `ros2 run evk4_calibration calibrate` for the headless
-calibrator — it publishes its view on `/calibrate/overlay` — and
-`rqt_image_view` to watch. Arguments: `grid_size` (default `5x17`, matching
-`circle_grid.html`) and `output` (default `event_camera.yaml`).)
+| Argument | Default | Description |
+|---|---|---|
+| `params_file` | `''` (stock) | Driver params YAML — use your `~/my_params.yaml` |
+| `grid_size` | `5x17` | Circles per row x rows; must match the displayed grid |
+| `output` | `event_camera.yaml` | Where the calibration is written |
+| `display_type` | `time_slice` | Renderer mode (`sharp` lags on quiet scenes) |
 
 The overlay shows the live image; when the grid is detected, colored markers
 appear ON the dots (verify that — markers wandering between dots means a
