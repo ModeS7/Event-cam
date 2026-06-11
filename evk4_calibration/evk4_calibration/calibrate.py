@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guided intrinsic calibration for the EVK4 — a self-contained OpenCV tool.
+"""Guided intrinsic calibration for the EVK4 — a headless ROS 2 node.
 
 Uses a blinking ASYMMETRIC CIRCLE GRID (open docs/circle_grid.html fullscreen
 on a monitor). Circle centers are centroids of many events, which makes them
@@ -7,24 +7,23 @@ robust to the speckle and soft edges of event-rendered images — the reason
 every modern event-camera calibrator (E-Calib, eKalibr) uses circles rather
 than checkerboards.
 
-A window shows the live rendered image with the detected grid. Move the
-camera around; the tool AUTO-CAPTURES views that improve coverage (the
-X / Y / Size / Skew bars fill up). When coverage is good, press `c` to run
-OpenCV calibration and write a camera_info YAML that evk4_bringup's
-`calibration_url` consumes.
+The node has no window of its own: it publishes its annotated view (detected
+grid + coverage bars) on `~/overlay`, watched with the same viewer used
+everywhere else in this repo. It AUTO-CAPTURES views that improve coverage,
+and once coverage is good it calibrates by itself, writes a camera_info YAML
+that evk4_bringup's `calibration_url` consumes, logs the RMS, and exits.
 
-    # 1. camera + renderer, with your tuned params (see docs/tuning.md)
+    # terminal 1 -- camera + renderer, with your tuned params (tuning.md)
     ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \\
         params_file:=$HOME/my_params.yaml
-    # 2. this tool (grid_size = circles per row x rows, docs/circle_grid.html
-    #    defaults; spacing only matters for absolute scale)
+    # terminal 2 -- the calibrator (finishes and exits by itself)
     ros2 run evk4_calibration calibrate --ros-args \\
-        -p grid_size:=5x17 \\
         -r image_raw:=/event_camera/image_raw
+    # terminal 3 -- watch progress (any machine with ROS)
+    ros2 run rqt_image_view rqt_image_view /calibrate/overlay
 
-Keys: SPACE force-capture · c calibrate · q quit.
-
-Needs a display (run on a desktop, or over X-forwarding / VNC).
+Move the camera to cover the field of view: near/far, all four image
+corners, tilted. Ctrl+C aborts without writing anything.
 """
 
 import math
@@ -95,7 +94,7 @@ def _grid_params(centers, cols, rows, w, h):
 
 
 class Calibrator(Node):
-    """Collect well-distributed circle-grid views and calibrate on demand."""
+    """Collect well-distributed circle-grid views, then calibrate and exit."""
 
     def __init__(self):
         super().__init__('calibrate')
@@ -118,22 +117,40 @@ class Calibrator(Node):
         self._imgpoints = []         # per-sample circle centers
         self._size = None            # (w, h)
         self._last_capture_t = 0.0
+        self._done = False
         # Detection runs on a worker thread so a slow search can never
-        # freeze the GUI loop.
+        # block the node's callbacks.
         self._det_lock = threading.Lock()
         self._det = (False, None)    # latest (found, centers)
-        self._force_next = False
         self._running = True
+        self._pub = self.create_publisher(Image, '~/overlay', 10)
+        self.create_subscription(Image, 'image_raw', self._on_image, 10)
         self._worker = threading.Thread(target=self._detect_loop, daemon=True)
         self._worker.start()
-        self.create_subscription(Image, 'image_raw', self._on_image, 10)
         self.get_logger().info(
             f'calibrate: asymmetric circle grid {cols}x{rows}, '
-            f'spacing {self._spacing} m, output {self._output}')
+            f'spacing {self._spacing} m, output {self._output} — watch '
+            f'progress on {self.get_name()}/overlay')
 
+    # ----------------------------------------------------------------- input
     def _on_image(self, msg):
-        self._latest = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
+        frame = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
+        self._latest = frame
+        self._size = (msg.width, msg.height)
         self._frame_seq += 1
+        # Annotated view for rqt_image_view; skipped entirely when nobody
+        # is watching (the publisher is lazy like the rest of the pipeline).
+        if self._pub.get_subscription_count() == 0:
+            return
+        view = frame.copy()
+        with self._det_lock:
+            found, centers = self._det
+        if found:
+            cv2.drawChessboardCorners(view, self._grid, centers, True)
+        self._draw_overlay(view, found)
+        out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
+        out.header = msg.header
+        self._pub.publish(out)
 
     @staticmethod
     def _event_contrast(frame):
@@ -145,12 +162,13 @@ class Calibrator(Node):
         """
         return cv2.absdiff(frame[:, :, 0], frame[:, :, 2])
 
+    # ------------------------------------------------------------- detection
     def _detect_loop(self):
         """Worker: find the circle grid in each NEW frame, auto-capture.
 
-        Throttled: a frame is searched once (the grid blinks a few times a
-        second; re-searching an unchanged frame is pure waste), with a pause
-        between searches so detection never starves the camera pipeline.
+        Searches at HALF resolution as a cheap fast-path on every frame;
+        only a hit pays for a full-resolution pass for accurate centers.
+        Finishes the whole calibration once coverage is good.
         """
         seen = -1
         n_dots = self._grid[0] * self._grid[1]
@@ -161,14 +179,13 @@ class Calibrator(Node):
                 continue
             seen = self._frame_seq
             frame = self._latest
-            # Search at HALF resolution — the cheap fast-path that runs on
-            # every frame. Only a successful hit pays for a full-resolution
-            # pass to get accurate centers.
             gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
             small = cv2.resize(gray, None, fx=0.5, fy=0.5,
                                interpolation=cv2.INTER_AREA)
             blobs = self._blob.detect(small)
             found, centers = False, None
+            # Clutter guard: a frame with far more (or fewer) blobs than
+            # dots cannot yield a clean grid, and search cost explodes.
             if n_dots // 2 <= len(blobs) <= 4 * n_dots:
                 found_s, _ = cv2.findCirclesGrid(
                     small, self._grid, flags=flags, blobDetector=self._blob)
@@ -177,58 +194,33 @@ class Calibrator(Node):
                         gray, self._grid, flags=flags, blobDetector=self._blob)
             if found:
                 h, w = gray.shape
-                force, self._force_next = self._force_next, False
                 self._maybe_capture(
-                    _grid_params(centers, *self._grid, w, h), centers,
-                    force=force)
+                    _grid_params(centers, *self._grid, w, h), centers)
             with self._det_lock:
                 self._det = (bool(found), centers if found else None)
+            if not self._done and self.ready():
+                self._done = True
+                self._finish()
+                return
             time.sleep(0.1)
 
-    def tick(self):
-        """Draw the live view + latest detection. Runs on the main thread.
-
-        Redraws only when a new frame arrived — copying and blitting a
-        1280x720 image 60 times a second for an unchanged view costs real
-        CPU on a small board.
-        """
-        if self._latest is None:
-            return
-        if getattr(self, '_shown_seq', -1) == self._frame_seq:
-            return
-        self._shown_seq = self._frame_seq
-        frame = self._latest
-        h, w = frame.shape[:2]
-        self._size = (w, h)
-        view = frame.copy()
-        with self._det_lock:
-            found, centers = self._det
-        if found:
-            cv2.drawChessboardCorners(view, self._grid, centers, True)
-        self._draw_overlay(view, found)
-        cv2.imshow('evk4 calibrate', view)
-
-    def _maybe_capture(self, params, centers, force=False):
+    def _maybe_capture(self, params, centers):
         now = self.get_clock().now().nanoseconds * 1e-9
-        if not force:
-            if now - self._last_capture_t < 0.3:
-                return
-            if self._params and min(
-                    np.linalg.norm(params - p) for p in self._params) < _CAPTURE_DIST:
-                return
+        if now - self._last_capture_t < 0.3:
+            return
+        if self._params and min(
+                np.linalg.norm(params - p) for p in self._params) < _CAPTURE_DIST:
+            return
         self._params.append(params)
         self._imgpoints.append(centers)
         self._last_capture_t = now
         self.get_logger().info(f'captured view {len(self._params)}')
 
-    def force_capture(self):
-        """Capture the next detection regardless of coverage (SPACE)."""
-        self._force_next = True
-
     def stop(self):
         self._running = False
         self._worker.join(timeout=2.0)
 
+    # -------------------------------------------------------------- coverage
     def _coverage(self):
         """Per-parameter coverage fraction in [0,1] from captured samples."""
         if len(self._params) < 2:
@@ -254,20 +246,16 @@ class Calibrator(Node):
             cv2.putText(view, f'{k:5s}', (216, yb - 1),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         status = (f'samples {len(self._params)}/{self._min_samples}  '
-                  + ('READY - press C' if self.ready()
-                     else ('grid OK' if found else 'show the circle grid')))
+                  + ('READY - calibrating' if self.ready()
+                     else ('grid OK' if found else 'show the blinking circle grid')))
         cv2.putText(view, status, (10, view.shape[0] - 14),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
-        cv2.putText(view, 'SPACE capture  C calibrate  Q quit', (10, 18),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
+        cv2.putText(view, 'auto-captures distinct views; finishes by itself',
+                    (10, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
 
-    def calibrate(self):
-        """Run OpenCV calibration and write the camera_info YAML. Returns ok."""
-        if len(self._params) < self._min_samples:
-            self.get_logger().warning(
-                f'only {len(self._params)} views; keep going (need '
-                f'{self._min_samples}+ with good coverage)')
-            return False
+    # ----------------------------------------------------------- calibration
+    def _finish(self):
+        """Run OpenCV calibration, write the YAML, log the RMS, and exit."""
         cols, rows = self._grid
         # Asymmetric grid object points (OpenCV convention): row pitch =
         # spacing, odd rows offset by spacing, columns 2*spacing apart.
@@ -277,7 +265,8 @@ class Calibrator(Node):
                 objp[i * cols + j] = ((2 * j + i % 2) * self._spacing,
                                       i * self._spacing, 0)
         self.get_logger().info(
-            f'calibrating on {len(self._imgpoints)} views (takes a moment)...')
+            f'coverage complete — calibrating on {len(self._imgpoints)} views '
+            '(takes a moment)...')
         # FIX_K3: with a narrow-FOV lens the 6th-order radial term is
         # unconstrained by realistic coverage and overfits wildly.
         rms, k, d, _, _ = cv2.calibrateCamera(
@@ -285,7 +274,7 @@ class Calibrator(Node):
             flags=cv2.CALIB_FIX_K3)
         self.get_logger().info(f'calibration RMS reprojection error: {rms:.3f} px')
         self._write_yaml(k, d, rms)
-        return True
+        rclpy.shutdown()
 
     def _write_yaml(self, k, d, rms):
         w, h = self._size
@@ -318,25 +307,15 @@ class Calibrator(Node):
 
 
 def main(args=None):
-    """Run the interactive calibration loop until the user quits."""
+    """Run until calibration completes (or Ctrl+C aborts)."""
     rclpy.init(args=args)
     node = Calibrator()
     try:
-        while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.005)
-            node.tick()
-            key = cv2.waitKey(15) & 0xFF
-            if key in (ord('q'), 27):
-                break
-            if key == ord(' '):
-                node.force_capture()
-            elif key == ord('c') and node.calibrate():
-                break
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
         node.stop()
-        cv2.destroyAllWindows()
         node.destroy_node()
         rclpy.try_shutdown()
 

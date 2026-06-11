@@ -34,8 +34,10 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   event-camera calibrators reached the same conclusion
   ([E-Calib](https://github.com/mohammedsalah98/E_Calib),
   [eKalibr](https://github.com/Unsigned-Long/eKalibr)).
-- A machine with a **display** for the calibration window (run on a desktop,
-  or over X-forwarding / VNC if the camera is on a headless Pi).
+- A way to watch the calibrator's progress: it publishes an annotated view
+  on `/calibrate/overlay`, viewed with `rqt_image_view` like every other
+  image topic in this repo — on the camera machine or any other machine on
+  the same ROS network (a headless camera host is fine).
 - **A focused lens — check this first.** Defocus is easy to miss on an event
   camera and degrades the calibration (circle detection tolerates it better
   than checkerboard corners did, but accuracy still suffers). To focus: aim
@@ -46,9 +48,9 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   fastest right around the correct focus distance.
 - **Expect a choppy preview.** The rendered image only refreshes when events
   arrive — with a blinking grid that is a couple of updates per second, so
-  the calibration window feels laggy. That is normal (see tuning.md); move
-  the camera slowly and hold each pose for a blink or two so the
-  auto-capture can see it.
+  the overlay feels laggy. That is normal (see tuning.md); move the camera
+  slowly and hold each pose for a blink or two so the auto-capture can see
+  it.
 
 ## 1. Run the guided calibrator
 
@@ -66,24 +68,27 @@ ros2 param set /event_camera bias_diff_off 30
 ```
 
 ```bash
-# terminal 2 -- the calibrator
+# terminal 2 -- the calibrator (headless; finishes and exits by itself)
 # grid_size = circles per row x rows (circle_grid.html defaults)
 ros2 run evk4_calibration calibrate --ros-args \
     -p grid_size:=5x17 \
     -r image_raw:=/event_camera/image_raw
 ```
 
-A window opens showing the live image; when the grid is detected, colored
-markers appear ON the dots (verify that — markers wandering between dots
-means a detection problem). Move the camera to cover the whole field of
-view — near and far, into all four image corners, and tilted at angles. The four bars (X / Y / Size / Skew) fill green as coverage improves;
-the tool **auto-captures** good views, so just keep moving until it says
-`READY`. Then press **`c`** to calibrate.
+```bash
+# terminal 3 -- watch its progress
+ros2 run rqt_image_view rqt_image_view /calibrate/overlay
+```
 
-Keys: **SPACE** force-capture the current view, **`c`** calibrate, **`q`** quit.
-
-It prints the RMS reprojection error (lower is better; under ~0.5 px is good)
-and writes `event_camera.yaml` in the current directory.
+The overlay shows the live image; when the grid is detected, colored markers
+appear ON the dots (verify that — markers wandering between dots means a
+detection problem). Move the camera to cover the whole field of view — near
+and far, into all four image corners, and tilted at angles. The four bars
+(X / Y / Size / Skew) fill green as coverage improves; the tool
+**auto-captures** good views, and once coverage is complete it **calibrates
+by itself**: it logs the RMS reprojection error in terminal 2 (lower is
+better; under ~0.5 px is good), writes `event_camera.yaml` in the directory
+it was started from, and exits. Ctrl+C aborts without writing anything.
 
 ## 2. Publish camera_info and rectify
 
