@@ -40,6 +40,11 @@ from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
+# Detection runs beside the camera pipeline, often on a small board; without
+# a cap OpenCV parallelizes its calls across every core and the calibrator
+# starves the renderer and viewer.
+cv2.setNumThreads(2)
+
 # Coverage targets: how wide the spread of each parameter should get before
 # that bar is "full". Tuned for a foolproof-but-not-tedious sweep.
 _TARGET_SPAN = {'x': 0.6, 'y': 0.6, 'size': 0.35, 'skew': 0.3}
@@ -100,6 +105,7 @@ class Calibrator(Node):
         self._bridge = CvBridge()
         self._blob = _make_blob_detector()
         self._latest = None          # most recent frame (bgr)
+        self._frame_seq = 0          # bumped per received frame
         self._params = []            # per-sample [x,y,size,skew]
         self._imgpoints = []         # per-sample circle centers
         self._size = None            # (w, h)
@@ -119,6 +125,7 @@ class Calibrator(Node):
 
     def _on_image(self, msg):
         self._latest = self._bridge.imgmsg_to_cv2(msg, 'bgr8')
+        self._frame_seq += 1
 
     @staticmethod
     def _event_contrast(frame):
@@ -131,17 +138,31 @@ class Calibrator(Node):
         return cv2.absdiff(frame[:, :, 0], frame[:, :, 2])
 
     def _detect_loop(self):
-        """Worker: find the circle grid in the latest frame, auto-capture."""
+        """Worker: find the circle grid in each NEW frame, auto-capture.
+
+        Throttled: a frame is searched once (the grid blinks a few times a
+        second; re-searching an unchanged frame is pure waste), with a pause
+        between searches so detection never starves the camera pipeline.
+        """
+        seen = -1
+        n_dots = self._grid[0] * self._grid[1]
         while self._running:
-            frame = self._latest
-            if frame is None:
-                time.sleep(0.05)
+            if self._latest is None or self._frame_seq == seen:
+                time.sleep(0.02)
                 continue
+            seen = self._frame_seq
+            frame = self._latest
             gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
-            found, centers = cv2.findCirclesGrid(
-                gray, self._grid,
-                flags=cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING,
-                blobDetector=self._blob)
+            # Pre-count blobs: grid-search cost explodes with clutter, and a
+            # frame with far more (or fewer) blobs than dots cannot yield a
+            # clean detection anyway.
+            blobs = self._blob.detect(gray)
+            found, centers = False, None
+            if n_dots // 2 <= len(blobs) <= 4 * n_dots:
+                found, centers = cv2.findCirclesGrid(
+                    gray, self._grid,
+                    flags=cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING,
+                    blobDetector=self._blob)
             if found:
                 h, w = gray.shape
                 force, self._force_next = self._force_next, False
@@ -149,7 +170,8 @@ class Calibrator(Node):
                     _grid_params(centers, *self._grid, w, h), centers,
                     force=force)
             with self._det_lock:
-                self._det = (found, centers if found else None)
+                self._det = (bool(found), centers if found else None)
+            time.sleep(0.15)
 
     def tick(self):
         """Draw the live view + latest detection. Runs on the main thread."""
