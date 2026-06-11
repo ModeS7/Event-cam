@@ -24,7 +24,7 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   Defaults match the calibrator (`grid_size:=5x17`, an OpenCV asymmetric
   grid drawn rotated — its bounding box is then exactly 16:9, filling a
   widescreen monitor; rotation does not affect detection). URL
-  parameters: `?cols=5&rows=17&hz=2&portrait`. Set the monitor to **100%
+  parameters: `?cols=5&rows=17&hz=4&portrait`. Set the monitor to **100%
   brightness** (avoids backlight flicker events).
 
   *Why circles and not a checkerboard?* A circle center is the centroid of
@@ -48,8 +48,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   the ring makes the sweet spot much easier to find — sharpness changes
   fastest right around the correct focus distance.
 - **Expect a choppy preview.** The rendered image only refreshes when events
-  arrive — with a blinking grid that is a couple of updates per second, so
-  the overlay feels laggy. That is normal (see tuning.md); move the camera
+  arrive — with a blinking grid that is a few updates per second, so the
+  overlay feels less smooth than video. That is normal (see tuning.md); move the camera
   slowly and hold each pose for a blink or two so the auto-capture can see
   it.
 

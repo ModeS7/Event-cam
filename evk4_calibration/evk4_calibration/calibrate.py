@@ -72,6 +72,37 @@ def _make_blob_detector():
     return cv2.SimpleBlobDetector_create(p)
 
 
+def _refine_centers(gray, centers):
+    """Refine scaled-up grid centers with local intensity centroids.
+
+    A dot's center IS the centroid of its (blurred) event blob, so a
+    windowed centroid at full resolution recovers the precision of a
+    full-resolution search at a fraction of its cost. The window is sized
+    from the grid's own spacing, so near and far boards both work.
+    """
+    pts = centers.reshape(-1, 2)
+    d = pts[:, None, :] - pts[None, :, :]
+    dist = np.sqrt((d ** 2).sum(-1))
+    np.fill_diagonal(dist, np.inf)
+    nnd = float(np.median(dist.min(axis=1)))   # nearest-neighbor pitch
+    win = int(np.clip(0.35 * nnd, 6, 40))
+    h, w = gray.shape
+    out = []
+    for x, y in pts:
+        x0, y0 = int(round(x)), int(round(y))
+        x1, x2 = max(0, x0 - win), min(w, x0 + win + 1)
+        y1, y2 = max(0, y0 - win), min(h, y0 + win + 1)
+        patch = gray[y1:y2, x1:x2].astype(np.float32)
+        m = patch.sum()
+        if m < 1e-3:
+            out.append((float(x), float(y)))
+            continue
+        ys, xs = np.mgrid[y1:y2, x1:x2]
+        out.append((float((xs * patch).sum() / m),
+                    float((ys * patch).sum() / m)))
+    return np.asarray(out, np.float32).reshape(-1, 1, 2)
+
+
 def _grid_params(centers, cols, rows, w, h):
     """Reduce a detection to (x, y, size, skew) in [0,1] for coverage tracking.
 
@@ -152,34 +183,39 @@ class Calibrator(Node):
     def _detect_loop(self):
         """Worker: find the circle grid in each NEW frame, auto-capture.
 
-        Searches at HALF resolution as a cheap fast-path on every frame;
-        only a hit pays for a full-resolution pass for accurate centers.
-        Finishes the whole calibration once coverage is good.
+        Empty frames (between blinks) are decided in microseconds and pass
+        straight through to the overlay, so the view tracks the raw stream;
+        only frames with activity pay for a half-resolution grid search,
+        and a hit is refined by full-resolution local centroids instead of
+        a second search. Finishes the calibration once coverage is good.
         """
         seen = -1
         n_dots = self._grid[0] * self._grid[1]
         flags = cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING
         while self._running:
             if self._latest is None or self._frame_seq == seen:
-                time.sleep(0.02)
+                time.sleep(0.005)
                 continue
             seen = self._frame_seq
             frame, header = self._latest
-            gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
-            small = cv2.resize(gray, None, fx=0.5, fy=0.5,
-                               interpolation=cv2.INTER_AREA)
-            blobs = self._blob.detect(small)
+            contrast = self._event_contrast(frame)
             found, centers = False, None
-            # Clutter guard: a frame with far more (or fewer) blobs than
-            # dots cannot yield a clean grid, and search cost explodes.
-            if n_dots // 2 <= len(blobs) <= 4 * n_dots:
-                found_s, _ = cv2.findCirclesGrid(
-                    small, self._grid, flags=flags, blobDetector=self._blob)
-                if found_s:
-                    found, centers = cv2.findCirclesGrid(
-                        gray, self._grid, flags=flags, blobDetector=self._blob)
+            if cv2.mean(contrast)[0] > 0.5:   # any real activity?
+                gray = cv2.GaussianBlur(contrast, (9, 9), 0)
+                small = cv2.resize(gray, None, fx=0.5, fy=0.5,
+                                   interpolation=cv2.INTER_AREA)
+                blobs = self._blob.detect(small)
+                # Clutter guard: a frame with far more (or fewer) blobs
+                # than dots cannot yield a clean grid, and search cost
+                # explodes.
+                if n_dots // 2 <= len(blobs) <= 4 * n_dots:
+                    found, centers_s = cv2.findCirclesGrid(
+                        small, self._grid, flags=flags,
+                        blobDetector=self._blob)
+                    if found:
+                        centers = _refine_centers(gray, centers_s * 2.0)
             if found:
-                h, w = gray.shape
+                h, w = frame.shape[:2]
                 self._maybe_capture(
                     _grid_params(centers, *self._grid, w, h), centers)
             with self._det_lock:
@@ -199,7 +235,6 @@ class Calibrator(Node):
                 self._done = True
                 self._finish()
                 return
-            time.sleep(0.1)
 
     def _maybe_capture(self, params, centers):
         now = self.get_clock().now().nanoseconds * 1e-9
