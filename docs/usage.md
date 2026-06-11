@@ -29,7 +29,7 @@ ros2 launch evk4_bringup evk4.launch.py
 | `bias_file` | `''` (sensor defaults) | Path to a `.bias` file to load |
 | `viz` | `true` | Also run the renderer (image topic) |
 | `fps` | `25.0` | Renderer frame rate, Hz (with `viz:=true`) |
-| `display_type` | `time_slice` | Renderer mode: `time_slice` or `sharp` |
+| `display_type` | `time_slice` | Renderer mode; `sharp` is for busy scenes only ([tuning.md](tuning.md)) |
 | `frame_id` | `event_camera_optical_frame` | TF frame stamped on all messages |
 | `sync_mode` | `standalone` | Hardware sync role: `standalone`/`primary`/`secondary` ([multi_camera.md](multi_camera.md)) |
 | `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`loopback` (sync with other sensors) |
@@ -43,13 +43,13 @@ Examples:
 ```bash
 ros2 launch evk4_bringup evk4.launch.py viz:=false           # raw events only
 ros2 launch evk4_bringup evk4.launch.py serial:=00050591     # pick a camera
-ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
+ros2 launch evk4_bringup evk4.launch.py fps:=60.0            # smoother view
 ```
 
 Tuning the camera (thresholds, timing, fps, biases) is covered in
-[tuning.md](tuning.md); calibration and undistortion in
-[calibration.md](calibration.md). Driver parameters live in
-`evk4_bringup/config/evk4_params.yaml`.
+[tuning.md](tuning.md) — including the recommended setup and your own
+`~/my_params.yaml`; calibration and undistortion in
+[calibration.md](calibration.md).
 
 **Architecture note:** the launch composes driver and renderer into a single
 container process with intra-process communication, so the high-rate event
@@ -66,6 +66,7 @@ zero-copy path.
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (default 25 fps) | `viz:=true` |
 | `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
+| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` ([calibration.md](calibration.md)) |
 
 Message headers carry the `frame_id` launch argument (default
 `event_camera_optical_frame`) — set it to match your robot's TF tree
@@ -178,10 +179,11 @@ frame rate follows scene activity: a quiet scene updates rarely (correct,
 not frozen — see [tuning.md](tuning.md)), a busy one at the full `fps`.
 
 Adjust the frame rate and mode with the `fps` and `display_type` launch
-arguments (these affect only the image, not the raw event stream):
+arguments (these affect only the image, not the raw event stream; `sharp`
+is for busy scenes only — see [tuning.md](tuning.md)):
 
 ```bash
-ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
+ros2 launch evk4_bringup evk4.launch.py fps:=60.0
 ```
 
 For an undistorted image, calibrate and rectify — see
@@ -190,10 +192,9 @@ For an undistorted image, calibrate and rectify — see
 ## Bias tuning
 
 Biases are the sensor's analog settings (contrast thresholds, bandwidth,
-…). The factory defaults are a good start; tune only with a reason. The
-verified launch → `ros2 param set` → `save_biases` workflow is documented
-in [`config/biases/README.md`](../evk4_bringup/config/biases/README.md);
-see Prophesee's bias documentation for what the individual biases do.
+…). Set them in your params YAML for startup and adjust live with
+`ros2 param set` — the workflow, the per-bias effects, and the
+noise-reduction ladder are in [tuning.md](tuning.md).
 
 ## Recording and playback
 

@@ -13,7 +13,7 @@ container, biases, and calibration.
 
 - **One USB 3.x connection per camera.** A single EVK4 already pushes tens of
   MB/s; two on the same USB controller can saturate it. Prefer separate USB3
-  host ports, and use Event Rate Control (`erc_*` in `evk4_params.yaml`) if you
+  host ports, and use Event Rate Control (`erc_*` in your params YAML — see tuning.md) if you
   saturate.
 - **A sync cable** between cameras if you need time-aligned streams (you do,
   for 3D). One camera drives the sync signal (`primary`), the others follow it

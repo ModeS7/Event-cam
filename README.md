@@ -79,6 +79,7 @@ see the recipe at the top of [docs/tuning.md](docs/tuning.md).
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (25 fps render) | `viz:=true` (default) |
 | `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
+| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` |
 
 Raw events are the processing contract — decode them with
 [event_camera_py](https://github.com/ros-event-camera/event_camera_py) (Python)

@@ -41,7 +41,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 - **A focused lens — check this first.** Defocus is easy to miss on an event
   camera and degrades the calibration (circle detection tolerates it better
   than checkerboard corners did, but accuracy still suffers). To focus: aim
-  at the blinking grid at your working distance, watch `image_raw` live, and
+  at the blinking grid at your working distance, watch the live image (the
+  overlay, or `image_raw`), and
   turn the lens focus ring until the dots are as small and crisp as
   possible. Moving the screen (or camera) closer and further while you turn
   the ring makes the sweet spot much easier to find — sharpness changes

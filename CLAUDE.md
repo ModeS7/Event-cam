@@ -82,25 +82,85 @@ well-documented, easy to extend.
   credentials**. Docs must never assume push access or secrets there. (The
   dev machine pushes; it is set up with an SSH key to github.com.)
 
-## Engineering principles
+## Project protocol (all lessons consolidated 2026-06-11)
 
-- Build on, don't reinvent: our driver wraps the OpenEB SDK (`Metavision::`
-  HAL/Camera), not a from-scratch USB/decode stack; reuse
-  `event_camera_codecs`, `event_camera_renderer`, `event_camera_py`,
-  `event_camera_tools` and the `EventPacket` wire format.
-- DRY, KISS, SRP. Clean separation: driver vs launch/config vs example
-  consumer nodes vs docs.
-- **One mechanism per job (user rule, 2026-06-11):** one viewer for every
-  image topic (`rqt_image_view` — nodes publish, viewers view; no bespoke
-  GUI windows), one canonical launch (`evk4.launch.py`), one params
-  hierarchy (stock yaml -> recommended yaml -> user's `~/my_params.yaml`).
-  Multiple sources of truth defeat the build-upon-it mission. Known
-  deliberate duplication: the topic-contract table lives in README AND
-  usage.md — update both together.
-- Fail fast and loud: clear errors if the camera isn't found or a dependency
-  is missing.
-- Pin versions; document exact apt packages and the distro.
-- No speculative features.
+### Architecture
+- Build on, don't reinvent: OpenEB SDK + the ros-event-camera ecosystem;
+  own a component only when coverage demands it (the driver rewrite was
+  justified by sensor-facility coverage, nothing less).
+- **One mechanism per job**: one viewer for every image topic
+  (`rqt_image_view`; nodes publish, viewers view — no bespoke GUI windows),
+  one canonical launch (`evk4.launch.py`), one params hierarchy (stock yaml
+  -> recommended yaml -> the user's `~/my_params.yaml`, which carries the
+  WHOLE sensor setup including startup biases). One docs home per topic,
+  cross-linked. Known deliberate duplication: the topic table lives in
+  README AND usage.md — update both together.
+- Defaults are stock and predictable; the tuned setup is explicit, shipped
+  (`evk4_params_recommended.yaml`), and taught as a recipe whose output is
+  the user's own artifact.
+- High-rate paths are composable components with intra-process comms in ONE
+  container; everything is lazy (publish/compute only while subscribed); no
+  Python on per-frame hot paths (a Python header-copier cost half a Pi
+  core; the same logic as a composed C++ component costs ~nothing).
+- Processing loops need a cheap fast-path and a throttle (search only new
+  frames, bounded OpenCV threads, clutter guards) or they starve the
+  pipeline they serve.
+- The source workspace (`3rd_party_ws`) is modifiable by design, but local
+  patches are a liability — every variant of the renderer patch bit us.
+  Any load-bearing local patch must be distributed (fork + upstream PR) or
+  dropped. Currently load-bearing: the renderer pending-frame cap
+  (drop-NEWEST only: stock replays a stale backlog = seconds of lag after
+  quiet; drop-oldest starves slow decoders into total silence).
+
+### Performance model (hardware-validated)
+- Pipeline cost scales with EVENT RATE. ERC is the latency/CPU lever:
+  10 Mev/s (~35 MB/s) renders smoothly on a Pi 5; a 100 M cap (~180 MB/s
+  peaks) stutters unusably. Biases affect image quality and CPU only — in
+  all testing they never measurably changed latency. Do not conflate them.
+- `display_type` sharp = event-count frames: crisp on busy scenes,
+  seconds-late on quiet ones (the count takes seconds to fill). Default
+  `time_slice` is honest about time at any rate. Sharp is for deliberately
+  busy scenes only.
+- `fps` scales display-path cost roughly linearly; 25 is the Pi default.
+
+### Validation
+- Nothing is "done" until hardware-validated; written != proven (lens
+  focus, corner drift, transport poisoning were all caught only on real
+  hardware by a real user).
+- Final validation is the STUDENT EXPERIENCE: the user runs the documented
+  flow cold, exactly as written. It catches what headless probes cannot.
+  Remote debugging is fine but transparent — announce every process
+  started/stopped on the user's machines, never leave detached phantoms.
+- Change one variable at a time; controlled A/B comparisons settle theories
+  that days of reasoning cannot. When "it worked yesterday", suspect the
+  code that changed since yesterday before inventing theories.
+- Probes lie: `ros2 topic hz | grep` buffers (write to a file, read after
+  exit); `find` skips directory symlinks; check what the running process
+  actually has loaded (`/proc/PID/maps`) before trusting a rebuild.
+- Record validated numbers WITH DATES in the docs (ERC envelope, CPU
+  figures, the RMS in every calibration YAML header).
+
+### Documentation
+- The docs are a wiki/tutorial for students: assume no ROS "common
+  knowledge" (terminal-per-node, sourcing, QoS are all explained or
+  linked); state surprising-but-correct behavior right where it happens
+  ("prints NOTHING when healthy", choppy blink preview, frozen-at-quiet).
+- Pages SEQUENCE and hand off artifacts: tuning produces
+  `~/my_params.yaml`; calibration consumes it and produces
+  `event_camera.yaml`; rectification consumes both. Never show a command
+  that ignores an earlier page's artifact.
+- Neutral voice, no maintainer asides; every student stumble becomes a doc
+  fix at the exact place of the stumble.
+
+### Operations
+- Stop ROS nodes with Ctrl+C (SIGINT), NEVER `kill -9`: SIGKILL leaves
+  Fast DDS shared-memory debris in `/dev/shm` (including `sem.fastrtps_*`
+  port mutexes) that silently poisons all later communication, and can
+  knock the EVK4 off the USB bus. Recovery procedure: troubleshooting.md.
+- Runtime machines consume this repo via `git pull` only — no credentials,
+  no file pushes.
+- Fail fast and loud; pin versions; no speculative features; no per-file
+  license headers (root LICENSE covers the repo).
 
 ## Verified ecosystem facts (researched 2026-06, do not re-derive)
 
@@ -247,12 +307,15 @@ Done:
       memory `sdk-rewrite-decision`.)
 
 Next:
+- [ ] Distribute the renderer pending-frame-cap patch (fork + upstream PR to
+      ros-event-camera) — currently LOCAL to the lab Pi's 3rd_party_ws; a
+      fresh student install gets stock's backlog lag.
+- [ ] End-to-end circle-grid calibration run by the user (the RMS number) —
+      the last unvalidated flow.
 - [ ] `evk4_sdk_advanced` — opt-in full Metavision SDK Pro layer
       (calibration/CV/ML/analytics) over our `EventPacket` stream. Blocked on
       the user's SDK Pro license + ARM source build.
-- [ ] Robustness: optional multithreaded capture + per-second stats line.
-- [ ] x86 re-validation of `evk4_driver` on the lab PC; high event-rate drop
-      check (needs a dynamic scene — wave a hand with `event_rate` running).
+- [ ] x86 re-validation of `evk4_driver` on the lab PC.
 
 ## Conventions
 
@@ -271,9 +334,6 @@ Next:
   "build this repo" for our `evk4_*` packages and a `$ROS_DISTRO`-derived apt
   name for external ones. OpenEB ships arm64 + x86 apt binaries, so there is
   no irreducibly non-portable piece. No `ros-jazzy-*` literals in code.
-- No per-file license headers (user decision 2026-06-05): the root LICENSE
-  file covers the repo. Do not add copyright boilerplate to source files.
 - Verify package XML/builds with `colcon build` where Jazzy is available;
   otherwise validate `package.xml` as XML and note the limitation.
-- Reference upstream docs rather than duplicating them; pin exact package
-  versions in docs.
+- Reference upstream docs rather than duplicating them.
