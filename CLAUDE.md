@@ -109,7 +109,8 @@ well-documented, easy to extend.
   subscription queue fills once when the callback is briefly slow and then
   holds a standing several-hundred-ms backlog that never drains — the
   renderer slot-backlog lesson, one level up (calibrator overlay,
-  2026-06-11: depth 10 = +0.36 s; depth 1 = +10 ms over the raw stream).
+  2026-06-11: depth 10 = +0.36 s; depth 1 = tens of ms — full-res overlay
+  ships at ~+34 ms vs image_raw, user-accepted).
 - The source workspace (`3rd_party_ws`) is modifiable by design, but local
   patches are a liability — every variant of the renderer patch bit us.
   Any load-bearing local patch must be distributed (fork + upstream PR) or
@@ -263,8 +264,12 @@ well-documented, easy to extend.
   synthetically): |B-R| polarity-contrast → GaussianBlur →
   SimpleBlobDetector (3 threshold passes, not the default 17) →
   half-res fast-path `findCirclesGrid(ASYMMETRIC|CLUSTERING)` + full-res
-  confirm on hit, throttled to new frames, `cv2.setNumThreads(2)` — all on a
-  worker thread. Performance lesson (2026-06-11): an unthrottled full-res
+  centroid refinement on hit, throttled to new frames, `cv2.setNumThreads(2)`
+  — all on a worker thread. Overlay architecture (2026-06-11): the live view
+  is DECOUPLED from detection — the subscription callback republishes every
+  frame immediately (full-res; bars/status), the worker republishes analyzed
+  frames with markers; BOTH ends use depth-1 QoS (deeper queues = standing
+  latency). `debug_timing` param logs per-cycle stage breakdown + frame age. Performance lesson (2026-06-11): an unthrottled full-res
   blob detector starved the whole Pi pipeline; detection must have a cheap
   fast-path. **Checkerboards were tried and ABANDONED** (hardware experience
   2026-06-10): saddle-point corners drift on speckle/gappy event edges even
