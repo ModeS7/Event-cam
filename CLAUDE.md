@@ -90,13 +90,6 @@ well-documented, easy to extend.
   `event_camera_tools` and the `EventPacket` wire format.
 - DRY, KISS, SRP. Clean separation: driver vs launch/config vs example
   consumer nodes vs docs.
-- **One mechanism per job (user rule, 2026-06-11):** one viewer for every
-  image topic (`rqt_image_view` — nodes publish, viewers view; no bespoke
-  GUI windows), one canonical launch (`evk4.launch.py`), one params
-  hierarchy (stock yaml -> recommended yaml -> user's `~/my_params.yaml`).
-  Multiple sources of truth defeat the build-upon-it mission. Known
-  deliberate duplication: the topic-contract table lives in README AND
-  usage.md — update both together.
 - Fail fast and loud: clear errors if the camera isn't found or a dependency
   is missing.
 - Pin versions; document exact apt packages and the distro.
@@ -179,33 +172,24 @@ well-documented, easy to extend.
   each image_raw header (stamp+frame_id) → `image_proc` rectify pairs them
   cleanly. Calibration YAMLs live in `config/calibration/`
   (committed one is a zero-distortion PLACEHOLDER). Docs: tuning.md, calibration.md.
-- **Calibration tool (decision 2026-06-09; pattern 2026-06-10; headless
-  2026-06-11):** our OWN guided calibrator `evk4_calibration` (ament_python,
-  deps rclpy/sensor_msgs/cv_bridge/opencv/numpy) —
-  `ros2 run evk4_calibration calibrate`. **HEADLESS, no GUI window** (the
-  one-mechanism-per-job rule): publishes its annotated view on `~/overlay`
-  (lazy — only when subscribed), watched in `rqt_image_view`; auto-captures
-  distinct views (X/Y/Size/Skew coverage), and at READY auto-calibrates
-  (`cv2.calibrateCamera` + `CALIB_FIX_K3`), writes the YAML (RMS in header),
-  logs RMS, and EXITS; Ctrl+C aborts. No keys, no display needed on the
-  camera host. Uses a **blinking ASYMMETRIC CIRCLE GRID**
-  (`docs/circle_grid.html`, default `grid_size:=5x17`, drawn rotated so the
-  bbox is exactly 16:9; rotation-independent detection verified
-  synthetically): |B-R| polarity-contrast → GaussianBlur →
-  SimpleBlobDetector (3 threshold passes, not the default 17) →
-  half-res fast-path `findCirclesGrid(ASYMMETRIC|CLUSTERING)` + full-res
-  confirm on hit, throttled to new frames, `cv2.setNumThreads(2)` — all on a
-  worker thread. Performance lesson (2026-06-11): an unthrottled full-res
-  blob detector starved the whole Pi pipeline; detection must have a cheap
-  fast-path. **Checkerboards were tried and ABANDONED** (hardware experience
-  2026-06-10): saddle-point corners drift on speckle/gappy event edges even
-  with blur — circle centroids average hundreds of events and are robust
-  (same conclusion as E-Calib and eKalibr; cited in calibration.md).
-  **Deliberately DROPPED E2VID/e2calib** (user decision): deep-learning
-  reconstruction + Kalibr are too heavy / not "just works", esp. on Pi — do
-  NOT add them back. Circle mode not yet hw-validated end-to-end. Note:
-  Metavision's own Calibration module is x86-only + Pro-licensed, so our
-  open OpenCV tool is the better fit for the base repo.
+- **Calibration tool (decision 2026-06-09; pattern switched 2026-06-10):**
+  our OWN guided calibrator `evk4_calibration` (ament_python, deps rclpy/
+  sensor_msgs/cv_bridge/opencv/numpy) — `ros2 run evk4_calibration calibrate`.
+  Uses a **blinking ASYMMETRIC CIRCLE GRID** (`docs/circle_grid.html`,
+  default `grid_size:=5x17`, drawn rotated so the bbox is exactly 16:9 (rotation-independent detection, verified synthetically incl. 5x17/85 pts)): detection = |B-R| polarity-contrast image →
+  GaussianBlur → SimpleBlobDetector → `cv2.findCirclesGrid(ASYMMETRIC|
+  CLUSTERING)`, on a worker thread (GUI never blocks); X/Y/Size/Skew coverage
+  bars, auto-capture, `cv2.calibrateCamera` with `CALIB_FIX_K3` (narrow-FOV
+  overfit guard), RMS written into the YAML header. **Checkerboards were
+  tried and ABANDONED** (hardware experience 2026-06-10): saddle-point
+  corners drift on speckle/gappy event edges even with blur — circle
+  centroids average hundreds of events and are robust (same conclusion as
+  E-Calib and eKalibr; cited in calibration.md). **Deliberately DROPPED
+  E2VID/e2calib** (user decision): deep-learning reconstruction + Kalibr are
+  too heavy / not "just works", esp. on Pi — do NOT add them back. Circle
+  mode not yet hw-validated. Needs a display (X-forward/VNC on headless Pi).
+  Note: Metavision's own Calibration module is x86-only + Pro-licensed, so
+  our open OpenCV tool is the better fit for the base repo.
 - **Decoding:** `ros-jazzy-event-camera-py` (Python `Decoder` → NumPy
   arrays); `event_camera_codecs` (C++); `event_camera_tools` (CLI: echo,
   perf). All consume our `EventPacket` unchanged.

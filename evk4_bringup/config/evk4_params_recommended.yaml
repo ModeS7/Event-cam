@@ -26,11 +26,6 @@
     erc_mode: enabled
     erc_rate: 10000000
 
-    # Bias contrast thresholds: the dominant noise lever (see tuning.md).
-    # Applied at startup; still live-tunable with ros2 param set.
-    bias_diff_on: 30
-    bias_diff_off: 30
-
     # STC trail filter: removes isolated noise events on-sensor for a clean
     # image. NOTE the documented trade-off: with noise fully silenced, the
     # rendered image only updates when something changes -- a static scene

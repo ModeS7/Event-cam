@@ -34,10 +34,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   event-camera calibrators reached the same conclusion
   ([E-Calib](https://github.com/mohammedsalah98/E_Calib),
   [eKalibr](https://github.com/Unsigned-Long/eKalibr)).
-- A way to watch the calibrator's progress: it publishes an annotated view
-  on `/calibrate/overlay`, viewed with `rqt_image_view` like every other
-  image topic in this repo — on the camera machine or any other machine on
-  the same ROS network (a headless camera host is fine).
+- A machine with a **display** for the calibration window (run on a desktop,
+  or over X-forwarding / VNC if the camera is on a headless Pi).
 - **A focused lens — check this first.** Defocus is easy to miss on an event
   camera and degrades the calibration (circle detection tolerates it better
   than checkerboard corners did, but accuracy still suffers). To focus: aim
@@ -48,37 +46,44 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   fastest right around the correct focus distance.
 - **Expect a choppy preview.** The rendered image only refreshes when events
   arrive — with a blinking grid that is a couple of updates per second, so
-  the overlay feels laggy. That is normal (see tuning.md); move the camera
-  slowly and hold each pose for a blink or two so the auto-capture can see
-  it.
+  the calibration window feels laggy. That is normal (see tuning.md); move
+  the camera slowly and hold each pose for a blink or two so the
+  auto-capture can see it.
 
 ## 1. Run the guided calibrator
 
-One command starts the whole session — camera, calibrator, and the progress
-viewer — and shuts everything down by itself once the calibration is
-written (your `~/my_params.yaml` from tuning.md carries the rate cap and
-noise biases):
-
 ```bash
-ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.yaml
+# terminal 1 -- camera + renderer with your tuned config (from tuning.md);
+# 'sharp' display mode is cleanest to detect on
+ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
+    params_file:=$HOME/my_params.yaml
 ```
 
-(Equivalent pieces, if you ever want them separately: `evk4.launch.py` for
-the camera, `ros2 run evk4_calibration calibrate` for the headless
-calibrator — it publishes its view on `/calibrate/overlay` — and
-`rqt_image_view` to watch. Arguments: `grid_size` (default `5x17`, matching
-`circle_grid.html`) and `output` (default `event_camera.yaml`).)
+```bash
+# any spare terminal -- cut sensor noise so the dots stand out
+ros2 param set /event_camera bias_diff_on 30
+ros2 param set /event_camera bias_diff_off 30
+```
 
-The overlay shows the live image; when the grid is detected, colored markers
-appear ON the dots (verify that — markers wandering between dots means a
-detection problem). Move the camera to cover the whole field of view — near
-and far, into all four image corners, and tilted at angles. The four bars
-(X / Y / Size / Skew) fill green as coverage improves; the tool
-**auto-captures** good views, and once coverage is complete it **calibrates
-by itself**: it logs the RMS reprojection error in the launch terminal
-(lower is better; under ~0.5 px is good), writes `event_camera.yaml` in the
-directory it was started from, and the whole session shuts down. Ctrl+C
-aborts without writing anything.
+```bash
+# terminal 2 -- the calibrator
+# grid_size = circles per row x rows (circle_grid.html defaults)
+ros2 run evk4_calibration calibrate --ros-args \
+    -p grid_size:=5x17 \
+    -r image_raw:=/event_camera/image_raw
+```
+
+A window opens showing the live image; when the grid is detected, colored
+markers appear ON the dots (verify that — markers wandering between dots
+means a detection problem). Move the camera to cover the whole field of
+view — near and far, into all four image corners, and tilted at angles. The four bars (X / Y / Size / Skew) fill green as coverage improves;
+the tool **auto-captures** good views, so just keep moving until it says
+`READY`. Then press **`c`** to calibrate.
+
+Keys: **SPACE** force-capture the current view, **`c`** calibrate, **`q`** quit.
+
+It prints the RMS reprojection error (lower is better; under ~0.5 px is good)
+and writes `event_camera.yaml` in the current directory.
 
 ## 2. Publish camera_info and rectify
 
