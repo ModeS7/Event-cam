@@ -170,6 +170,20 @@ class Calibrator(Node):
         self._latest = (frame, msg.header)
         self._size = (msg.width, msg.height)
         self._frame_seq += 1
+        # Live view: every frame goes straight out (half resolution; bars
+        # and status only) so the overlay tracks the raw stream 1:1. The
+        # detection worker republishes analyzed frames WITH markers as
+        # they happen — the view never waits for detection.
+        if self._pub.get_subscription_count() == 0:
+            return
+        view = cv2.resize(frame, None, fx=0.5, fy=0.5,
+                          interpolation=cv2.INTER_AREA)
+        with self._det_lock:
+            found = self._det[0]
+        self._draw_overlay(view, found)
+        out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
+        out.header = msg.header
+        self._pub.publish(out)
 
     @staticmethod
     def _event_contrast(frame):
@@ -232,22 +246,17 @@ class Calibrator(Node):
                     _grid_params(centers, *self._grid, w, h), centers)
             with self._det_lock:
                 self._det = (bool(found), centers if found else None)
-            # Annotated view, drawn on the exact frame that was analyzed so
-            # markers always sit on the dots they were found in. Lazy:
-            # composed only while someone watches.
-            if self._pub.get_subscription_count() > 0:
+            # Frames where the grid WAS found are republished with markers,
+            # drawn on the exact frame that was analyzed (its plain twin
+            # already went out live from the subscription callback) — so
+            # markers always sit on the dots they were found in.
+            if found and self._pub.get_subscription_count() > 0:
                 t1 = time.perf_counter()
-                # The overlay is a progress view, published at HALF
-                # resolution: a Python node serializing full-resolution
-                # images costs ~10x what the C++ renderer pays and the
-                # viewer starts dropping frames. Calibration itself uses
-                # full-resolution coordinates regardless.
                 view = cv2.resize(frame, None, fx=0.5, fy=0.5,
                                   interpolation=cv2.INTER_AREA)
-                if found:
-                    cv2.drawChessboardCorners(
-                        view, self._grid, centers * 0.5, True)
-                self._draw_overlay(view, bool(found))
+                cv2.drawChessboardCorners(
+                    view, self._grid, centers * 0.5, True)
+                self._draw_overlay(view, True)
                 out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
                 out.header = header
                 self._pub.publish(out)
