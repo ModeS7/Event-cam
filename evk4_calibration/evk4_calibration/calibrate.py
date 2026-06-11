@@ -237,9 +237,16 @@ class Calibrator(Node):
             # composed only while someone watches.
             if self._pub.get_subscription_count() > 0:
                 t1 = time.perf_counter()
-                view = frame.copy()
+                # The overlay is a progress view, published at HALF
+                # resolution: a Python node serializing full-resolution
+                # images costs ~10x what the C++ renderer pays and the
+                # viewer starts dropping frames. Calibration itself uses
+                # full-resolution coordinates regardless.
+                view = cv2.resize(frame, None, fx=0.5, fy=0.5,
+                                  interpolation=cv2.INTER_AREA)
                 if found:
-                    cv2.drawChessboardCorners(view, self._grid, centers, True)
+                    cv2.drawChessboardCorners(
+                        view, self._grid, centers * 0.5, True)
                 self._draw_overlay(view, bool(found))
                 out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
                 out.header = header
