@@ -53,10 +53,8 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 ## 1. Run the guided calibrator
 
 ```bash
-# terminal 1 -- camera + renderer with your tuned config (from tuning.md);
-# 'sharp' display mode is cleanest to detect on
-ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
-    params_file:=$HOME/my_params.yaml
+# terminal 1 -- camera + renderer with your tuned config (from tuning.md)
+ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
 ```
 
 ```bash

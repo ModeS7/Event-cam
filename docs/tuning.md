@@ -42,8 +42,12 @@ ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
 ```
 
 - `fps` (default 25.0) — how often `image_raw` frames are emitted.
-- `display_type` — `time_slice` (all events in the frame window) or `sharp`
-  (auto-tuned event count for crisper edges).
+- `display_type` — `time_slice` (default: all events in a fixed 40 ms
+  window — steady timing at any event rate) or `sharp` (each frame waits
+  for a target event COUNT — crisper edges on busy scenes, but on quiet
+  scenes the count takes seconds to fill, so the view integrates seconds
+  of history and feels laggy; validated on hardware 2026-06-11). Use
+  `sharp` only on busy scenes.
 
 ## Driver timing, filtering, ROI (the params YAML)
 

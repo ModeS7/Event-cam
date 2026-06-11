@@ -14,8 +14,7 @@ OpenCV calibration and write a camera_info YAML that evk4_bringup's
 `calibration_url` consumes.
 
     # 1. camera + renderer, with your tuned params (see docs/tuning.md)
-    ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \\
-        params_file:=$HOME/my_params.yaml
+    ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
     # 2. this tool (grid_size = circles per row x rows, docs/circle_grid.html
     #    defaults; spacing only matters for absolute scale)
     ros2 run evk4_calibration calibrate --ros-args \\
