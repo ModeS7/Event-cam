@@ -138,6 +138,8 @@ class Calibrator(Node):
         self._min_samples = self.declare_parameter('min_samples', 20).value
         self._camera_name = self.declare_parameter('camera_name', 'event_camera').value
         self._output = self.declare_parameter('output', 'event_camera.yaml').value
+        # Log a per-cycle stage/latency breakdown (performance debugging).
+        self._debug_timing = self.declare_parameter('debug_timing', False).value
 
         self._bridge = CvBridge()
         self._blob = _make_blob_detector()
@@ -198,22 +200,32 @@ class Calibrator(Node):
                 continue
             seen = self._frame_seq
             frame, header = self._latest
+            t0 = time.perf_counter()
+            tl = {'blobs': -1, 'blob': 0.0, 'grid': 0.0, 'refine': 0.0,
+                  'publish': 0.0}
             contrast = self._event_contrast(frame)
             found, centers = False, None
             if cv2.mean(contrast)[0] > 0.5:   # any real activity?
                 gray = cv2.GaussianBlur(contrast, (9, 9), 0)
                 small = cv2.resize(gray, None, fx=0.5, fy=0.5,
                                    interpolation=cv2.INTER_AREA)
+                t1 = time.perf_counter()
                 blobs = self._blob.detect(small)
+                tl['blob'] = time.perf_counter() - t1
+                tl['blobs'] = len(blobs)
                 # Clutter guard: a frame with far more (or fewer) blobs
                 # than dots cannot yield a clean grid, and search cost
                 # explodes.
                 if n_dots // 2 <= len(blobs) <= 4 * n_dots:
+                    t1 = time.perf_counter()
                     found, centers_s = cv2.findCirclesGrid(
                         small, self._grid, flags=flags,
                         blobDetector=self._blob)
+                    tl['grid'] = time.perf_counter() - t1
                     if found:
+                        t1 = time.perf_counter()
                         centers = _refine_centers(gray, centers_s * 2.0)
+                        tl['refine'] = time.perf_counter() - t1
             if found:
                 h, w = frame.shape[:2]
                 self._maybe_capture(
@@ -224,6 +236,7 @@ class Calibrator(Node):
             # markers always sit on the dots they were found in. Lazy:
             # composed only while someone watches.
             if self._pub.get_subscription_count() > 0:
+                t1 = time.perf_counter()
                 view = frame.copy()
                 if found:
                     cv2.drawChessboardCorners(view, self._grid, centers, True)
@@ -231,6 +244,18 @@ class Calibrator(Node):
                 out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
                 out.header = header
                 self._pub.publish(out)
+                tl['publish'] = time.perf_counter() - t1
+            if self._debug_timing:
+                age = (self.get_clock().now().nanoseconds
+                       - header.stamp.sec * 10**9
+                       - header.stamp.nanosec) * 1e-9
+                self.get_logger().info(
+                    f'cycle {(time.perf_counter() - t0) * 1000:6.0f} ms | '
+                    f'blobs {tl["blobs"]:4d} | blob {tl["blob"] * 1000:5.0f} '
+                    f'grid {tl["grid"] * 1000:5.0f} '
+                    f'refine {tl["refine"] * 1000:4.0f} '
+                    f'publish {tl["publish"] * 1000:4.0f} ms | '
+                    f'frame age {age:5.2f} s')
             if not self._done and self.ready():
                 self._done = True
                 self._finish()

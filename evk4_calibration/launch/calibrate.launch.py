@@ -43,6 +43,7 @@ def generate_launch_description():
         parameters=[{
             'grid_size': LaunchConfiguration('grid_size'),
             'output': LaunchConfiguration('output'),
+            'debug_timing': LaunchConfiguration('debug_timing'),
         }],
         remappings=[('image_raw', '/event_camera/image_raw')],
     )
@@ -66,6 +67,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'output', default_value='event_camera.yaml',
             description='Output camera_info YAML path.'),
+        DeclareLaunchArgument(
+            'debug_timing', default_value='false',
+            description='Log a per-cycle stage/latency breakdown.'),
         camera,
         calibrator,
         viewer,
