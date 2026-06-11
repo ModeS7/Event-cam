@@ -105,6 +105,11 @@ well-documented, easy to extend.
 - Processing loops need a cheap fast-path and a throttle (search only new
   frames, bounded OpenCV threads, clutter guards) or they starve the
   pipeline they serve.
+- Live-view consumers take DEPTH-1 queues (newest frame or none): a deeper
+  subscription queue fills once when the callback is briefly slow and then
+  holds a standing several-hundred-ms backlog that never drains — the
+  renderer slot-backlog lesson, one level up (calibrator overlay,
+  2026-06-11: depth 10 = +0.36 s; depth 1 = +10 ms over the raw stream).
 - The source workspace (`3rd_party_ws`) is modifiable by design, but local
   patches are a liability — every variant of the renderer patch bit us.
   Any load-bearing local patch must be distributed (fork + upstream PR) or
@@ -137,6 +142,10 @@ well-documented, easy to extend.
 - Probes lie: `ros2 topic hz | grep` buffers (write to a file, read after
   exit); `find` skips directory symlinks; check what the running process
   actually has loaded (`/proc/PID/maps`) before trusting a rebuild.
+- "Feels laggy" is LATENCY, not rate — `ros2 topic hz` is blind to it.
+  Measure `now - header.stamp` at a subscriber (2026-06-11: the calibrator
+  overlay published at full rate while running 0.4 s behind; three rate
+  measurements missed what one latency probe settled).
 - Record validated numbers WITH DATES in the docs (ERC envelope, CPU
   figures, the RMS in every calibration YAML header).
 
