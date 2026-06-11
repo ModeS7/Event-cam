@@ -183,8 +183,7 @@ class Calibrator(Node):
         # they happen — the view never waits for detection.
         if self._pub.get_subscription_count() == 0:
             return
-        view = cv2.resize(frame, None, fx=0.5, fy=0.5,
-                          interpolation=cv2.INTER_AREA)
+        view = frame.copy()
         with self._det_lock:
             found = self._det[0]
         self._draw_overlay(view, found)
@@ -259,10 +258,9 @@ class Calibrator(Node):
             # markers always sit on the dots they were found in.
             if found and self._pub.get_subscription_count() > 0:
                 t1 = time.perf_counter()
-                view = cv2.resize(frame, None, fx=0.5, fy=0.5,
-                                  interpolation=cv2.INTER_AREA)
+                view = frame.copy()
                 cv2.drawChessboardCorners(
-                    view, self._grid, centers * 0.5, True)
+                    view, self._grid, centers, True)
                 self._draw_overlay(view, True)
                 out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
                 out.header = header
