@@ -1,9 +1,10 @@
 # Driver parameters for evk4.launch.py (our OpenEB-based evk4_driver).
 #
-# Applied when the camera STARTS -> edit + relaunch to take effect. Two related
-# knobs live elsewhere (see docs/tuning.md):
+# Applied when the camera STARTS -> edit + relaunch to take effect. One
+# related knob lives elsewhere (see docs/tuning.md):
 #   - rendered-video fps           -> evk4.launch.py `fps` / `display_type` args
-#   - biases (contrast thresholds) -> runtime, `ros2 param set` / rqt_reconfigure
+# Biases can be set here too (e.g. `bias_diff_on: 100`) and stay live-tunable
+# with `ros2 param set` / rqt_reconfigure.
 #
 # Set from launch arguments (not here): serial, bias_file, frame_id,
 # sync_mode, trigger_in_mode, settings. Everything else is fair game below;
@@ -40,10 +41,11 @@
 
     # --- AFK: Anti-Flicker -----------------------------------------------
     # Removes flickering light on-sensor. Lamps flicker at 2x the mains
-    # frequency: 100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US).
+    # frequency, so bracket that: 90-110 below targets the 100 Hz flicker of
+    # 50 Hz grids (Europe); on a 60 Hz grid (US) use 110-130 for 120 Hz.
     # afk_enabled: true
-    # afk_freq_low_hz: 100
-    # afk_freq_high_hz: 120
+    # afk_freq_low_hz: 90
+    # afk_freq_high_hz: 110
     # afk_mode: band_stop     # band_stop (reject the band) | band_pass (keep only it)
 
     # --- Digital Crop: drop pixels outside a rectangle on-sensor ---------
@@ -71,4 +73,6 @@
     # eraf_upper_stop: 15000000
 
     # Note: trigger-OUT is not exposed -- EVK4 (Gen4) does not support it.
-    # Biases are tuned at RUNTIME (ros2 param set), not here -- see docs/tuning.md.
+    # Biases: settable here for startup (bias_diff_on, bias_diff_off, bias_fo,
+    # bias_hpf, bias_refr) and live at runtime -- see docs/tuning.md and the
+    # commented examples in evk4_params_recommended.yaml.

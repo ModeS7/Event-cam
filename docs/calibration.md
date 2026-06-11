@@ -64,19 +64,16 @@ noise biases):
 ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.yaml
 ```
 
-**Recommended: raise the contrast thresholds for the session.** The blinking
-dots are maximum-contrast, so the sensor can be made near-silent to
-everything else -- the grid then stands alone against an empty background
-(values around 100 validated to give good results; from any spare terminal,
-applies live):
+The recommended config already sets the contrast thresholds to 100, which
+is exactly right here: the blinking dots are maximum-contrast, so the sensor
+stays near-silent to everything else and the grid stands alone against an
+empty background. If your params file uses lower values, raise them for the
+session (applies live, reverts to your YAML on the next launch):
 
 ```bash
 ros2 param set /event_camera bias_diff_on 100
 ros2 param set /event_camera bias_diff_off 100
 ```
-
-(Or put these values in a calibration copy of your params file. They revert
-to your YAML's values on the next launch.)
 
 | Argument | Default | Description |
 |---|---|---|
@@ -89,7 +86,9 @@ The overlay shows the live image; when the grid is detected, colored markers
 appear ON the dots (verify that — markers wandering between dots means a
 detection problem). Move the camera to cover the whole field of view — near
 and far, into all four image corners, and tilted at angles. The four bars
-(X / Y / Size / Skew) fill green as coverage improves; the tool
+(X / Y / Size / Skew) fill green as coverage improves, and **every unfilled
+bar shows what to do next** (e.g. `grid to LEFT edge`, `move CLOSER`,
+`TILT it more`) — follow the hints to find the missing views. The tool
 **auto-captures** good views, and once coverage is complete it **calibrates
 by itself**: it logs the RMS reprojection error in the launch terminal
 (lower is better; under ~0.5 px is good), writes `event_camera.yaml` in the

@@ -15,9 +15,10 @@ cp $(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recomme
 ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
 
 # 3. sensor noise is already handled: the recommended config sets
-#    bias_diff_on/off to 30 (balanced; 50 = very quiet). Experiment live,
-#    then put the winner in ~/my_params.yaml:
-ros2 param set /event_camera bias_diff_on 40
+#    bias_diff_on/off to 100 (near-silent background; motion and blinks
+#    still register cleanly). Experiment live, then put the winner in
+#    ~/my_params.yaml:
+ros2 param set /event_camera bias_diff_on 60
 ```
 
 Edit `~/my_params.yaml` freely (it is yours, outside the repo — `git pull`
@@ -39,10 +40,14 @@ The renderer's frame rate and mode are launch arguments — they affect only
 the `image_raw` visualization, not the raw event stream:
 
 ```bash
-ros2 launch evk4_bringup evk4.launch.py fps:=60.0 display_type:=sharp
+# these are the defaults, written out — change either as needed:
+ros2 launch evk4_bringup evk4.launch.py fps:=25.0 display_type:=time_slice
 ```
 
-- `fps` (default 25.0) — how often `image_raw` frames are emitted.
+- `fps` (default 25.0) — how often `image_raw` frames are emitted; display
+  cost scales roughly linearly with it, so raise it only with CPU to spare.
+  In `sharp` mode it is a ceiling instead: frames wait for their event
+  count, so quiet scenes emit below it.
 - `display_type` — `time_slice` (default: all events in a fixed 40 ms
   window — steady timing at any event rate) or `sharp` (each frame waits
   for a target event COUNT — crisper edges on busy scenes, but on quiet
@@ -92,7 +97,7 @@ parameters**, so tune them while watching `image_raw` or `event_rate`:
 # list current bias values
 ros2 param list /event_camera | grep bias
 # raise the ON-contrast threshold (fewer, stronger ON events)
-ros2 param set /event_camera bias_diff_on 30
+ros2 param set /event_camera bias_diff_on 100
 # or tune interactively
 ros2 run rqt_reconfigure rqt_reconfigure
 ```
@@ -118,9 +123,11 @@ Some salt-and-pepper events at a motionless scene are normal sensor shot
 noise at default settings. The ladder, mildest first — the bias steps are
 live (`ros2 param set`), so watch the image while you tune:
 
-1. Raise the contrast thresholds: `bias_diff_on` / `bias_diff_off` 30–50.
-   Costs sensitivity to faint motion. **This is by far the biggest lever**
-   (validated on the EVK4: 50/50 silenced a static scene almost completely).
+1. Raise the contrast thresholds: `bias_diff_on` / `bias_diff_off` — the
+   recommended config sets 100/100 (validated on the EVK4: near-silent
+   static scene, motion and blinking patterns still register cleanly).
+   Costs sensitivity to faint motion; lower toward 30 if you need it.
+   **This is by far the biggest lever.**
 2. Lower `bias_fo` (negative values = stronger photoreceptor low-pass =
    less temporal noise). Costs a little motion sharpness.
 3. Raise `bias_hpf` to reject slow-drift / ambient-flicker events.
@@ -134,8 +141,9 @@ live (`ros2 param set`), so watch the image while you tune:
    viewer at a static scene is then correct, not broken.
 5. Room lighting flicker can masquerade as uniform noise. Lamps flicker at
    **twice the mains frequency** (light peaks on both AC half-cycles):
-   100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US) — try
-   `afk_enabled: true`; the default 100–120 Hz band-stop covers both.
+   100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US) — enable
+   `afk_enabled: true` with a band bracketing your grid's flicker
+   (90–110 Hz for Europe, 110–130 Hz for the US).
 6. Individual hot pixels: blank them on-sensor with `event_mask_pixels`.
 
 Fewer events also means less USB traffic, decoding, and rendering work —

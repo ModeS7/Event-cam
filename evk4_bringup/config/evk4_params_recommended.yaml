@@ -2,23 +2,24 @@
 #
 # The default launch uses evk4_params.yaml (stock sensor defaults, nothing
 # enabled) so out-of-box behavior is predictable. THIS file is the explicit
-# "better" setup; use it with:
+# "better" setup and the template for your own config (docs/tuning.md):
 #
-#   ros2 launch evk4_bringup evk4.launch.py \
-#       params_file:=$(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml
+#   cp $(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml \
+#      ~/my_params.yaml
+#   ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
 #
-# Then reduce sensor noise with live biases (see docs/tuning.md; persist them
-# with bias_file + the save_biases service):
-#
-#   ros2 param set /event_camera bias_diff_on 30     # 30 = balanced, 50 = very quiet
-#   ros2 param set /event_camera bias_diff_off 30
-#
-# What this file changes vs stock and why:
+# ACTIVE settings below are the validated recommendations. Everything else
+# the sensor supports is here too, COMMENTED OUT — uncomment, edit, relaunch.
+# Symptom-by-symptom guidance: docs/tuning.md.
 /**:
   ros__parameters:
-    event_message_time_threshold: 0.001  # [s] default batching (1 ms)
+    # --- Timing / batching -----------------------------------------------
+    # Raw EVT3 is published once this much wall time has accumulated. Smaller
+    # = lower latency, more/smaller messages.
+    event_message_time_threshold: 0.001  # [s] (default: 1 ms)
 
-    # ERC: cap the on-sensor event rate. Protects CPU on small boards.
+    # --- ERC: cap the on-sensor event rate -------------------------------
+    # Protects USB bandwidth and CPU; THE latency lever on small boards.
     # Validated on a Pi 5 (2026-06): 10 Mev/s (~35 MB/s) renders smoothly and
     # the scene still looks good; a 100 Mev/s cap (~180 MB/s peak) stutters
     # badly. Raise beyond 10 M only if a downstream algorithm needs it (the
@@ -26,15 +27,55 @@
     erc_mode: enabled
     erc_rate: 10000000
 
-    # Bias contrast thresholds: the dominant noise lever (see tuning.md).
-    # Applied at startup; still live-tunable with ros2 param set.
-    bias_diff_on: 30
-    bias_diff_off: 30
+    # --- Biases: the sensor's analog settings ----------------------------
+    # Applied at startup; all stay live-tunable with ros2 param set.
+    # The contrast thresholds are the dominant noise lever. 100 is the
+    # validated recommendation (near-silent background, blinks and motion
+    # still register cleanly); lower toward 30 only if you need more
+    # sensitivity to faint motion.
+    bias_diff_on: 100
+    bias_diff_off: 100
+    # The rest are subtle on the IMX636 (values are offsets from factory
+    # defaults; see the bias table in docs/tuning.md):
+    # bias_fo: 0      # photoreceptor low-pass: lower = less temporal noise
+    # bias_hpf: 0     # high-pass: rejects slow/global light changes
+    # bias_refr: 0    # refractory period between events per pixel
 
-    # STC trail filter: removes isolated noise events on-sensor for a clean
-    # image. NOTE the documented trade-off: with noise fully silenced, the
-    # rendered image only updates when something changes -- a static scene
-    # then looks frozen (which is correct). Uncomment for a fully quiet image:
+    # --- Trail / STC: on-sensor noise + trail filtering ------------------
+    # Removes isolated noise events for a fully quiet image. Trade-off: with
+    # noise silenced, a static scene renders black and only change is
+    # visible — a "frozen" viewer at a still scene is then correct.
     # trail_filter: true
-    # trail_filter_type: stc_cut_trail
-    # trail_filter_threshold: 10000
+    # trail_filter_type: stc_cut_trail   # trail | stc_cut_trail | stc_keep_trail
+    # trail_filter_threshold: 10000      # [us]
+
+    # --- AFK: Anti-Flicker ------------------------------------------------
+    # Removes flickering light on-sensor. Lamps flicker at 2x the mains
+    # frequency, so bracket that: 90-110 below targets the 100 Hz flicker of
+    # 50 Hz grids (Europe); on a 60 Hz grid (US) use 110-130 for 120 Hz.
+    # afk_enabled: true
+    # afk_freq_low_hz: 90
+    # afk_freq_high_hz: 110
+    # afk_mode: band_stop     # band_stop (reject the band) | band_pass (keep only it)
+
+    # --- ROI: region of interest ------------------------------------------
+    # Keep only pixels in the given rectangle(s); [x, y, w, h] per region.
+    # roi: [320, 180, 640, 360]
+    # roni: true              # invert: treat roi as region of NON-interest
+
+    # --- Digital Crop: drop pixels outside a rectangle on-sensor ----------
+    # A single hard rectangle [x_start, y_start, x_end, y_end] (cf. ROI windows).
+    # digital_crop_enabled: true
+    # digital_crop_region: [100, 100, 500, 400]
+    # digital_crop_reset_origin: false   # true: remap the cropped corner to (0,0)
+
+    # --- Digital Event Mask: blank out individual hot pixels --------------
+    # Flat list of [x0,y0, x1,y1, ...] pixels to mask (limited # of HW slots).
+    # event_mask_pixels: [320, 240, 640, 360]
+
+    # --- Performance / diagnostics ----------------------------------------
+    # use_multithreading: true        # capture on a worker thread (default)
+    # statistics_print_interval: 1.0  # [s] per-second "msgs/s, MB/s" log; 0 = off
+
+    # ERAF (eraf_*) is not implemented by the EVK4/IMX636 — skipped with a
+    # warning if set. Trigger-OUT is not exposed (EVK4/Gen4 unsupported).
