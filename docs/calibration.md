@@ -75,9 +75,10 @@ detection problem). Move the camera to cover the whole field of view — near
 and far, into all four image corners, and tilted at angles. The four bars
 (X / Y / Size / Skew) fill green as coverage improves; the tool
 **auto-captures** good views, and once coverage is complete it **calibrates
-by itself**: it logs the RMS reprojection error in terminal 2 (lower is
-better; under ~0.5 px is good), writes `event_camera.yaml` in the directory
-it was started from, and exits. Ctrl+C aborts without writing anything.
+by itself**: it logs the RMS reprojection error in the launch terminal
+(lower is better; under ~0.5 px is good), writes `event_camera.yaml` in the
+directory it was started from, and the whole session shuts down. Ctrl+C
+aborts without writing anything.
 
 ## 2. Publish camera_info and rectify
 
