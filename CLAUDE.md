@@ -263,7 +263,12 @@ well-documented, easy to extend.
   (same conclusion as E-Calib and eKalibr; cited in calibration.md).
   **Deliberately DROPPED E2VID/e2calib** (user decision): deep-learning
   reconstruction + Kalibr are too heavy / not "just works", esp. on Pi — do
-  NOT add them back. Circle mode not yet hw-validated end-to-end. Note:
+  NOT add them back. Circle mode HW-VALIDATED end-to-end (2026-06-11, user
+  ran the one-command session): RMS 0.895 px / 20 views, principal point
+  (621,370) vs image center (640,360), fx/fy match to 0.07%, max
+  undistortion displacement 5.7 px (the EVK4 kit 8mm lens is nearly
+  distortion-free — side-by-side raw/rect looking identical is correct).
+  Note:
   Metavision's own Calibration module is x86-only + Pro-licensed, so our
   open OpenCV tool is the better fit for the base repo.
 - **Decoding:** `ros-jazzy-event-camera-py` (Python `Decoder` → NumPy
@@ -310,8 +315,6 @@ Next:
 - [ ] Distribute the renderer pending-frame-cap patch (fork + upstream PR to
       ros-event-camera) — currently LOCAL to the lab Pi's 3rd_party_ws; a
       fresh student install gets stock's backlog lag.
-- [ ] End-to-end circle-grid calibration run by the user (the RMS number) —
-      the last unvalidated flow.
 - [ ] `evk4_sdk_advanced` — opt-in full Metavision SDK Pro layer
       (calibration/CV/ML/analytics) over our `EventPacket` stream. Blocked on
       the user's SDK Pro license + ARM source build.
