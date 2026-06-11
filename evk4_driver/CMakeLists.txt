@@ -49,7 +49,5 @@ target_link_libraries(driver_node ${MV_TARGETS})
 
 install(TARGETS driver_node DESTINATION lib/${PROJECT_NAME})
 install(TARGETS evk4_driver_component DESTINATION lib)
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/
-  FILES_MATCHING PATTERN "*.py")
 
 ament_package()
