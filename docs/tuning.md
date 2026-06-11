@@ -14,9 +14,10 @@ cp $(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recomme
 # 2. launch with it -- as you will from now on
 ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
 
-# 3. cut sensor noise live (30 = balanced, 50 = very quiet), any spare terminal
-ros2 param set /event_camera bias_diff_on 30
-ros2 param set /event_camera bias_diff_off 30
+# 3. sensor noise is already handled: the recommended config sets
+#    bias_diff_on/off to 30 (balanced; 50 = very quiet). Experiment live,
+#    then put the winner in ~/my_params.yaml:
+ros2 param set /event_camera bias_diff_on 40
 ```
 
 Edit `~/my_params.yaml` freely (it is yours, outside the repo — `git pull`
@@ -30,7 +31,7 @@ There are three places to tune the EVK4, by how often you change them:
 |---|---|---|
 | Rendered-video fps, display mode | `evk4.launch.py` launch args | per launch |
 | Driver timing, filtering, ROI | `~/my_params.yaml` (driver params YAML) | persistent config |
-| Biases (contrast thresholds) | runtime: `ros2 param set` / `rqt_reconfigure` | live, while running |
+| Biases (contrast thresholds) | `~/my_params.yaml` (startup) + `ros2 param set` (live) | persistent + live |
 
 ## Rendered video (fps, display mode)
 
@@ -99,15 +100,13 @@ ros2 run rqt_reconfigure rqt_reconfigure
 | `bias_hpf` | High-pass — rejects slow/global light changes |
 | `bias_refr` | Refractory period — minimum time between events per pixel |
 
-**Recommended workflow — tune once, persist, forget:** don't re-tune at
-every session (biases reset to defaults on every launch!) and don't
-hand-edit bias values. Launch with a `bias_file`, tune live, save with the
-`save_biases` service — every later launch with the same `bias_file` then
-starts from your tuned values. The step-by-step commands live in
-[`config/biases/README.md`](../evk4_bringup/config/biases/README.md).
-Division of labor: **biases live in the `.bias` file** (the camera writes
-it); **everything else (ERC, trail filter, AFK, crop) lives in the params
-YAML** (`~/my_params.yaml`).
+**Tune live, persist in the YAML:** experiment with `ros2 param set`
+while watching the image, then write the values you like into
+`~/my_params.yaml` — they are applied at every launch, alongside everything
+else (ERC, filters). One file holds the whole sensor setup. (A sensor-native
+alternative, `bias_file` + the `save_biases` service, exists for
+interoperability with Prophesee tooling — see
+[`config/biases/README.md`](../evk4_bringup/config/biases/README.md).)
 
 ## Reducing background noise (speckle at a static scene)
 

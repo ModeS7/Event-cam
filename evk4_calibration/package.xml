@@ -17,6 +17,11 @@
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
+  <!-- calibrate.launch.py -->
+  <exec_depend>evk4_bringup</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rqt_image_view</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

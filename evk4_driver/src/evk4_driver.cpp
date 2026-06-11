@@ -184,7 +184,18 @@ void EVK4Driver::declareBiases()
       continue;  // computed reference, not independently settable
     }
     biasNames_.insert(b.first);
-    this->declare_parameter<int>(b.first, b.second);
+    // declare_parameter returns the override when one was given (params
+    // YAML / launch), so biases can be set at startup like everything else
+    // -- they reset to sensor defaults on every camera open otherwise.
+    const int v = this->declare_parameter<int>(b.first, b.second);
+    if (v != b.second) {
+      if (biases->set(b.first, v)) {
+        RCLCPP_INFO_STREAM(this->get_logger(), "startup bias " << b.first << " = " << v);
+      } else {
+        RCLCPP_WARN_STREAM(
+          this->get_logger(), "cannot set startup bias " << b.first << " to " << v);
+      }
+    }
   }
   RCLCPP_INFO_STREAM(
     this->get_logger(), "exposed " << biasNames_.size() << " tunable biases (ros2 param set)");

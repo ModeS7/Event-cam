@@ -54,31 +54,20 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 ## 1. Run the guided calibrator
 
-```bash
-# terminal 1 -- camera + renderer with your tuned config (from tuning.md);
-# 'sharp' display mode is cleanest to detect on
-ros2 launch evk4_bringup evk4.launch.py display_type:=sharp \
-    params_file:=$HOME/my_params.yaml
-```
+One command starts the whole session — camera, calibrator, and the progress
+viewer — and shuts everything down by itself once the calibration is
+written (your `~/my_params.yaml` from tuning.md carries the rate cap and
+noise biases):
 
 ```bash
-# any spare terminal -- cut sensor noise so the dots stand out
-ros2 param set /event_camera bias_diff_on 30
-ros2 param set /event_camera bias_diff_off 30
+ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.yaml
 ```
 
-```bash
-# terminal 2 -- the calibrator (headless; finishes and exits by itself)
-# grid_size = circles per row x rows (circle_grid.html defaults)
-ros2 run evk4_calibration calibrate --ros-args \
-    -p grid_size:=5x17 \
-    -r image_raw:=/event_camera/image_raw
-```
-
-```bash
-# terminal 3 -- watch its progress
-ros2 run rqt_image_view rqt_image_view /calibrate/overlay
-```
+(Equivalent pieces, if you ever want them separately: `evk4.launch.py` for
+the camera, `ros2 run evk4_calibration calibrate` for the headless
+calibrator — it publishes its view on `/calibrate/overlay` — and
+`rqt_image_view` to watch. Arguments: `grid_size` (default `5x17`, matching
+`circle_grid.html`) and `output` (default `event_camera.yaml`).)
 
 The overlay shows the live image; when the grid is detected, colored markers
 appear ON the dots (verify that — markers wandering between dots means a

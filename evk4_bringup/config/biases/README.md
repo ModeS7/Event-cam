@@ -2,9 +2,14 @@
 
 Biases are the EVK4's analog sensor settings (contrast thresholds
 `bias_diff_on`/`bias_diff_off`, bandwidth `bias_fo`, high-pass `bias_hpf`,
-refractory period `bias_refr`). Factory defaults are a good starting point;
-this directory is the conventional home for tuned `.bias` files (none are
-committed by default).
+refractory period `bias_refr`).
+
+**The normal way to persist biases is your params YAML** (set
+`bias_diff_on: 30` etc. in `~/my_params.yaml` — see docs/tuning.md); one
+file then holds the whole sensor setup. The `.bias` file documented below is
+a sensor-native alternative kept for interoperability with Prophesee tooling
+(Metavision Studio reads/writes the same format); this directory is its
+conventional home (none committed by default).
 
 To create one:
 
