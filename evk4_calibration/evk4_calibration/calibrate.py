@@ -53,13 +53,21 @@ _READY_FRAC = 0.7      # every bar must reach this fraction
 
 
 def _make_blob_detector():
-    """Blob detector tuned for event-rendered dots: bright, ragged blobs."""
+    """Blob detector tuned for event-rendered dots: bright, ragged blobs.
+
+    The blurred polarity-contrast image is nearly binary (bright events on
+    black), so 2-3 threshold passes suffice — the default 17 make detection
+    ~6x more expensive for nothing.
+    """
     p = cv2.SimpleBlobDetector_Params()
     p.filterByColor = True
     p.blobColor = 255              # dots are bright on the contrast image
+    p.minThreshold = 40
+    p.maxThreshold = 121
+    p.thresholdStep = 40
     p.filterByArea = True
-    p.minArea = 25
-    p.maxArea = 30000
+    p.minArea = 10                 # detection runs at half resolution
+    p.maxArea = 10000
     p.filterByCircularity = False  # event blobs have ragged outlines
     p.filterByConvexity = False
     p.filterByInertia = False
@@ -146,23 +154,27 @@ class Calibrator(Node):
         """
         seen = -1
         n_dots = self._grid[0] * self._grid[1]
+        flags = cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING
         while self._running:
             if self._latest is None or self._frame_seq == seen:
                 time.sleep(0.02)
                 continue
             seen = self._frame_seq
             frame = self._latest
+            # Search at HALF resolution — the cheap fast-path that runs on
+            # every frame. Only a successful hit pays for a full-resolution
+            # pass to get accurate centers.
             gray = cv2.GaussianBlur(self._event_contrast(frame), (9, 9), 0)
-            # Pre-count blobs: grid-search cost explodes with clutter, and a
-            # frame with far more (or fewer) blobs than dots cannot yield a
-            # clean detection anyway.
-            blobs = self._blob.detect(gray)
+            small = cv2.resize(gray, None, fx=0.5, fy=0.5,
+                               interpolation=cv2.INTER_AREA)
+            blobs = self._blob.detect(small)
             found, centers = False, None
             if n_dots // 2 <= len(blobs) <= 4 * n_dots:
-                found, centers = cv2.findCirclesGrid(
-                    gray, self._grid,
-                    flags=cv2.CALIB_CB_ASYMMETRIC_GRID | cv2.CALIB_CB_CLUSTERING,
-                    blobDetector=self._blob)
+                found_s, _ = cv2.findCirclesGrid(
+                    small, self._grid, flags=flags, blobDetector=self._blob)
+                if found_s:
+                    found, centers = cv2.findCirclesGrid(
+                        gray, self._grid, flags=flags, blobDetector=self._blob)
             if found:
                 h, w = gray.shape
                 force, self._force_next = self._force_next, False
@@ -171,12 +183,20 @@ class Calibrator(Node):
                     force=force)
             with self._det_lock:
                 self._det = (bool(found), centers if found else None)
-            time.sleep(0.15)
+            time.sleep(0.1)
 
     def tick(self):
-        """Draw the live view + latest detection. Runs on the main thread."""
+        """Draw the live view + latest detection. Runs on the main thread.
+
+        Redraws only when a new frame arrived — copying and blitting a
+        1280x720 image 60 times a second for an unchanged view costs real
+        CPU on a small board.
+        """
         if self._latest is None:
             return
+        if getattr(self, '_shown_seq', -1) == self._frame_seq:
+            return
+        self._shown_seq = self._frame_seq
         frame = self._latest
         h, w = frame.shape[:2]
         self._size = (w, h)
