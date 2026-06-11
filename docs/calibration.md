@@ -63,6 +63,20 @@ noise biases):
 ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.yaml
 ```
 
+**Recommended: raise the contrast thresholds for the session.** The blinking
+dots are maximum-contrast, so the sensor can be made near-silent to
+everything else -- the grid then stands alone against an empty background
+(values around 100 validated to give good results; from any spare terminal,
+applies live):
+
+```bash
+ros2 param set /event_camera bias_diff_on 100
+ros2 param set /event_camera bias_diff_off 100
+```
+
+(Or put these values in a calibration copy of your params file. They revert
+to your YAML's values on the next launch.)
+
 (Equivalent pieces, if you ever want them separately: `evk4.launch.py` for
 the camera, `ros2 run evk4_calibration calibrate` for the headless
 calibrator — it publishes its view on `/calibrate/overlay` — and
