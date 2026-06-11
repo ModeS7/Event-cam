@@ -313,23 +313,48 @@ class Calibrator(Node):
         return (len(self._params) >= self._min_samples and
                 all(v >= _READY_FRAC for v in cov.values()))
 
+    def _hints(self):
+        """What to show next, per unfilled bar.
+
+        Coverage is a SPAN, so what's missing is always directional: the
+        side of each parameter's range with no samples yet. Point there.
+        """
+        if not self._params:
+            return {k: 'move the grid around' for k in _TARGET_SPAN}
+        arr = np.array(self._params)
+        lo, hi = arr.min(axis=0), arr.max(axis=0)
+        words = {
+            'x': ('grid to LEFT edge', 'grid to RIGHT edge'),
+            'y': ('grid to TOP edge', 'grid to BOTTOM edge'),
+            'size': ('move FURTHER away', 'move CLOSER'),
+            'skew': ('hold it STRAIGHT-ON', 'TILT it more'),
+        }
+        return {k: words[k][0] if lo[i] >= 1.0 - hi[i] else words[k][1]
+                for i, k in enumerate(['x', 'y', 'size', 'skew'])}
+
     def _draw_overlay(self, view, found):
         cov = self._coverage()
+        hints = self._hints()
         y0 = 24
         for i, (k, v) in enumerate(cov.items()):
             yb = y0 + i * 22
             cv2.rectangle(view, (10, yb - 12), (210, yb), (60, 60, 60), -1)
             color = (0, 200, 0) if v >= _READY_FRAC else (0, 165, 255)
             cv2.rectangle(view, (10, yb - 12), (10 + int(200 * v), yb), color, -1)
-            cv2.putText(view, f'{k:5s}', (216, yb - 1),
+            label = f'{k:5s}'
+            cv2.putText(view, label, (216, yb - 1),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            if v < _READY_FRAC:
+                cv2.putText(view, f'<- {hints[k]}', (276, yb - 1),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
         status = (f'samples {len(self._params)}/{self._min_samples}  '
                   + ('READY - calibrating' if self.ready()
                      else ('grid OK' if found else 'show the blinking circle grid')))
+        cv2.putText(view, 'auto-captures distinct views; finishes by itself',
+                    (10, view.shape[0] - 36),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         cv2.putText(view, status, (10, view.shape[0] - 14),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
-        cv2.putText(view, 'auto-captures distinct views; finishes by itself',
-                    (10, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
 
     # ----------------------------------------------------------- calibration
     def _finish(self):
