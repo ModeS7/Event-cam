@@ -99,18 +99,15 @@ ros2 run rqt_reconfigure rqt_reconfigure
 | `bias_hpf` | High-pass — rejects slow/global light changes |
 | `bias_refr` | Refractory period — minimum time between events per pixel |
 
-**Recommended workflow — tune once, persist, forget:** don't re-tune at every
-session and don't hand-edit bias values. Launch with `bias_file:=/path/to/my.bias`,
-tune live while watching the image, then freeze the result:
-
-```bash
-ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
-```
-
-Every later launch with the same `bias_file` starts from your tuned values.
-Division of labor: **biases live in the `.bias` file** (the camera writes it);
-**everything else (ERC, trail filter, AFK, crop) lives in the params YAML** (`~/my_params.yaml`).
-Details: [`../evk4_bringup/config/biases/README.md`](../evk4_bringup/config/biases/README.md).
+**Recommended workflow — tune once, persist, forget:** don't re-tune at
+every session (biases reset to defaults on every launch!) and don't
+hand-edit bias values. Launch with a `bias_file`, tune live, save with the
+`save_biases` service — every later launch with the same `bias_file` then
+starts from your tuned values. The step-by-step commands live in
+[`config/biases/README.md`](../evk4_bringup/config/biases/README.md).
+Division of labor: **biases live in the `.bias` file** (the camera writes
+it); **everything else (ERC, trail filter, AFK, crop) lives in the params
+YAML** (`~/my_params.yaml`).
 
 ## Reducing background noise (speckle at a static scene)
 
