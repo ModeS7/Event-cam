@@ -95,34 +95,23 @@ by itself**: it logs the RMS reprojection error in the launch terminal
 directory it was started from, and the whole session shuts down. Ctrl+C
 aborts without writing anything.
 
-## 2. Publish camera_info and rectify
+## 2. Use the calibration: camera_info and rectification
 
-Point `calibration_url` at the file you just made; the `camera_info_publisher`
-echoes it as `CameraInfo` stamped to match each `image_raw` frame. Each
-long-running command below gets its own terminal (see usage.md):
+The YAML from step 1 does nothing by itself. This step wires it into the
+running system: the launch publishes it as `/event_camera/camera_info` (the
+standard message that geometry tools read, stamped to match each `image_raw`
+frame) and runs `image_proc` rectification, which uses it to undistort the
+image — `/event_camera/image_rect`. Viewing the rectified stream is also how
+you judge the calibration's quality.
 
-```bash
-# terminal 1 -- the camera, with the calibration wired in
-ros2 launch evk4_bringup evk4.launch.py \
-    calibration_url:=$(pwd)/event_camera.yaml
-# -> /event_camera/camera_info
-```
-
-Rectification uses `image_proc`, which is **not** part of `ros-desktop` —
-install it first (verified needed on a fresh Pi 5 install, 2026-06-09):
+One-time install (`image_proc` is not part of `ros-desktop`):
 
 ```bash
 sudo apt install ros-$ROS_DISTRO-image-proc
 ```
 
-The simplest way to rectify is to let the launch compose it into the camera
-container (`rectify:=true`) — the image then reaches `image_proc` as a
-pointer instead of being serialized between processes, which matters at
-high frame rates on small boards:
-
 ```bash
-# terminal 1 -- camera + camera_info + rectification in one container,
-# still with your tuned config
+# terminal 1 -- camera + camera_info + rectification, with your tuned config
 ros2 launch evk4_bringup evk4.launch.py \
     calibration_url:=$(pwd)/event_camera.yaml rectify:=true \
     params_file:=$HOME/my_params.yaml
@@ -133,12 +122,13 @@ ros2 launch evk4_bringup evk4.launch.py \
 ros2 run rqt_image_view rqt_image_view /event_camera/image_rect
 ```
 
-(`image_proc rectify_node` can also be run as a standalone node remapped to
-the same topics; the composed form is just cheaper.)
-
 To judge the calibration, hold something straight (door frame, monitor edge)
 near the image **corners**: straight lines in `image_rect` = good; curved or
 smeared corners = recalibrate with better corner coverage.
+
+(Omit `rectify:=true` if you only need `camera_info` published for a
+downstream tool; rectification runs in the camera container and costs
+nothing while nobody subscribes to `image_rect`.)
 
 To keep a calibration with the repo, copy the YAML into
 `evk4_bringup/config/calibration/` (it ships a zero-distortion placeholder).
