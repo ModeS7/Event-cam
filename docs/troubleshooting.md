@@ -66,10 +66,12 @@ sudo apt install ros-$ROS_DISTRO-openeb-vendor
 
 Check the **lens focus** before blaming biases or filters — defocus is easy
 to miss on an event camera because there is no static image to judge by, and
-it quietly degrades everything downstream (checkerboard detection in
-particular). Aim at a flickering high-contrast target (e.g. the calibration
-checkerboard) at your working distance, watch `image_raw`, and turn the
-focus ring until edges are as thin as possible.
+it quietly degrades everything downstream (calibration accuracy in
+particular). Aim at a flickering high-contrast target (e.g. the blinking
+circle grid, <https://modes7.github.io/Event-cam/circle_grid.html>) at
+your working distance, watch
+`image_raw`, and turn the focus ring until the dots are as small and crisp
+as possible (full procedure + aperture tip: tuning.md, The lens).
 
 ## Driver starts but finds no camera
 
@@ -111,9 +113,8 @@ with `lsusb | grep -i 04b4`, and launch again.
 
 ## Service call hangs: `waiting for service to become available...`
 
-The `save_biases` / `save_settings` services live inside the driver node —
-they only exist **while the camera launch is running**. Call them from a
-second terminal. List what actually exists with
+The `save_settings` service lives inside the driver node — it only exists
+**while the camera launch is running**. Call it from a second terminal. List what actually exists with
 `ros2 node info /event_camera` (Service Servers section).
 
 ## `ros2 topic list` / `ros2 node list` show things that aren't running
@@ -162,6 +163,19 @@ using, and raise `event_message_time_threshold` for fewer, larger messages.
 Check actual rates in the statistics line the driver prints every second in
 the launch terminal (`254 msgs/s, 7.81 MB/s (queue 0)`), or with
 `ros2 run evk4_examples event_rate`.
+
+## Stream feels laggy even though the event rate is low
+
+If the view trails reality while the driver's statistics line shows a
+modest rate, the machine is overloaded — not the pipeline. Check `uptime`:
+a load average above your core count means everything downstream of the
+topics (viewers, the desktop compositor) runs late. Non-ROS load counts
+too: a browser showing the blinking calibration grid is a fullscreen
+canvas repainting several times a second, and on a small board that alone
+makes the whole view feel laggy. Close what you are not using; while
+calibrating, show the blinking grid on a **different device** (a laptop,
+or a monitor driven by another machine) instead of the camera host's own
+screen — see [calibration.md](calibration.md).
 
 ## `ModuleNotFoundError: No module named 'event_camera_py'`
 

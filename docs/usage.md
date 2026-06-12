@@ -26,7 +26,6 @@ ros2 launch evk4_bringup evk4.launch.py
 |---|---|---|
 | `camera_name` | `event_camera` | Node name and topic namespace |
 | `serial` | `''` (first camera) | Select a camera by serial number |
-| `bias_file` | `''` (sensor defaults) | Path to a `.bias` file to load |
 | `viz` | `true` | Also run the renderer (image topic) |
 | `fps` | `25.0` | Renderer frame rate, Hz (with `viz:=true`) |
 | `display_type` | `time_slice` | Renderer mode; `sharp` is for busy scenes only ([tuning.md](tuning.md)) |
@@ -36,14 +35,14 @@ ros2 launch evk4_bringup evk4.launch.py
 | `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
 | `calibration_url` | `''` | Path to a camera_info YAML → publish `camera_info` |
 | `rectify` | `false` | Also publish undistorted `image_rect` (needs `calibration_url`) |
-| `params_file` | `''` | Override the driver params YAML (escape hatch for any driver param) |
+| `params_file` | `''` | Swap the params YAML — driver and renderer knobs in one file ([tuning.md](tuning.md)) |
 
 Examples:
 
 ```bash
 ros2 launch evk4_bringup evk4.launch.py viz:=false           # raw events only
 ros2 launch evk4_bringup evk4.launch.py serial:=00050591     # pick a camera
-ros2 launch evk4_bringup evk4.launch.py fps:=60.0            # smoother view
+ros2 launch evk4_bringup evk4.launch.py fps:=60.0            # one-off display override
 ```
 
 Tuning the camera (thresholds, timing, fps, biases) is covered in
@@ -76,18 +75,14 @@ Message headers carry the `frame_id` launch argument (default
 
 | Service | Type | Effect |
 |---|---|---|
-| `/event_camera/save_biases` | `std_srvs/srv/Trigger` | Write current biases to the `bias_file` path |
 | `/event_camera/save_settings` | `std_srvs/srv/Trigger` | Write current camera settings to the `settings` file path |
 
 ```bash
-ros2 service call /event_camera/save_biases std_srvs/srv/Trigger
+ros2 service call /event_camera/save_settings std_srvs/srv/Trigger
 ```
 
-Services only exist while the camera launch is running, and each **fails
-unless its file path was set at startup**: `save_biases` needs the
-`bias_file` launch argument (full workflow:
-[`config/biases/README.md`](../evk4_bringup/config/biases/README.md));
-`save_settings` needs the `settings` launch argument. For bandwidth and
+The service only exists while the camera launch is running, and **fails
+unless the `settings` launch argument was set at startup**. For bandwidth and
 rate statistics no service is needed: the driver prints them to the launch
 terminal every second (`statistics_print_interval` parameter, 0 disables):
 
@@ -158,9 +153,9 @@ ros2 component load /event_camera_container evk4_examples_cpp \
 ```
 
 (Inside the container, events reach the component as C++ pointers — no
-serialization. This isn't visible in the driver's `out` counter, which
-counts publish calls regardless of transport. Use this pattern for your
-own high-rate consumers.)
+serialization. The driver's per-second statistics line looks the same
+either way — it counts publish calls regardless of transport. Use this
+pattern for your own high-rate consumers.)
 
 ## Visualization
 
@@ -178,13 +173,10 @@ channel 0). A static scene renders black; only change is visible. The
 frame rate follows scene activity: a quiet scene updates rarely (correct,
 not frozen — see [tuning.md](tuning.md)), a busy one at the full `fps`.
 
-Adjust the frame rate and mode with the `fps` and `display_type` launch
-arguments (these affect only the image, not the raw event stream; `sharp`
-is for busy scenes only — see [tuning.md](tuning.md)):
-
-```bash
-ros2 launch evk4_bringup evk4.launch.py fps:=60.0
-```
+Adjust the frame rate and mode with `fps` / `display_type` — set in your
+params YAML alongside everything else, or passed as launch arguments for a
+one-off override (they affect only the image, not the raw event stream;
+`sharp` is for busy scenes only — see [tuning.md](tuning.md)).
 
 For an undistorted image, calibrate and rectify — see
 [calibration.md](calibration.md).

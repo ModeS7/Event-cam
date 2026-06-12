@@ -6,77 +6,168 @@ result is a file, `~/my_params.yaml`, that **every later page (calibration,
 rectification) launches with**.
 
 ```bash
-# 1. create your config from the validated recommended one (ERC rate cap;
-#    see the file's comments for what each setting does and why)
+# 1. create your config from the validated recommended one
 cp $(ros2 pkg prefix evk4_bringup)/share/evk4_bringup/config/evk4_params_recommended.yaml \
    ~/my_params.yaml
 
 # 2. launch with it -- as you will from now on
 ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml
+```
 
-# 3. sensor noise is already handled: the recommended config sets
-#    bias_diff_on/off to 100 (near-silent background; motion and blinks
-#    still register cleanly). Experiment live, then put the winner in
-#    ~/my_params.yaml:
+```bash
+# terminal 2 -- watch the stream while you tune (wave a hand: event cameras
+# only show change)
+ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
+```
+
+The camera is now running the validated setup. The rest of this page
+explains what that setup does — and how to tune past it.
+
+## What your config just enabled
+
+The recommended file ships with three things active, all validated on
+hardware (EVK4 on a Raspberry Pi 5, 2026-06):
+
+**ERC — the event-rate cap (`erc_mode: enabled`, `erc_rate: 10000000`).**
+Event-pipeline CPU scales with the event rate, and a busy scene easily
+produces more events than a small board can process — the result is a
+stuttering, lagging display. The cap is enforced **on the sensor**, before
+USB. 10 Mev/s (~35 MB/s) keeps rendering smooth on a Raspberry Pi 5 with
+the scene still looking good (validated 2026-06); raise it only for
+downstream algorithms that consume the raw stream.
+
+**Bias contrast thresholds (`bias_diff_on/off: 30`).** Biases are the
+sensor's analog settings; the contrast thresholds decide how much a pixel's
+brightness must change to emit an event, and they are by far the biggest
+noise lever. At stock (0) a static scene crackles with salt-and-pepper
+noise; 30 cuts most of it while keeping good sensitivity to faint motion —
+the STC filter below cleans up the rest, which beats trading sensitivity
+away with higher thresholds. Fewer noise events also means less USB,
+decoding, and rendering work: on the Pi a busy scene at stock biases cost
+~45% CPU with a viewer open, and raising the thresholds dropped it
+substantially.
+
+**STC trail filter (`trail_filter: true`, `stc_cut_trail` at 10000 us).**
+An on-sensor filter that drops isolated events — which is exactly what
+sensor noise is — so the image stays clean at the sensitive bias setting
+above, and the `sharp` display mode works well (validated 2026-06).
+Side effect to expect: with noise gone, a static scene renders
+black — and in `sharp` display mode the view can freeze entirely at a
+still scene while it waits for events (correct, not broken; the default
+`time_slice` keeps updating).
+
+## The lens: aperture and focus
+
+The config cannot fix optics, so set these once before tuning. Aperture:
+around **f/8** is the sweet spot — a smaller aperture deepens the depth of
+field, making focus far more forgiving (closing further costs light, and
+the sensor then needs more contrast to fire events). Focus: defocus is easy
+to miss on an event camera because there is no static image to judge by.
+Aim at something with fine, high-contrast detail (printed text works well)
+at your working distance, keep events flowing by slowly moving the camera,
+and turn the focus ring until the rendered edges are as thin and crisp as
+possible. Moving closer and further while you turn the ring makes the
+sweet spot much easier to find: sharpness changes fastest right around the
+correct focus distance.
+
+## The tuning loop
+
+There are two kinds of knobs, by how a change is applied:
+
+**Biases are live** — change them while the camera runs, per knob:
+
+```bash
 ros2 param set /event_camera bias_diff_on 60
 ```
 
-Edit `~/my_params.yaml` freely (it is yours, outside the repo — `git pull`
-never touches it); persist the biases once you like them (workflow below)
-and you never re-tune. The rest of this page explains every knob behind
-that recipe.
-
-There are three places to tune the EVK4, by how often you change them:
-
-| What | Where | When |
-|---|---|---|
-| Rendered-video fps, display mode | `evk4.launch.py` launch args | per launch |
-| Driver timing, filtering, ROI | `~/my_params.yaml` (driver params YAML) | persistent config |
-| Biases (contrast thresholds) | `~/my_params.yaml` (startup) + `ros2 param set` (live) | persistent + live |
-
-## Rendered video (fps, display mode)
-
-The renderer's frame rate and mode are launch arguments — they affect only
-the `image_raw` visualization, not the raw event stream:
+or interactively with sliders:
 
 ```bash
-# these are the defaults, written out — change either as needed:
-ros2 launch evk4_bringup evk4.launch.py fps:=25.0 display_type:=time_slice
+ros2 run rqt_reconfigure rqt_reconfigure
 ```
 
-- `fps` (default 25.0) — how often `image_raw` frames are emitted; display
-  cost scales roughly linearly with it, so raise it only with CPU to spare.
-  In `sharp` mode it is a ceiling instead: frames wait for their event
-  count, so quiet scenes emit below it.
-- `display_type` — `time_slice` (default: all events in a fixed 40 ms
-  window — steady timing at any event rate) or `sharp` (each frame waits
-  for a target event COUNT — crisper edges on busy scenes, but on quiet
-  scenes the count takes seconds to fill, so the view integrates seconds
-  of history and feels laggy; validated on hardware 2026-06-11). Use
-  `sharp` only on busy scenes.
+**Everything else** (filters, ROI, crop, rate cap) applies when the camera
+starts: uncomment the block in `~/my_params.yaml`, edit, relaunch.
 
-## Driver timing, filtering, ROI (the params YAML)
+Either way the loop ends the same: **the value you like goes into
+`~/my_params.yaml`**, so every later launch starts there. The file is
+yours, outside the repo (`git pull` never touches it), and it holds the
+whole setup — biases, filters, rate cap, rendered-video settings; every
+knob the sensor supports is already in it, commented out with an
+explanation. (Coming from Prophesee's Metavision Studio with a tuned
+`.bias` file? Copy its five values into `~/my_params.yaml` — same names,
+same numbers.)
 
-These live in the driver params YAML, applied when the camera starts. The
-normal place to change them is **your `~/my_params.yaml`** (created in the
-recipe above): edit, relaunch with `params_file:=$HOME/my_params.yaml`,
-done. (Editing the in-repo defaults at
-`evk4_bringup/config/evk4_params.yaml` also works for quick experiments —
-with a `--symlink-install` build it takes effect on the next launch — but
-the modified file will collide with future `git pull` updates.)
+### Watch each knob work
 
-The common knobs:
+One experiment per main parameter — run the loop and watch what each knob
+does. You need a scene with some motion: point the camera at a video
+playing on a screen (YouTube works fine), or just pan it around the room
+by hand. Keep the viewer open, and undo each change before the next.
 
-- `event_message_time_threshold` — message batching window. Smaller = lower
-  latency, more/smaller messages.
-- `roi` — restrict to a pixel rectangle to cut data volume.
+**Contrast thresholds — the noise floor** (live, no relaunch):
 
-### On-sensor event filters (the IMX636 ESP blocks)
+```bash
+ros2 param set /event_camera bias_diff_on 0
+ros2 param set /event_camera bias_diff_off 0
+```
 
-These run on the sensor *before* events reach USB, so they cut data at the
-source. Set them in your `~/my_params.yaml`; they apply when the camera starts. Our
-`evk4_driver` exposes **every facility the EVK4/IMX636 supports** (a facility
-the sensor lacks is skipped with a warning):
+The image fills with salt-and-pepper noise — that is the sensor at stock
+sensitivity. Set both back to 30 and the background goes quiet while motion
+still shows.
+
+**STC filter — the cleanup** (edit + relaunch): set `trail_filter: false`
+in `~/my_params.yaml` and relaunch. The residual speckle the filter was
+removing comes back. Re-enable it and relaunch.
+
+**ERC — the event budget** (edit + relaunch): set `erc_rate: 500000` (half
+a million events/s) and relaunch. Wave at the camera: motion renders thin
+and ghostly because the sensor is rationing events. Set it back to
+`10000000`.
+
+**fps — display smoothness** (one-off override, no file edit):
+
+```bash
+ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml fps:=5.0
+```
+
+The view turns choppy — but the raw event stream underneath is unchanged
+(only the rendering changed). Relaunch without the override.
+
+**display_type — sharp mode** (one-off override, no file edit):
+
+```bash
+ros2 launch evk4_bringup evk4.launch.py params_file:=$HOME/my_params.yaml display_type:=sharp
+```
+
+Moving edges render noticeably crisper: instead of fixed time windows,
+each frame now waits for a set number of events (your STC filter keeps
+that count fed with real signal). Hold the camera still at a static scene
+and the view freezes until something moves — sharp trades steady timing
+for sharpness. Relaunch without the override.
+
+## The full menu
+
+Every knob lives in your `~/my_params.yaml` as a commented, explained
+block. The sensor-side groups run on the chip itself, *before* events
+reach USB; our `evk4_driver` exposes **every facility the EVK4/IMX636
+supports** (a facility the sensor lacks is skipped with a warning).
+
+Biases — the sensor's analog settings, all **live** (list them with
+`ros2 param list /event_camera | grep bias`):
+
+| Bias | Range | Effect |
+|---|---|---|
+| `bias_diff_on` / `bias_diff_off` | -85..140 / -35..190 | Contrast threshold for ON / OFF events — higher = fewer, stronger events (less noise, less sensitivity) |
+| `bias_fo` | -35..55 | Low-pass bandwidth — lower cuts high-frequency noise/flicker |
+| `bias_hpf` | 0..120 | High-pass — rejects slow/global light changes |
+| `bias_refr` | -20..235 | Refractory period — minimum time between events per pixel |
+
+(Ranges are reported by the sensor itself — the driver prints them at
+startup and `ros2 param describe /event_camera <bias>` shows them; values
+are offsets around the factory default 0.)
+
+The filter/region facilities — applied when the camera starts:
 
 | Facility | Params | What it does |
 |---|---|---|
@@ -88,97 +179,89 @@ the sensor lacks is skipped with a warning):
 | **ROI / RONI** | `roi`, `roni` | Keep (or, with `roni`, exclude) one or more `[x,y,w,h]` windows |
 | **ERAF** (Event Rate Activity Filter) | `eraf_*` | *Not available on the EVK4/IMX636* — skipped with a warning; the params exist for other Prophesee sensors |
 
-## Biases — contrast thresholds (runtime)
+Driver-side (not on-sensor) knobs in the same file:
 
-Biases are the sensor's analog settings. The driver exposes them as **live
-parameters**, so tune them while watching `image_raw` or `event_rate`:
+- `event_message_time_threshold` — message batching window. Smaller = lower
+  latency, more/smaller messages.
 
-```bash
-# list current bias values
-ros2 param list /event_camera | grep bias
-# raise the ON-contrast threshold (fewer, stronger ON events)
-ros2 param set /event_camera bias_diff_on 100
-# or tune interactively
-ros2 run rqt_reconfigure rqt_reconfigure
-```
+Rendered video — these affect only the `image_raw` visualization, never
+the raw event stream (`fps:=` / `display_type:=` launch arguments exist as
+one-off overrides and win over the file when passed):
 
-| Bias | Effect |
-|---|---|
-| `bias_diff_on` / `bias_diff_off` | Contrast threshold for ON / OFF events — higher = fewer, stronger events (less noise, less sensitivity) |
-| `bias_fo` | Low-pass bandwidth — lower cuts high-frequency noise/flicker |
-| `bias_hpf` | High-pass — rejects slow/global light changes |
-| `bias_refr` | Refractory period — minimum time between events per pixel |
+- `fps` (default 25.0) — how often `image_raw` frames are emitted; display
+  cost scales roughly linearly with it, so raise it only with CPU to spare.
+  In `sharp` mode it is a ceiling instead: frames wait for their event
+  count, so quiet scenes emit below it.
+- `display_type` — `time_slice` (default: all events in a fixed 40 ms
+  window — steady timing at any event rate) or `sharp` (each frame waits
+  for a target event COUNT — crisper edges on busy scenes, but on quiet
+  scenes the count takes seconds to fill, so the view integrates seconds
+  of history and feels laggy; validated on hardware 2026-06-11). Use
+  `sharp` only on busy scenes — or paired with the **STC trail filter**
+  (enabled in the recommended config): with noise removed on-sensor,
+  sharp's event count fills with real signal instead of speckle and the
+  mode works well at ordinary scenes too (validated 2026-06).
 
-**Tune live, persist in the YAML:** experiment with `ros2 param set`
-while watching the image, then write the values you like into
-`~/my_params.yaml` — they are applied at every launch, alongside everything
-else (ERC, filters). One file holds the whole sensor setup. (A sensor-native
-alternative, `bias_file` + the `save_biases` service, exists for
-interoperability with Prophesee tooling — see
-[`config/biases/README.md`](../evk4_bringup/config/biases/README.md).)
+## Which knob for which symptom
 
-## Reducing background noise (speckle at a static scene)
+**Too much noise / sparkle at a static scene.** Some salt-and-pepper events
+are normal sensor shot noise. The ladder, mildest first — the bias steps
+are live, so watch the image while you tune:
 
-Some salt-and-pepper events at a motionless scene are normal sensor shot
-noise at default settings. The ladder, mildest first — the bias steps are
-live (`ros2 param set`), so watch the image while you tune:
-
-1. Raise the contrast thresholds: `bias_diff_on` / `bias_diff_off` — the
-   recommended config sets 100/100 (validated on the EVK4: near-silent
-   static scene, motion and blinking patterns still register cleanly).
-   Costs sensitivity to faint motion; lower toward 30 if you need it.
-   **This is by far the biggest lever.**
+1. The contrast thresholds: `bias_diff_on` / `bias_diff_off` — your config
+   sets the validated 30/30, with the STC filter cleaning up the rest.
+   Raising them further silences more at the cost of faint-motion
+   sensitivity. **This is by far the biggest lever.**
 2. Lower `bias_fo` (negative values = stronger photoreceptor low-pass =
    less temporal noise). Costs a little motion sharpness.
 3. Raise `bias_hpf` to reject slow-drift / ambient-flicker events.
    (On the IMX636 the effect of steps 2–3 is subtle — don't expect a visible
    change at typical noise levels; lead with step 1.)
-4. Enable the on-sensor **STC filter** (`trail_filter: true`,
-   `trail_filter_type: stc_cut_trail`, `trail_filter_threshold: 10000` in
-   `~/my_params.yaml` + relaunch) — removes isolated events, which is
-   exactly what background noise is. Note: with noise fully silenced, the
-   rendered image updates only when something actually changes — a "frozen"
-   viewer at a static scene is then correct, not broken.
+4. The on-sensor **STC filter** (already enabled in your config) — removes
+   isolated events, which is exactly what background noise is; tune
+   `trail_filter_threshold` or disable it in `~/my_params.yaml` +
+   relaunch. Note: with noise fully silenced, a static scene renders
+   black, and in `sharp` display mode the view can freeze at a still scene
+   — correct, not broken.
 5. Room lighting flicker can masquerade as uniform noise. Lamps flicker at
    **twice the mains frequency** (light peaks on both AC half-cycles):
    100 Hz on 50 Hz grids (Europe), 120 Hz on 60 Hz grids (US) — enable
    `afk_enabled: true` with a band bracketing your grid's flicker
    (90–110 Hz for Europe, 110–130 Hz for the US).
-6. Individual hot pixels: blank them on-sensor with `event_mask_pixels`.
+6. Individual **hot pixels**: a defective pixel fires constantly regardless
+   of the scene — with everything above applied, it shows as one stubborn
+   dot blinking at a fixed spot in an otherwise black view (the STC filter
+   can miss it, because a continuously firing pixel is not "isolated"
+   noise). Find its coordinates by decoding a few seconds of events and
+   counting per pixel — adapt the `event_rate` example
+   ([usage.md](usage.md)): histogram the decoded `x`,`y` arrays and the hot
+   pixel dominates. Then blank it on-sensor in `~/my_params.yaml`
+   (flat `[x0,y0, x1,y1, ...]` list, a few hardware slots available):
 
-Fewer events also means less USB traffic, decoding, and rendering work —
-on a Raspberry Pi 5 a busy scene at default biases cost ~45% CPU with the
-viewer open; raising the thresholds dropped it substantially (idle pipeline
-~8–16%). Tuning the sensor IS the CPU optimization.
+   ```yaml
+   event_mask_pixels: [421, 233]
+   ```
 
-## When the frame rate collapses on a busy scene
+**Missing faint motion** → lower `bias_diff_on`/`bias_diff_off`.
 
-Event-pipeline CPU scales with the event rate. An unbounded busy scene
-(sensitive biases pointed at a flickering screen reaches >10 Mev/s) can
-demand more than a small board has: on a Pi 5, renderer + rectify + a viewer
-saturated all four cores and the display dropped to ~12 fps even though
-nothing was broken. The fix is to cap the rate **on the sensor** with ERC in
-your `~/my_params.yaml`:
+**CPU/USB saturated, frame rate collapses on a busy scene** → lowering
+`erc_rate` relieves the machine, but know the trade: ERC drops events
+**indiscriminately** — it cannot prefer a signal event over a noise event —
+so a stream that constantly rides the cap is uniformly thinned and overall
+worse. If the driver's statistics line shows the rate pinned at the cap,
+retune so the scene's natural rate sits *below* it instead: raise
+`bias_diff_on`/`bias_diff_off`, tune away noise (the ladder above), and add
+an `roi` / `digital_crop_region` if only part of the view matters. Also
+close viewers/rectification you are not using — every subscriber adds work,
+and the lazy pipeline stops computing what nobody watches.
 
-```yaml
-erc_mode: enabled
-erc_rate: 10000000     # max events/s the sensor will emit; applies at launch
-```
+**Everything feels laggy even at a low event rate** → usually the machine
+is overloaded, not the tuning — see
+[troubleshooting.md](troubleshooting.md).
 
-10 Mev/s (~35 MB/s) is the validated sweet spot on a Pi 5 — smooth
-rendering and the scene still looks good; at a 100 Mev/s cap (~180 MB/s
-peak) the display stutters unusably. Raise beyond 10 M only for downstream
-algorithms that consume the raw stream. Also close viewers/rectification
-you are not using — every subscriber adds work, and the lazy pipeline stops
-computing what nobody watches.
+**Flickering lights (AC/LED) flooding events** → `afk_enabled` with a
+`band_stop` bracketing the flicker (90–110 Hz in Europe); `bias_hpf` and
+`erc_rate` help too.
 
-## Which knob for which symptom
-
-- **Too much noise / sparkle** → the noise ladder above.
-- **Missing faint motion** → lower `bias_diff_on`/`bias_diff_off`.
-- **CPU/USB saturated** → tune away noise events (above), enable `erc_mode` +
-  `erc_rate`, or add an `roi` / `digital_crop_region`.
-- **Flickering lights (AC/LED) flooding events** → enable `afk_enabled` with a
-  `band_stop` around the flicker frequency (e.g. 100–120 Hz); `bias_hpf` and
-  `erc_rate` help too.
-- **Blurry rendered image** → raise `fps` or use `display_type:=sharp`.
+**Blurry rendered image** → raise `fps`; on a consistently busy scene
+`display_type: sharp` also helps (it lags on quiet ones — see above).

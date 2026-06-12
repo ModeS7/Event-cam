@@ -11,7 +11,7 @@ where it's been validated.
 
 | Platform | Status |
 |---|---|
-| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-05) |
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-05; current driver: re-validation pending) |
 | x86_64 · Ubuntu 22.04 · Humble | expected — untested |
 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-09) |
 | Other ARM64 SBCs / Humble | expected |
@@ -76,6 +76,10 @@ sudo rosdep init 2>/dev/null || true; rosdep update
 mkdir -p ~/workspaces/3rd_party_ws/src && cd ~/workspaces/3rd_party_ws/src
 git clone https://github.com/ros-event-camera/event_camera_renderer.git
 vcs import --input event_camera_renderer/event_camera_renderer.repos .
+#    apply this repo's renderer patch (bounds the frame backlog so the viewer
+#    never replays seconds of stale frames after a quiet period)
+git -C event_camera_renderer apply \
+  ~/ros2_ws/src/Event-cam/setup/patches/event_camera_renderer-backlog-cap.patch
 cd ~/workspaces/3rd_party_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 rosdep install --from-paths src --ignore-src -r -y

@@ -18,9 +18,17 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 
 ## What you need
 
-- A **blinking asymmetric circle grid** shown on a screen. One ships with
-  this repo — open [`docs/circle_grid.html`](circle_grid.html) in any browser
-  on the screen the camera will look at and press **F11** for fullscreen.
+- A **blinking asymmetric circle grid** shown on a screen. Open the hosted
+  page on whatever device the camera will look at — no download needed:
+
+  **<https://modes7.github.io/Event-cam/circle_grid.html>**
+
+  (Offline, the same page is in the repo:
+  [`docs/circle_grid.html`](circle_grid.html).)
+  **Prefer a different machine's screen than the camera host's** — a
+  laptop or tablet opening the link is ideal: the blinking page itself
+  costs real CPU, and on a small board like a Pi that load makes the whole
+  pipeline feel laggy. Close the page as soon as calibration is done.
   Defaults match the calibrator (`grid_size:=5x17`, an OpenCV asymmetric
   grid drawn rotated — its bounding box is then exactly 16:9, filling a
   widescreen monitor; rotation does not affect detection). URL
@@ -38,41 +46,24 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   on `/calibrate/overlay`, viewed with `rqt_image_view` like every other
   image topic in this repo — on the camera machine or any other machine on
   the same ROS network (a headless camera host is fine).
-- **A focused lens — check this first.** Defocus is easy to miss on an event
-  camera and degrades the calibration (circle detection tolerates it better
-  than checkerboard corners did, but accuracy still suffers). To focus: aim
-  at the blinking grid at your working distance, watch `image_raw` live
-  (full resolution — the overlay is downscaled), and
-  turn the lens focus ring until the dots are as small and crisp as
-  possible. Moving the screen (or camera) closer and further while you turn
-  the ring makes the sweet spot much easier to find — sharpness changes
-  fastest right around the correct focus distance.
-- **Expect a choppy preview.** The rendered image only refreshes when events
-  arrive — with a blinking grid that is a few updates per second, so the
-  overlay feels less smooth than video. That is normal (see tuning.md); move the camera
-  slowly and hold each pose for a blink or two so the auto-capture can see
-  it.
+- **A focused lens at ~f/8 — check this first.** Defocus is easy to miss on
+  an event camera and quietly degrades the calibration. The aperture and
+  focus procedure is in [tuning.md](tuning.md) (The lens) — do it at the
+  distance you will calibrate from, using the blinking grid as the target.
+- **The preview follows the blink.** The rendered image only refreshes when
+  events arrive, so expect the overlay to feel a bit less smooth than the
+  raw stream usually does — that is normal. Move the camera slowly and hold
+  each pose for a blink or two so the auto-capture can see it.
 
 ## 1. Run the guided calibrator
 
 One command starts the whole session — camera, calibrator, and the progress
 viewer — and shuts everything down by itself once the calibration is
-written (your `~/my_params.yaml` from tuning.md carries the rate cap and
-noise biases):
+written (your `~/my_params.yaml` from tuning.md carries your tuned sensor
+setup):
 
 ```bash
 ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.yaml
-```
-
-The recommended config already sets the contrast thresholds to 100, which
-is exactly right here: the blinking dots are maximum-contrast, so the sensor
-stays near-silent to everything else and the grid stands alone against an
-empty background. If your params file uses lower values, raise them for the
-session (applies live, reverts to your YAML on the next launch):
-
-```bash
-ros2 param set /event_camera bias_diff_on 100
-ros2 param set /event_camera bias_diff_off 100
 ```
 
 | Argument | Default | Description |
@@ -84,7 +75,12 @@ ros2 param set /event_camera bias_diff_off 100
 
 The overlay shows the live image; when the grid is detected, colored markers
 appear ON the dots (verify that — markers wandering between dots means a
-detection problem). Move the camera to cover the whole field of view — near
+detection problem; and if frames visibly hold only part of the dots at a
+time, the fixed time window is slicing the blink in half — add
+`display_type:=sharp` to the launch, whose event-count frames synchronize
+with the blink).
+
+Move the camera to cover the whole field of view — near
 and far, into all four image corners, and tilted at angles. The four bars
 (X / Y / Size / Skew) fill green as coverage improves, and **every unfilled
 bar shows what to do next** (e.g. `grid to LEFT edge`, `move CLOSER`,
@@ -128,7 +124,10 @@ smeared corners = recalibrate with better corner coverage.
 
 (Omit `rectify:=true` if you only need `camera_info` published for a
 downstream tool; rectification runs in the camera container and costs
-nothing while nobody subscribes to `image_rect`.)
+nothing while nobody subscribes to `image_rect`. The launch uses
+nearest-neighbor interpolation for the remap — event images are sparse
+hard-edged pixels, so it is both crisper and substantially cheaper than
+the bilinear default (~60 ms/frame on a Pi 5).)
 
 To keep a calibration with the repo, copy the YAML into
 `evk4_bringup/config/calibration/` (it ships a zero-distortion placeholder).

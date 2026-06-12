@@ -29,7 +29,7 @@ the table just records where it's been validated:
 
 | Platform | Status |
 |---|---|
-| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (current driver: re-validation pending) |
 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | x86_64 · Ubuntu 22.04 · Humble | expected, untested |
 | Other ARM64 SBCs / Humble | expected |
@@ -93,23 +93,34 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 | Path | Purpose |
 |---|---|
 | `evk4_driver/` | The camera driver: C++ composable node on OpenEB, publishes raw EVT3 events, exposes all sensor facilities |
-| `evk4_bringup/` | Launch file, driver params, bias + calibration configs, `camera_info` helper |
+| `evk4_bringup/` | Launch file, driver params, calibration configs, `camera_info` helper |
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
-| `evk4_calibration/` | Guided intrinsic calibrator (`ros2 run evk4_calibration calibrate`) |
-| `setup/` | `install_deps.sh` (one-command dependency setup) + vendored udev rule |
-| `docs/` | Installation, usage, troubleshooting |
+| `evk4_calibration/` | Guided intrinsic calibrator (`ros2 launch evk4_calibration calibrate.launch.py`) |
+| `setup/` | `install_deps.sh` (one-command dependency setup) + vendored udev rule and renderer patch |
+| `docs/` | The four-page setup guide + reference pages (see below) |
 
 ## Documentation
 
-In reading order — each page builds on the previous one:
+Setting up a camera is **four pages, in this order** — each step builds on
+the previous one:
 
-- [docs/installation.md](docs/installation.md) — apt packages, udev rule, build, smoke test
-- [docs/usage.md](docs/usage.md) — launch arguments, consuming events, QoS, recording
-- [docs/tuning.md](docs/tuning.md) — fps, thresholds/biases, ERC, noise filtering
-- [docs/calibration.md](docs/calibration.md) — camera_info, rectification, TF frames
-- [docs/multi_camera.md](docs/multi_camera.md) — running 2+ cameras, sync, per-camera calibration
-- [docs/troubleshooting.md](docs/troubleshooting.md) — camera not found, permissions, no events
+1. [docs/installation.md](docs/installation.md) — apt packages, udev rule,
+   build, smoke test → live events on screen
+2. [docs/usage.md](docs/usage.md) — how to drive it: terminals, launch
+   arguments, topics and QoS, viewing, consuming events, recording
+3. [docs/tuning.md](docs/tuning.md) — noise, rate cap, filters → your
+   `~/my_params.yaml`, which every later page launches with
+4. [docs/calibration.md](docs/calibration.md) — guided intrinsic
+   calibration → `event_camera.yaml` for camera_info / rectification
+
+At any step, if something misbehaves:
+[docs/troubleshooting.md](docs/troubleshooting.md) — camera not found,
+permissions, no events, poisoned communication.
+
+With more than one camera:
+[docs/multi_camera.md](docs/multi_camera.md) — namespaces, hardware sync,
+per-camera calibration.
 
 ## License
 

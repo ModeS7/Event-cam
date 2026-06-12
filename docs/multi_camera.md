@@ -34,7 +34,9 @@ ros2 launch evk4_bringup evk4.launch.py \
     camera_name:=cam1 serial:=00051701 sync_mode:=secondary
 ```
 
-You now have `/cam0/events`, `/cam1/events`, `/cam0/image_raw`,
+Add `params_file:=$HOME/my_params.yaml` to each launch to keep your tuned
+setup ([tuning.md](tuning.md)), as on every other page. You now have
+`/cam0/events`, `/cam1/events`, `/cam0/image_raw`,
 `/cam1/image_raw`, each in its own container. Add a third camera with another
 `secondary` launch. More than two `secondary` cameras is fine.
 
@@ -56,7 +58,9 @@ Calibrate each camera separately (see [calibration.md](calibration.md)), giving
 each its own output file and `calibration_url`:
 
 ```bash
-# calibrate cam0
+# calibrate cam0 (the one-command calibrate.launch.py assumes the default
+# camera name, so with multiple cameras run the calibrator directly and
+# remap per camera; watch /calibrate/overlay in rqt_image_view as usual)
 ros2 run evk4_calibration calibrate --ros-args \
     -p grid_size:=5x17 -p output:=cam0.yaml \
     -r image_raw:=/cam0/image_raw
@@ -78,7 +82,8 @@ would build on are already here: per-camera intrinsics, per-camera frames, and
 hardware sync. The intended approach when a multi-camera rig exists:
 
 1. Hardware-sync the cameras (above) so views are simultaneous.
-2. Capture synchronized views of one shared checkerboard across all cameras.
+2. Capture synchronized views of one shared blinking circle grid across all
+   cameras.
 3. Run stereo/multi-camera calibration (`cv2.stereoCalibrate` for a pair, or a
    bundle adjustment for more) to recover each camera's pose.
 4. Publish those poses as static transforms so the cameras share a TF tree.
