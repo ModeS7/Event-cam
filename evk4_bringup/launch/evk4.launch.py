@@ -44,7 +44,6 @@ def _require(package):
 def _launch_setup(context, *args, **kwargs):
     camera_name = LaunchConfiguration('camera_name').perform(context)
     serial = LaunchConfiguration('serial').perform(context)
-    bias_file = LaunchConfiguration('bias_file').perform(context)
     frame_id = LaunchConfiguration('frame_id').perform(context)
     sync_mode = LaunchConfiguration('sync_mode').perform(context)
     trigger_in_mode = LaunchConfiguration('trigger_in_mode').perform(context)
@@ -82,7 +81,6 @@ def _launch_setup(context, *args, **kwargs):
                 params_file,
                 {
                     'serial': serial,
-                    'bias_file': bias_file,
                     'frame_id': frame_id,
                     'sync_mode': sync_mode,
                     'trigger_in_mode': trigger_in_mode,
@@ -94,6 +92,19 @@ def _launch_setup(context, *args, **kwargs):
     ]
     if viz == 'true':
         _require('event_camera_renderer')
+        # Precedence: defaults < the params YAML < explicitly passed launch
+        # args — one file can carry the whole setup (docs/tuning.md) while
+        # fps:= / display_type:= stay quick one-off overrides ("explicit" =
+        # differs from the default).
+        renderer_params = [
+            {'fps': 25.0, 'display_type': 'time_slice'}, params_file]
+        overrides = {}
+        if fps != 25.0:
+            overrides['fps'] = fps
+        if display_type != 'time_slice':
+            overrides['display_type'] = display_type
+        if overrides:
+            renderer_params.append(overrides)
         components.append(
             ComposableNode(
                 package='event_camera_renderer',
@@ -102,7 +113,7 @@ def _launch_setup(context, *args, **kwargs):
                 # namespace under camera_name so two cameras don't both create
                 # a node literally named /renderer (multi-camera safety).
                 namespace=camera_name,
-                parameters=[{'fps': fps, 'display_type': display_type}],
+                parameters=renderer_params,
                 remappings=[
                     ('~/events', f'/{camera_name}/events'),
                     ('~/image_raw', f'/{camera_name}/image_raw'),
@@ -142,6 +153,11 @@ def _launch_setup(context, *args, **kwargs):
                 plugin='image_proc::RectifyNode',
                 name='rectify',
                 namespace=camera_name,
+                # Nearest-neighbor remap: ~60 ms/frame cheaper than the
+                # bilinear default on a Pi (validated 2026-06-12), and
+                # event images are sparse hard-edged pixels — bilinear
+                # only smears them.
+                parameters=[{'interpolation': 0}],
                 remappings=[('image', f'/{camera_name}/image_raw'),
                             ('camera_info', f'/{camera_name}/camera_info'),
                             ('image_rect', f'/{camera_name}/image_rect')],
@@ -175,9 +191,6 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'serial', default_value='',
             description='Camera serial number (empty: first camera found).'),
-        DeclareLaunchArgument(
-            'bias_file', default_value='',
-            description='Path to a .bias file (empty: sensor defaults).'),
         DeclareLaunchArgument(
             'frame_id', default_value='event_camera_optical_frame',
             description='TF frame for camera messages (driver 3.0.0 ignores '

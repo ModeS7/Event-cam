@@ -29,25 +29,26 @@
 
     # --- Biases: the sensor's analog settings ----------------------------
     # Applied at startup; all stay live-tunable with ros2 param set.
-    # The contrast thresholds are the dominant noise lever. 100 is the
-    # validated recommendation (near-silent background, blinks and motion
-    # still register cleanly); lower toward 30 only if you need more
-    # sensitivity to faint motion.
-    bias_diff_on: 100
-    bias_diff_off: 100
+    # The contrast thresholds are the dominant noise lever. 30 keeps good
+    # sensitivity while the STC filter (below) removes the remaining noise
+    # on-sensor — the validated combination (2026-06-12). Raising them
+    # instead silences noise without the filter, at the cost of sensitivity.
+    bias_diff_on: 30     # range -85..140
+    bias_diff_off: 30    # range -35..190
     # The rest are subtle on the IMX636 (values are offsets from factory
     # defaults; see the bias table in docs/tuning.md):
-    # bias_fo: 0      # photoreceptor low-pass: lower = less temporal noise
-    # bias_hpf: 0     # high-pass: rejects slow/global light changes
-    # bias_refr: 0    # refractory period between events per pixel
+    # bias_fo: 0      # range -35..55: photoreceptor low-pass, lower = less noise
+    # bias_hpf: 0     # range 0..120:  high-pass, rejects slow/global changes
+    # bias_refr: 0    # range -20..235: refractory period between events
 
     # --- Trail / STC: on-sensor noise + trail filtering ------------------
-    # Removes isolated noise events for a fully quiet image. Trade-off: with
-    # noise silenced, a static scene renders black and only change is
-    # visible — a "frozen" viewer at a still scene is then correct.
-    # trail_filter: true
-    # trail_filter_type: stc_cut_trail   # trail | stc_cut_trail | stc_keep_trail
-    # trail_filter_threshold: 10000      # [us]
+    # Removes isolated noise events for a clean image at sensitive biases;
+    # also makes the sharp display mode work well (docs/tuning.md).
+    # Trade-off: with noise silenced, a static scene renders black, and in
+    # sharp display mode the view can freeze at a still scene (correct).
+    trail_filter: true
+    trail_filter_type: stc_cut_trail     # trail | stc_cut_trail | stc_keep_trail
+    trail_filter_threshold: 10000        # [us]
 
     # --- AFK: Anti-Flicker ------------------------------------------------
     # Removes flickering light on-sensor. Lamps flicker at 2x the mains
@@ -72,6 +73,11 @@
     # --- Digital Event Mask: blank out individual hot pixels --------------
     # Flat list of [x0,y0, x1,y1, ...] pixels to mask (limited # of HW slots).
     # event_mask_pixels: [320, 240, 640, 360]
+
+    # --- Rendered video (the renderer reads this file too) ----------------
+    # fps: 25.0                 # display frame rate; CPU cost scales with it
+    # display_type: time_slice  # time_slice | sharp (sharp: busy scenes only,
+    #                           # lags on quiet ones -- docs/tuning.md)
 
     # --- Performance / diagnostics ----------------------------------------
     # use_multithreading: true        # capture on a worker thread (default)

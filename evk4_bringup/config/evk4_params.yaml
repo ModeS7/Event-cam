@@ -3,10 +3,10 @@
 # Applied when the camera STARTS -> edit + relaunch to take effect. One
 # related knob lives elsewhere (see docs/tuning.md):
 #   - rendered-video fps           -> evk4.launch.py `fps` / `display_type` args
-# Biases can be set here too (e.g. `bias_diff_on: 100`) and stay live-tunable
+# Biases can be set here too (e.g. `bias_diff_on: 30`) and stay live-tunable
 # with `ros2 param set` / rqt_reconfigure.
 #
-# Set from launch arguments (not here): serial, bias_file, frame_id,
+# Set from launch arguments (not here): serial, frame_id,
 # sync_mode, trigger_in_mode, settings. Everything else is fair game below;
 # `params_file:=<your.yaml>` swaps this whole file.
 /**:
