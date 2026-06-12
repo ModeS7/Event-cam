@@ -46,6 +46,16 @@ cd "$WS_PATH/src"
   git clone https://github.com/ros-event-camera/event_camera_renderer.git
 # pulls event_camera_msgs + event_camera_codecs
 vcs import --input event_camera_renderer/event_camera_renderer.repos .
+# Apply our renderer patch (bounds the pending-frame backlog; without it the
+# viewer replays seconds of stale frames after quiet periods). Idempotent:
+# skipped when already applied. Upstream PR pending.
+PATCH="$SCRIPT_DIR/patches/event_camera_renderer-backlog-cap.patch"
+if git -C event_camera_renderer apply --reverse --check "$PATCH" 2>/dev/null; then
+  echo "renderer patch already applied"
+else
+  git -C event_camera_renderer apply "$PATCH"
+  echo "renderer patch applied"
+fi
 cd "$WS_PATH"
 set +u   # ROS setup scripts reference unbound vars
 source /opt/ros/"$ROS_DISTRO"/setup.bash

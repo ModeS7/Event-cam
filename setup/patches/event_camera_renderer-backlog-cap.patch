@@ -1,0 +1,20 @@
+diff --git a/src/renderer.cpp b/src/renderer.cpp
+index b33f063..cb98d93 100644
+--- a/src/renderer.cpp
++++ b/src/renderer.cpp
+@@ -139,6 +139,15 @@ void Renderer::addNewFrame(const FrameTime & ft)
+   } else {
+     frames_.push_back(ft);
+   }
++  // Local patch (Event-cam): bound the pending-frame backlog by refusing
++  // NEW slots. Stock queues up to 1000 slots across quiet periods and then
++  // replays the stale backlog before live frames (seconds of lag after
++  // motion resumes). Refusing new slots (never dropping old ones) keeps
++  // latency bounded at ~3 frames while a slower-than-realtime decoder can
++  // still reach its oldest target and keep emitting.
++  while (frames_.size() > 3) {
++    frames_.pop_back();
++  }
+   processEventMessages();
+ }
+ 
