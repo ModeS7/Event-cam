@@ -33,8 +33,9 @@ well-documented, easy to extend.
 - **License:** Apache 2.0. Never vendor or commit proprietary Metavision SDK
   files. **OpenEB** is installed by the user via apt
   (`ros-$ROS_DISTRO-openeb-vendor`); our driver builds from this repo against
-  it. The vendored `88-cyusb.rules` is the only third-party file we ship, and
-  it is Apache-2.0 from OpenEB.
+  it. Third-party files we ship: the vendored `88-cyusb.rules` (Apache-2.0,
+  from OpenEB) and `setup/patches/event_camera_renderer-backlog-cap.patch`
+  (a diff of Apache-2.0 ros-event-camera code).
 - **Topic contract (user-confirmed):** default launch publishes
   `/event_camera/events` (`event_camera_msgs/EventPacket`, raw EVT3, always),
   `/event_camera/image_raw` (`sensor_msgs/Image`, renderer, behind
@@ -60,7 +61,7 @@ well-documented, easy to extend.
   Event Mask (`event_mask_pixels`). `eraf_*` params exist but the IMX636 does
   NOT implement the Event Rate Activity Filter (skipped with a warning).
   Biases are tuned at RUNTIME (`ros2 param set`). Mode-selectors are launch
-  args: `serial`, `bias_file`, `frame_id`, `sync_mode`, `trigger_in_mode`,
+  args: `serial`, `frame_id`, `sync_mode`, `trigger_in_mode`,
   `settings` (camera-settings JSON; also the `save_settings` target),
   `calibration_url`, `viz`, `fps`, `display_type`, plus `params_file` (escape
   hatch swapping the whole driver YAML). NOT exposed: trigger-OUT (EVK4/Gen4
@@ -113,10 +114,12 @@ well-documented, easy to extend.
   ships at ~+34 ms vs image_raw, user-accepted).
 - The source workspace (`3rd_party_ws`) is modifiable by design, but local
   patches are a liability — every variant of the renderer patch bit us.
-  Any load-bearing local patch must be distributed (fork + upstream PR) or
-  dropped. Currently load-bearing: the renderer pending-frame cap
-  (drop-NEWEST only: stock replays a stale backlog = seconds of lag after
-  quiet; drop-oldest starves slow decoders into total silence).
+  Any load-bearing local patch must be distributed or dropped. The one
+  load-bearing patch — the renderer pending-frame cap (drop-NEWEST only:
+  stock replays a stale backlog = seconds of lag after quiet; drop-oldest
+  starves slow decoders into total silence) — is DISTRIBUTED as
+  `setup/patches/event_camera_renderer-backlog-cap.patch`, applied by
+  install_deps.sh (idempotent). Upstream PR still worth filing.
 
 ### Performance model (hardware-validated)
 - Pipeline cost scales with EVENT RATE. ERC is the latency/CPU lever:
@@ -195,9 +198,11 @@ well-documented, easy to extend.
     returns null on the IMX636 (skipped). Biases: `get_all_biases()` enumerate
     (skip the computed `bias_diff`), declare each as a live int param applied
     on change via `set()`.
-  - Services (`std_srvs/srv/Trigger`): `~/save_biases`, `~/save_settings`
+  - Services (`std_srvs/srv/Trigger`): `~/save_settings` (`save_biases` +
+    `bias_file` REMOVED 2026-06-12 — params YAML is the single bias
+    mechanism; .bias users copy values into the YAML)
     (`I_LL_Biases::save_to_file` / `cam_.save`); both fail clearly if no
-    `bias_file`/`settings` path was given at startup.
+    `settings` path was given at startup.
   - Honors `frame_id` (default `event_camera_optical_frame`).
   - **Tracked gaps:** single-threaded raw callback (no `use_multithreading`
     yet; fine at tested rates, ~7.9% CPU) and NO per-second stats line.
@@ -319,20 +324,24 @@ Done:
 - [x] **SDK rewrite (2026-06-09):** replaced `metavision_driver` with our
       OpenEB-based `evk4_driver` — raw EVT3 `EventPacket` + every EVK4 facility
       (incl. AFK, Digital Crop, Event Mask the old driver could not reach),
-      live biases, save_biases/save_settings, honored frame_id. It is the
+      live biases, save_settings, honored frame_id. It is the
       production driver in `evk4.launch.py`; whole pipeline (renderer,
       examples, calibration camera_info, bag) re-validated on the Pi. Install
       switched to `openeb_vendor`; docs truthed up. (Phases 0–3; details in
       memory `sdk-rewrite-decision`.)
 
-Next:
-- [ ] Distribute the renderer pending-frame-cap patch (fork + upstream PR to
-      ros-event-camera) — currently LOCAL to the lab Pi's 3rd_party_ws; a
-      fresh student install gets stock's backlog lag.
+Next (user-ordered 2026-06-12):
+- [ ] x86 re-validation on the lab PC — run the documented student flow cold
+      (installation -> usage -> tuning -> calibration). install_deps.sh now
+      applies the renderer backlog-cap patch, so fresh installs match the
+      Pi's validated behavior.
 - [ ] `evk4_sdk_advanced` — opt-in full Metavision SDK Pro layer
       (calibration/CV/ML/analytics) over our `EventPacket` stream. Blocked on
       the user's SDK Pro license + ARM source build.
-- [ ] x86 re-validation of `evk4_driver` on the lab PC.
+- [ ] Docs media pass — GIFs/PNGs of the tuning experiments, calibration
+      overlay, rectified view (user: "flesh it out more").
+- [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
+      stopgap; an accepted PR retires it).
 
 ## Conventions
 
