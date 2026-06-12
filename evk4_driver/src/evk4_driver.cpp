@@ -29,7 +29,6 @@ EVK4Driver::EVK4Driver(const rclcpp::NodeOptions & options)
 {
   serial_ = this->declare_parameter<std::string>("serial", "");
   frameId_ = this->declare_parameter<std::string>("frame_id", "event_camera_optical_frame");
-  biasFile_ = this->declare_parameter<std::string>("bias_file", "");
   settingsFile_ = this->declare_parameter<std::string>("settings", "");
   const double tThresh =
     this->declare_parameter<double>("event_message_time_threshold", 0.001);
@@ -87,11 +86,8 @@ void EVK4Driver::startCamera()
                    << (hwid ? ", serial " + hwid->get_serial() : ""));
 
   loadSettings();
-  loadBiasFile();
   declareBiases();
 
-  saveBiasesSrv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/save_biases", std::bind(&EVK4Driver::saveBiases, this, _1, _2));
   saveSettingsSrv_ = this->create_service<std_srvs::srv::Trigger>(
     "~/save_settings", std::bind(&EVK4Driver::saveSettings, this, _1, _2));
 
@@ -153,24 +149,6 @@ void EVK4Driver::loadSettings()
   }
 }
 
-void EVK4Driver::loadBiasFile()
-{
-  if (biasFile_.empty()) {
-    return;
-  }
-  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-  if (biases == nullptr) {
-    return;
-  }
-  try {
-    biases->load_from_file(biasFile_);
-    RCLCPP_INFO_STREAM(this->get_logger(), "loaded bias file: " << biasFile_);
-  } catch (const std::exception & e) {
-    RCLCPP_WARN_STREAM(
-      this->get_logger(), "reading bias file failed: " << e.what() << "; using defaults");
-  }
-}
-
 void EVK4Driver::declareBiases()
 {
   auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
@@ -184,10 +162,28 @@ void EVK4Driver::declareBiases()
       continue;  // computed reference, not independently settable
     }
     biasNames_.insert(b.first);
+    // The sensor knows each bias's valid range; declare it on the param so
+    // `ros2 param describe` reports it, rqt_reconfigure gets correctly
+    // bounded sliders, and out-of-range values are rejected up front.
+    rcl_interfaces::msg::ParameterDescriptor desc;
+    Metavision::LL_Bias_Info info;
+    if (biases->get_bias_info(b.first, info)) {
+      const auto range = info.get_bias_range();
+      rcl_interfaces::msg::IntegerRange ir;
+      ir.from_value = range.first;
+      ir.to_value = range.second;
+      ir.step = 1;
+      desc.integer_range.push_back(ir);
+      desc.description = "sensor range " + std::to_string(range.first) + ".." +
+        std::to_string(range.second);
+      RCLCPP_INFO_STREAM(
+        this->get_logger(), b.first << " = " << b.second << " [range " << range.first
+                                    << ".." << range.second << "]");
+    }
     // declare_parameter returns the override when one was given (params
     // YAML / launch), so biases can be set at startup like everything else
     // -- they reset to sensor defaults on every camera open otherwise.
-    const int v = this->declare_parameter<int>(b.first, b.second);
+    const int v = this->declare_parameter<int>(b.first, b.second, desc);
     if (v != b.second) {
       if (biases->set(b.first, v)) {
         RCLCPP_INFO_STREAM(this->get_logger(), "startup bias " << b.first << " = " << v);
@@ -220,26 +216,6 @@ rcl_interfaces::msg::SetParametersResult EVK4Driver::onSetParameters(
     }
   }
   return res;
-}
-
-void EVK4Driver::saveBiases(
-  const std::shared_ptr<std_srvs::srv::Trigger::Request>,
-  std::shared_ptr<std_srvs::srv::Trigger::Response> res)
-{
-  if (biasFile_.empty()) {
-    res->success = false;
-    res->message = "no bias file specified at startup";
-    return;
-  }
-  auto * biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-  try {
-    biases->save_to_file(biasFile_);
-    res->success = true;
-    res->message = "biases written to " + biasFile_;
-  } catch (const std::exception & e) {
-    res->success = false;
-    res->message = std::string("bias file write failed: ") + e.what();
-  }
 }
 
 void EVK4Driver::saveSettings(

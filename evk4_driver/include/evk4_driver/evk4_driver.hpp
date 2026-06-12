@@ -1,7 +1,7 @@
 // Prophesee EVK4 driver node on OpenEB / Metavision SDK. Opens the camera,
 // forwards raw EVT3 as event_camera_msgs/EventPacket, configures the on-sensor
 // facilities (ERC, Trail/STC, ROI, sync, trigger-in, AFK), exposes biases as
-// live parameters, and offers the save_biases / save_settings services.
+// live parameters, and offers the save_settings service.
 #ifndef EVK4_DRIVER__EVK4_DRIVER_HPP_
 #define EVK4_DRIVER__EVK4_DRIVER_HPP_
 
@@ -39,7 +39,6 @@ public:
 private:
   void startCamera();
   void loadSettings();   // camera state / pixel masks from the settings file
-  void loadBiasFile();   // biases from a .bias file
   void declareBiases();  // expose each sensor bias as a live int parameter
 
   // On-sensor facility configuration, applied after open and before start.
@@ -58,9 +57,6 @@ private:
   rcl_interfaces::msg::SetParametersResult onSetParameters(
     const std::vector<rclcpp::Parameter> & params);
 
-  void saveBiases(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
-    std::shared_ptr<std_srvs::srv::Trigger::Response> res);
   void saveSettings(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
     std::shared_ptr<std_srvs::srv::Trigger::Response> res);
@@ -73,13 +69,11 @@ private:
   using EventPacketMsg = event_camera_msgs::msg::EventPacket;
 
   rclcpp::Publisher<EventPacketMsg>::SharedPtr eventPub_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesSrv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveSettingsSrv_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr paramCbHandle_;
   Metavision::Camera cam_;
 
   std::string serial_;
-  std::string biasFile_;
   std::string settingsFile_;
   std::string frameId_{"event_camera"};
   std::string encoding_{"evt3"};
