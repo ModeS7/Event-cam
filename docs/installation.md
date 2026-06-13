@@ -57,10 +57,16 @@ git clone https://github.com/ModeS7/Event-cam.git
 ~/ros2_ws/src/Event-cam/setup/install_deps.sh
 ```
 
-Everything below explains what it does and is the manual equivalent. It is the
-**same on every platform** (OpenEB + decoder are arm64/x86 binaries; the
-renderer is built from source either way). Our own `evk4_driver` is built from
-this repo (step 4) directly on OpenEB — there is no separate driver to install:
+**Ran the script? You're done with dependencies — skip to step 4.** The rest
+of this section is the manual equivalent: run it *instead of* the script (if
+you prefer doing each step by hand, or the script failed), **not in addition
+to it** — the steps are not additive, and re-applying the renderer patch on
+an already-patched tree errors out (`patch does not apply`).
+
+The manual path is the **same on every platform** (OpenEB + decoder are
+arm64/x86 binaries; the renderer is built from source either way). Our own
+`evk4_driver` is built from this repo (step 4) directly on OpenEB — there is
+no separate driver to install:
 
 ```bash
 # 1. OpenEB (the Metavision SDK open edition) + Python decoder from apt
