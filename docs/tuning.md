@@ -270,3 +270,8 @@ is overloaded, not the tuning — see
 
 **Blurry rendered image** → raise `fps`; on a consistently busy scene
 `display_type: sharp` also helps (it lags on quiet ones — see above).
+
+---
+
+**Next:** [calibration.md](calibration.md) — produce a `camera_info` for
+undistortion, launching with the `~/my_params.yaml` you just built.

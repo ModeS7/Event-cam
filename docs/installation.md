@@ -140,8 +140,18 @@ ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ```
 
 Wave a hand in front of the camera — event cameras only produce data on
-brightness change. If anything fails, see
-[troubleshooting.md](troubleshooting.md).
+brightness change. You should see something like this (ON events blue, OFF
+red):
+
+![Rendered event stream in rqt_image_view](images/rqt_image_view.png)
+
+This is the camera at **stock settings** — noisy, and on a busy scene the
+view can lag, because nothing is tuned yet. That is expected. If anything
+fails instead, see [troubleshooting.md](troubleshooting.md).
+
+**Next:** [usage.md](usage.md) — how to drive the camera (terminals,
+launch arguments, topics, recording) — then [tuning.md](tuning.md), which
+sets up the recommended config that makes the stream clean and responsive.
 
 ## Workspaces (underlay / overlay)
 
