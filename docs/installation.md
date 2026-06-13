@@ -91,8 +91,11 @@ source /opt/ros/$ROS_DISTRO/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-# 3. source it (the script also appends this to ~/.bashrc and /etc/skel)
-echo "source ~/workspaces/3rd_party_ws/install/setup.bash" >> ~/.bashrc
+# 3. make new terminals source the workspaces (the script does this too).
+#    Guarded so they are harmless before the build; the overlay (step 4)
+#    chains its underlays, so a new terminal then gets the whole stack.
+echo '[ -f ~/workspaces/3rd_party_ws/install/setup.bash ] && source ~/workspaces/3rd_party_ws/install/setup.bash' >> ~/.bashrc
+echo '[ -f ~/ros2_ws/install/setup.bash ] && source ~/ros2_ws/install/setup.bash' >> ~/.bashrc
 ```
 
 (If you are on a platform where `openeb_vendor` has no apt binary, build OpenEB
