@@ -23,3 +23,6 @@ rosbag2_*/
 .idea/
 *.swp
 .DS_Store
+
+# source screen recordings (convert to gif for docs)
+*.mp4
