@@ -93,9 +93,9 @@ aborts without writing anything.
 
 ![Guided calibration: moving the camera while coverage bars fill and the grid is detected](images/calibration_demo.gif)
 
-*A calibration session (sped up): markers track the grid as the camera
-sweeps the field of view, the coverage bars fill, and the tool calibrates
-and exits on its own.*
+*A calibration session: markers track the grid as the camera sweeps the
+field of view, the coverage bars fill (with hints for the missing views),
+and the tool calibrates and exits on its own.*
 
 ## 2. Use the calibration: camera_info and rectification
 
