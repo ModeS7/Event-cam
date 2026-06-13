@@ -5,9 +5,8 @@
 //   ros2 run evk4_examples_cpp event_rate
 //
 // Or load it into the running camera container for the zero-copy
-// intra-process path:
-//   ros2 component load /event_camera_container evk4_examples_cpp \
-//       evk4_examples_cpp::EventRate -e use_intra_process_comms:=true
+// intra-process path (see docs/usage.md):
+//   ros2 component load /event_camera_container evk4_examples_cpp evk4_examples_cpp::EventRate -e use_intra_process_comms:=true
 
 #include <event_camera_codecs/decoder_factory.h>
 #include <event_camera_codecs/event_packet.h>

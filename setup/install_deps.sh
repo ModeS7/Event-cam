@@ -65,7 +65,9 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 echo "[3/4] source the deps workspace from ~/.bashrc (and /etc/skel)..."
-SOURCE_LINE="source $WS_PATH/install/setup.bash"
+# Guarded so a new terminal opened before the workspace is built (or after
+# it is removed) does not error with "No such file or directory".
+SOURCE_LINE="[ -f $WS_PATH/install/setup.bash ] && source $WS_PATH/install/setup.bash"
 if ! grep -Fxq "$SOURCE_LINE" "$HOME/.bashrc"; then
   echo "$SOURCE_LINE" >> "$HOME/.bashrc"
   echo "  added to ~/.bashrc"
