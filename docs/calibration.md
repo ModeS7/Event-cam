@@ -91,6 +91,12 @@ by itself**: it logs the RMS reprojection error in the launch terminal
 directory it was started from, and the whole session shuts down. Ctrl+C
 aborts without writing anything.
 
+![Guided calibration: moving the camera while coverage bars fill and the grid is detected](images/calibration_demo.gif)
+
+*A calibration session (sped up): markers track the grid as the camera
+sweeps the field of view, the coverage bars fill, and the tool calibrates
+and exits on its own.*
+
 ## 2. Use the calibration: camera_info and rectification
 
 The YAML from step 1 does nothing by itself. This step wires it into the

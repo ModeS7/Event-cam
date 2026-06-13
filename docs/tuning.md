@@ -56,6 +56,11 @@ black — and in `sharp` display mode the view can freeze entirely at a
 still scene while it waits for events (correct, not broken; the default
 `time_slice` keeps updating).
 
+![Tuned event stream with the recommended settings](images/tuned_stream_demo.gif)
+
+*The rendered stream with the recommended config (bias 30 + STC, 10 Mev/s
+cap): a clean image with quiet background and crisp motion.*
+
 ## The lens: aperture and focus
 
 The config cannot fix optics, so set these once before tuning. Aperture:
