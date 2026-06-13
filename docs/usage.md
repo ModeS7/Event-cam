@@ -10,8 +10,12 @@ terminal:
   nothing after such a command is usually a node working quietly, not a hang.
 - One-shot commands (`ros2 param set`, `ros2 service call`, `ros2 topic
   list`, ...) finish on their own and can be typed into any spare terminal.
-- Source the workspace in every new terminal (the setup script adds this to
-  `~/.bashrc` so new terminals are ready automatically).
+- A new terminal must have the workspaces sourced before `ros2` sees our
+  packages. The setup script adds this to `~/.bashrc`, so a fresh terminal
+  is ready automatically — but only **after you have built the overlay
+  once** (installation step 4). If a command like `ros2 launch evk4_bringup
+  ...` ever reports "package not found", that terminal isn't sourced: run
+  `source ~/ros2_ws/install/setup.bash` (or just open a new terminal).
 
 When docs below show multiple `launch`/`run` commands together, each one
 goes in its own terminal.

@@ -64,18 +64,27 @@ rosdep install --from-paths src --ignore-src -r -y
 # RelWithDebInfo: the high event rate makes an unoptimized build slow.
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-echo "[3/4] source the deps workspace from ~/.bashrc (and /etc/skel)..."
-# Guarded so a new terminal opened before the workspace is built (or after
-# it is removed) does not error with "No such file or directory".
-SOURCE_LINE="[ -f $WS_PATH/install/setup.bash ] && source $WS_PATH/install/setup.bash"
-if ! grep -Fxq "$SOURCE_LINE" "$HOME/.bashrc"; then
-  echo "$SOURCE_LINE" >> "$HOME/.bashrc"
-  echo "  added to ~/.bashrc"
-fi
-if [ -f /etc/skel/.bashrc ] && ! sudo grep -Fxq "$SOURCE_LINE" /etc/skel/.bashrc; then
-  echo "$SOURCE_LINE" | sudo tee -a /etc/skel/.bashrc >/dev/null
-  echo "  added to /etc/skel/.bashrc (future users)"
-fi
+echo "[3/4] source the workspaces from ~/.bashrc (and /etc/skel)..."
+# This repo's overlay (~/ros2_ws), three dirs up from setup/.
+OVERLAY_WS="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# Add a guarded source line for a workspace. Guarded with [ -f ] so a new
+# terminal opened before the workspace is built (or after it is removed)
+# does not error with "No such file or directory". The overlay's setup.bash
+# chains its underlays, so once it is built a new terminal gets the WHOLE
+# stack and `ros2 launch evk4_*` works immediately.
+add_source() {
+  local line="[ -f $1/install/setup.bash ] && source $1/install/setup.bash"
+  if ! grep -Fxq "$line" "$HOME/.bashrc"; then
+    echo "$line" >> "$HOME/.bashrc"
+    echo "  added to ~/.bashrc: $1"
+  fi
+  if [ -f /etc/skel/.bashrc ] && ! sudo grep -Fxq "$line" /etc/skel/.bashrc; then
+    echo "$line" | sudo tee -a /etc/skel/.bashrc >/dev/null
+    echo "  added to /etc/skel/.bashrc: $1"
+  fi
+}
+add_source "$WS_PATH"       # 3rd-party deps (renderer + decode libs)
+add_source "$OVERLAY_WS"    # this repo's packages (built in step 4)
 
 echo "[4/4] udev rule..."
 if [ -d "$UDEV_SRC" ]; then
