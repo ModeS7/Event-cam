@@ -329,19 +329,30 @@ Done:
       examples, calibration camera_info, bag) re-validated on the Pi. Install
       switched to `openeb_vendor`; docs truthed up. (Phases 0–3; details in
       memory `sdk-rewrite-decision`.)
+- [x] **x86 re-validation of the OpenEB driver (2026-06-13):** documented
+      student flow run COLD on the lab PC (different EVK4, serial 00051701) —
+      script install (patch auto-applied, idempotent), overlay build, smoke
+      test, tuned config, calibration (RMS 0.635 px / 20 views), and
+      rectification, all working, no lag. Surfaced + fixed: script-vs-manual
+      either/or wording, -Wcomment in the C++ example, guarded bashrc
+      deps-source line, and bashrc now also sources the overlay so new
+      terminals run `evk4_*` immediately.
 
-Next (user-ordered 2026-06-12):
-- [ ] x86 re-validation on the lab PC — run the documented student flow cold
-      (installation -> usage -> tuning -> calibration). install_deps.sh now
-      applies the renderer backlog-cap patch, so fresh installs match the
-      Pi's validated behavior.
+Next (user-ordered):
+- [ ] **SDK Pro feasibility spike on the Pi 5** (decided 2026-06-12): source-
+      build Metavision SDK Pro on ARM + run ONE stock sample pipeline on the
+      event stream — answers "does it build on ARM?" and "is a Pi capable of
+      Pro pipelines?" cheaply before investing. User has the license; the Pi
+      surfaces inefficiency fast (constrained-first principle).
 - [ ] `evk4_sdk_advanced` — opt-in full Metavision SDK Pro layer
-      (calibration/CV/ML/analytics) over our `EventPacket` stream. Blocked on
-      the user's SDK Pro license + ARM source build.
-- [ ] Docs media pass — GIFs/PNGs of the tuning experiments, calibration
-      overlay, rectified view (user: "flesh it out more").
+      (calibration/CV/ML/analytics) consuming our `EventPacket` stream. Build
+      against whatever target survives the spike.
+- [ ] Docs media pass — GIFs of the tuning experiments + rectified view
+      (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
       stopgap; an accepted PR retires it).
+- [ ] OPEN: fast-motion moving-edge trail — sensor-side (persists at 1000 fps);
+      levers to try are trail_filter_threshold down, bias_refr up, bias_fo.
 
 ## Conventions
 

@@ -11,7 +11,7 @@ where it's been validated.
 
 | Platform | Status |
 |---|---|
-| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-05; current driver: re-validation pending) |
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-13) |
 | x86_64 · Ubuntu 22.04 · Humble | expected — untested |
 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-09) |
 | Other ARM64 SBCs / Humble | expected |

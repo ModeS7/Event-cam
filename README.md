@@ -18,8 +18,9 @@ documentation.
 > **Status:** `evk4_driver` (OpenEB-based) is validated end-to-end on a
 > Raspberry Pi 5 (2026-06-09) — live events, renderer, Python/C++ examples,
 > calibration, and recording — exposing all on-sensor facilities (ERC,
-> Trail/STC, ROI, sync, AFK, Digital Crop, Event Mask). x86 re-validation of
-> the new driver is pending.
+> Trail/STC, ROI, sync, AFK, Digital Crop, Event Mask), and re-validated
+> end-to-end on x86 (lab PC, 2026-06-13) incl. tuning, calibration, and
+> rectification.
 
 ## Supported platforms
 
@@ -29,7 +30,7 @@ the table just records where it's been validated:
 
 | Platform | Status |
 |---|---|
-| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (current driver: re-validation pending) |
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | x86_64 · Ubuntu 22.04 · Humble | expected, untested |
 | Other ARM64 SBCs / Humble | expected |
