@@ -26,16 +26,19 @@ else changes; a normal `colcon build` simply skips this package.
    with flow-vector arrows.
 4. [tracking.md](tracking.md) — **object tracking**: labeled bounding boxes on
    moving objects.
+5. [more_pipelines.md](more_pipelines.md) — five more model-free pipelines on the
+   same harness: **dense flow**, **particle/spatter tracking**, **counting**,
+   **vibration frequency**, and **active-LED tracking**.
 
 ## What's implemented vs. planned
 
-`evk4_sdk_advanced` ships **two** pipelines — sparse optical flow and object
-tracking — sharing one real-time harness (`event_vision_node.hpp`: decode
-`EventPacket` → `vector<EventCD>` → an SDK algorithm → publish an image). Adding
-a pipeline is three small hooks plus a launch. The SDK's `cv` and `analytics`
-modules hold many more model-free algorithms (dense flow, counting,
-frequency/vibration, particle tracking) that slot into the same harness; ML
-detection and stereo calibration are the heavier, experimental extensions.
+`evk4_sdk_advanced` ships **seven** pipelines — sparse optical flow, object
+tracking, dense flow, particle/spatter tracking, counting, vibration frequency,
+and active-LED tracking — all sharing one real-time harness
+(`event_vision_node.hpp`: decode `EventPacket` → `vector<EventCD>` → an SDK
+algorithm → publish an image). Adding a pipeline is three small hooks plus a
+launch entry. ML detection and stereo calibration are the heavier, experimental
+extensions still ahead (they need LibTorch / two cameras).
 
 ## Validation matrix
 
@@ -48,7 +51,8 @@ the result; **expected** means inferred from an adjacent result, not run;
 | SDK build | expected (apt binaries) | **validated** (source, 2026-06-16) | expected (source) |
 | Sparse optical flow | expected | **validated** (2026-06-16) | expected (from Pi) |
 | Object tracking | expected | **validated** (2026-06-16) | expected (from Pi) |
-| Other CV / analytics (model-free) | expected | expected | expected |
+| Dense flow / spatter / counting | expected | **validated** (2026-06-16, bag) | expected (from Pi) |
+| Frequency / active-LED | expected | **build+run** (2026-06-16) | expected (from Pi) |
 | ML detection (needs LibTorch) | expected (CPU/GPU) | **not viable** (no CUDA) | expected (CUDA, untested) |
 | Stereo calibration | untested skeleton | untested skeleton | untested skeleton |
 

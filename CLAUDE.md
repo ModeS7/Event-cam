@@ -360,11 +360,25 @@ Done:
       arrows vanished) and a destructor-order use-after-free (tracking hung on
       SIGINT, needed -9). Docs: docs/sdk/tracking.md.
 
+- [x] **Five more model-free pipelines (2026-06-16):** on the same
+      `EventVisionNode` harness — `dense_flow` (TripletMatchingFlow ->
+      DenseColorMap; added `display_max_flow` to decouple color scale from the
+      matching ceiling so slow scenes light up), `spatter`
+      (SpatterTrackerAlgorithm, two-step `process_events`+results, id-labeled
+      boxes), `counting` (CountingAlgorithm + CountingDrawingHelper, line
+      counter + running-count overlay), `frequency` (FrequencyMapAsyncAlgorithm
+      -> HeatMap; seed an empty map in onInit so it ALWAYS publishes the
+      colorbar frame, else a non-periodic scene shows nothing), `led_tracking`
+      (two-stage ModulatedLightDetector -> ActiveLEDTracker — needs modulated
+      active-LED markers). One generic `pipeline.launch.py`
+      (`pipeline:=<name>`). dense_flow/spatter/counting CONTENT-validated by bag
+      replay + pixel inspection; frequency/led BUILD+RUN validated (no
+      periodic/marker hardware). Total 7 SDK pipelines. Bag-validation gotchas
+      caught: SIGINT to the `ros2 run` launcher does NOT forward to the node
+      binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
+      `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
+
 Next (user-ordered):
-- [ ] More model-free SDK pipelines on the EventVisionNode harness: dense flow,
-      counting, frequency/vibration, particle tracking. ML detection + stereo
-      calibration are the experimental tier (x86/Jetson; need LibTorch / two
-      cameras).
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the

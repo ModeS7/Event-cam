@@ -62,6 +62,26 @@ add_sdk_component(tracking_component src/tracking_node.cpp
   "evk4_sdk_advanced::Tracking" tracking
   MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
 
+add_sdk_component(dense_flow_component src/dense_flow_node.cpp
+  "evk4_sdk_advanced::DenseFlow" dense_flow
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv)
+
+add_sdk_component(spatter_component src/spatter_node.cpp
+  "evk4_sdk_advanced::SpatterTracking" spatter
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
+
+add_sdk_component(counting_component src/counting_node.cpp
+  "evk4_sdk_advanced::Counting" counting
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
+
+add_sdk_component(frequency_component src/frequency_node.cpp
+  "evk4_sdk_advanced::Frequency" frequency
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics MetavisionSDK::cv)
+
+add_sdk_component(led_component src/led_node.cpp
+  "evk4_sdk_advanced::LedTracking" led_tracking
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv)
+
 # Capture the SDK's lib dir (wherever it was found at build time) into the
 # package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's
 # own libraries use RUNPATH, so their transitive deps follow LD_LIBRARY_PATH.
