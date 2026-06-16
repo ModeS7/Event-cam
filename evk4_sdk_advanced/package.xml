@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>evk4_sdk_advanced</name>
+  <version>0.1.0</version>
+  <description>
+    Opt-in advanced layer: runs Metavision SDK (Pro) computer-vision algorithms
+    on the EVK4 event stream. First pipeline: sparse optical flow rendered to a
+    ROS image. Consumes the driver's EventPacket stream (decoded with
+    event_camera_codecs) and feeds it to the SDK via the camera-independent
+    process_events API, so the driver's params (ERC, biases) govern the camera.
+    The Metavision SDK is found by CMake against a separately built/installed
+    SDK Pro (see docs/sdk/access.md); it is NOT a ROS/rosdep package, so this
+    component is skipped at build time when the SDK is absent.
+  </description>
+  <maintainer email="modesuka@gmail.com">Modestas</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>sensor_msgs</depend>
+  <depend>event_camera_msgs</depend>
+  <depend>event_camera_codecs</depend>
+  <depend>cv_bridge</depend>
+
+  <!-- MetavisionSDK (CV module) is intentionally NOT a <depend>: it is closed
+       SDK Pro, found by CMake find_package against a separate install, not by
+       rosdep. See docs/sdk/. -->
+
+  <exec_depend>evk4_driver</exec_depend>
+  <exec_depend>evk4_bringup</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

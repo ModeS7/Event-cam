@@ -337,16 +337,24 @@ Done:
       either/or wording, -Wcomment in the C++ example, guarded bashrc
       deps-source line, and bashrc now also sources the overlay so new
       terminals run `evk4_*` immediately.
+- [x] **SDK Pro layer — `evk4_sdk_advanced`, sparse optical flow (2026-06-16):**
+      source-built Metavision SDK 5.3.1 on the Pi 5 (ARM, ~22 min, lean config
+      Torch/Sophus/Studio off) — this folds in the "SDK Pro feasibility spike"
+      (builds + runs on ARM, validated). Built `evk4_sdk_advanced::OpticalFlow`:
+      decodes `/event_camera/events` -> `vector<EventCD>`, runs the SDK's
+      `SparseOpticalFlowAlgorithm` -> `/event_camera/flow_image`, with NO SDK
+      edits (consumed via `process_events`). Real-time on the Pi (21 ms latency,
+      30 fps) after a two-thread, on-demand-frame-gen rewrite; `my_params`/ERC
+      govern it; one-command launch (no setup_env.sh — SDK lib path baked in).
+      Docs: `docs/sdk/` (access, install, optical_flow) + a "getting SDK access"
+      tutorial written from the user's live run. Details: memory
+      `sdk-pro-integration`.
 
 Next (user-ordered):
-- [ ] **SDK Pro feasibility spike on the Pi 5** (decided 2026-06-12): source-
-      build Metavision SDK Pro on ARM + run ONE stock sample pipeline on the
-      event stream — answers "does it build on ARM?" and "is a Pi capable of
-      Pro pipelines?" cheaply before investing. User has the license; the Pi
-      surfaces inefficiency fast (constrained-first principle).
-- [ ] `evk4_sdk_advanced` — opt-in full Metavision SDK Pro layer
-      (calibration/CV/ML/analytics) consuming our `EventPacket` stream. Build
-      against whatever target survives the spike.
+- [ ] More SDK CV / analytics pipelines on the same harness (dense flow, object
+      tracking, counting, frequency/vibration — all model-free, Pi-capable).
+      ML detection + stereo calibration are the experimental tier (x86/Jetson;
+      need LibTorch / two cameras).
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
