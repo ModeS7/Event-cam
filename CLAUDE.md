@@ -342,7 +342,9 @@ Done:
       Torch/Sophus/Studio off) — this folds in the "SDK Pro feasibility spike"
       (builds + runs on ARM, validated). Built `evk4_sdk_advanced::OpticalFlow`:
       decodes `/event_camera/events` -> `vector<EventCD>`, runs the SDK's
-      `SparseOpticalFlowAlgorithm` -> `/event_camera/flow_image`, with NO SDK
+      `SparseOpticalFlowAlgorithm` -> `/event_camera/optical_flow_image` (renamed
+      from `flow_image` 2026-06-16 to match the uniform `<pipeline>_image`
+      convention), with NO SDK
       edits (consumed via `process_events`). Real-time on the Pi (21 ms latency,
       30 fps) after a two-thread, on-demand-frame-gen rewrite; `my_params`/ERC
       govern it; one-command launch (no setup_env.sh — SDK lib path baked in).
@@ -370,8 +372,14 @@ Done:
       -> HeatMap; seed an empty map in onInit so it ALWAYS publishes the
       colorbar frame, else a non-periodic scene shows nothing), `led_tracking`
       (two-stage ModulatedLightDetector -> ActiveLEDTracker — needs modulated
-      active-LED markers). One generic `pipeline.launch.py`
-      (`pipeline:=<name>`). dense_flow/spatter/counting CONTENT-validated by bag
+      active-LED markers). ONE generic `pipeline.launch.py`
+      (`pipeline:=<name>`) is now the single launch for ALL 7 pipelines: the two
+      originals (optical_flow, tracking) were folded in and their dedicated
+      `optical_flow.launch.py`/`tracking.launch.py` REMOVED (one-mechanism-per-job);
+      optical_flow's topic renamed `flow_image` -> `optical_flow_image` so every
+      pipeline follows `<name>_image`. Pipeline-specific params (tracking
+      min_size/max_size, etc.) are node defaults overridden with `--ros-args -p`.
+      dense_flow/spatter/counting CONTENT-validated by bag
       replay + pixel inspection; frequency/led BUILD+RUN validated (no
       periodic/marker hardware). Total 7 SDK pipelines. Bag-validation gotchas
       caught: SIGINT to the `ros2 run` launcher does NOT forward to the node

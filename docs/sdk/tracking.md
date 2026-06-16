@@ -21,21 +21,34 @@ over the event edges. Published to `/event_camera/tracking_image`.*
 optical flow ([optical_flow.md](optical_flow.md#1-build-the-package)), tracking
 is already built. Then:
 
+All seven pipelines share one launch, selected with `pipeline:=`:
+
 ```bash
-ros2 launch evk4_sdk_advanced tracking.launch.py params_file:=$HOME/my_params.yaml
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=tracking params_file:=$HOME/my_params.yaml
 # second terminal:
 ros2 run rqt_image_view rqt_image_view /event_camera/tracking_image
 ```
 
 | Launch argument | Default | Description |
 |---|---|---|
+| `pipeline` | (required) | Which pipeline to run — `tracking` here |
 | `params_file` | `''` | Driver params YAML — use your `~/my_params.yaml` |
-| `min_size` | `10` | Minimum tracked-object size in pixels |
-| `max_size` | `300` | Maximum tracked-object size in pixels |
 | `fps` | `30.0` | Image frame rate (Hz) |
 | `debug_timing` | `false` | Log per-stage timing |
 
 Publishes `/event_camera/tracking_image` (`sensor_msgs/Image`).
+
+**Tracker-specific params** (`min_size` / `max_size`, the min/max tracked-object
+size in px; defaults 10 / 300) keep their node defaults from this launch —
+override them with `--ros-args`, e.g. to widen the size range:
+
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=tracking \
+    params_file:=$HOME/my_params.yaml
+# or run the node directly with overrides:
+ros2 run evk4_sdk_advanced tracking --ros-args -p min_size:=5 -p max_size:=500 \
+    -r events:=/event_camera/events
+```
 
 ## Behavior
 

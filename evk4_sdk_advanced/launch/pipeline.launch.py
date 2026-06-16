@@ -3,12 +3,13 @@
     ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=dense_flow \
         params_file:=$HOME/my_params.yaml
 
-`pipeline` is one of: tracking, dense_flow, spatter, counting, frequency.
-Publishes /<camera_name>/<pipeline>_image. (optical_flow has its own launch --
-its topic is flow_image.) Same structure as the dedicated launches: the driver
-(openeb_vendor) runs in its own process; the SDK node runs separately with the
-SDK libs on its LD_LIBRARY_PATH. Pipeline-specific params (radius, cell_size,
-min_freq, ...) keep their node defaults; override with `--ros-args -p`.
+`pipeline` is one of: optical_flow, tracking, dense_flow, spatter, counting,
+frequency, led_tracking. Each publishes /<camera_name>/<pipeline>_image. The
+driver (openeb_vendor) runs in its own process; the SDK node runs separately
+with the SDK libs on its LD_LIBRARY_PATH (captured at build time -- no
+`source setup_env.sh` needed). Pipeline-specific params (min_size, radius,
+cell_size, min_freq, ...) keep their node defaults; override with
+`--ros-args -p name:=value`.
 """
 
 import os
@@ -77,7 +78,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'pipeline',
-            description='tracking | dense_flow | spatter | counting | frequency'),
+            description='optical_flow | tracking | dense_flow | spatter | '
+                        'counting | frequency | led_tracking'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),
         DeclareLaunchArgument('frame_id', default_value='event_camera_optical_frame'),

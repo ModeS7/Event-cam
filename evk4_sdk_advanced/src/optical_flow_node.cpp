@@ -24,7 +24,7 @@ class OpticalFlow : public EventVisionNode
 {
 public:
   explicit OpticalFlow(const rclcpp::NodeOptions & options)
-  : EventVisionNode("optical_flow", "flow_image", options)
+  : EventVisionNode("optical_flow", "optical_flow_image", options)
   {
     RCLCPP_INFO(get_logger(), "sparse optical flow: %.0f fps", fps());
   }

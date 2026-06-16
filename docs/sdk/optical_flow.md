@@ -12,7 +12,7 @@ edges with **flow-vector arrows** overlaid — as a normal ROS image you view in
 
 *Hand and objects moving near the lens: event edges (white/blue) with flow
 arrows showing each tracked feature's direction and speed (color-coded).
-Published to `/event_camera/flow_image`, viewed in rqt_image_view.*
+Published to `/event_camera/optical_flow_image`, viewed in rqt_image_view.*
 
 ## Prerequisites
 
@@ -42,16 +42,17 @@ automatically — **you do not need to `source setup_env.sh`.**
 
 ## 2. Run
 
-One command brings up the camera (with your params) and the flow node:
+One command brings up the camera (with your params) and the flow node — all
+seven pipelines share one launch, selected with `pipeline:=`:
 
 ```bash
-ros2 launch evk4_sdk_advanced optical_flow.launch.py params_file:=$HOME/my_params.yaml
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=optical_flow params_file:=$HOME/my_params.yaml
 ```
 
 In a second terminal, view it:
 
 ```bash
-ros2 run rqt_image_view rqt_image_view /event_camera/flow_image
+ros2 run rqt_image_view rqt_image_view /event_camera/optical_flow_image
 ```
 
 Move something **close to the lens** — you'll see event edges with colored flow
@@ -59,6 +60,7 @@ arrows (the color encodes direction and speed).
 
 | Launch argument | Default | Description |
 |---|---|---|
+| `pipeline` | (required) | Which pipeline to run — `optical_flow` here |
 | `params_file` | `''` (stock) | Driver params YAML — use your `~/my_params.yaml` |
 | `fps` | `30.0` | Flow image frame rate (Hz) |
 | `camera_name` | `event_camera` | Node name / topic namespace |
@@ -68,7 +70,7 @@ arrows (the color encodes direction and speed).
 
 | Topic | Type | |
 |---|---|---|
-| `/event_camera/flow_image` | `sensor_msgs/Image` (bgr8) | published |
+| `/event_camera/optical_flow_image` | `sensor_msgs/Image` (bgr8) | published |
 | `/event_camera/events` | `event_camera_msgs/EventPacket` | consumed (from the driver) |
 
 The flow node also has an `accumulation_time_us` parameter (default `10000` =
@@ -125,7 +127,7 @@ ros2 bag record -o ~/flow_demo /event_camera/events     # Ctrl+C after ~15 s of 
 # replay through the flow node (no camera needed)
 ros2 bag play ~/flow_demo &
 ros2 run evk4_sdk_advanced optical_flow --ros-args \
-  -r events:=/event_camera/events -r flow_image:=/event_camera/flow_image
+  -r events:=/event_camera/events -r optical_flow_image:=/event_camera/optical_flow_image
 ```
 
 (Latency must be checked live — a bag carries the original timestamps. The bag

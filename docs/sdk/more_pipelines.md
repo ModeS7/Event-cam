@@ -14,8 +14,9 @@ built.
 
 ## One launch for all of them
 
-The five below share a single parameterized launch — pick the pipeline with
-`pipeline:=`:
+**All seven pipelines** (these five plus [optical flow](optical_flow.md) and
+[tracking](tracking.md)) share a single parameterized launch — pick the pipeline
+with `pipeline:=`:
 
 ```bash
 ros2 launch evk4_sdk_advanced pipeline.launch.py \
@@ -24,12 +25,12 @@ ros2 launch evk4_sdk_advanced pipeline.launch.py \
 ros2 run rqt_image_view rqt_image_view /event_camera/dense_flow_image
 ```
 
-`pipeline` is one of `dense_flow`, `spatter`, `counting`, `frequency`,
-`led_tracking`; each publishes `/event_camera/<pipeline>_image`. Common launch
-args (`camera_name`, `serial`, `frame_id`, `fps`, `params_file`, `debug_timing`)
-match the dedicated launches. Pipeline-specific parameters (below) keep their
-defaults from the launch; override them with `ros2 run … --ros-args -p name:=v`
-or by editing the node parameters.
+`pipeline` is one of `optical_flow`, `tracking`, `dense_flow`, `spatter`,
+`counting`, `frequency`, `led_tracking`; each publishes
+`/event_camera/<pipeline>_image`. Common launch args (`camera_name`, `serial`,
+`frame_id`, `fps`, `params_file`, `debug_timing`) apply to every pipeline.
+Pipeline-specific parameters (below) keep their defaults from the launch;
+override them with `ros2 run … --ros-args -p name:=v`.
 
 As always, `params_file:=$HOME/my_params.yaml` feeds your tuned driver setup
 (ERC cap, biases, filters) through the driver — that, not the algorithm, is the
