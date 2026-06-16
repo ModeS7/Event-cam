@@ -55,7 +55,14 @@ protected:
     staging_fl_.insert(staging_fl_.end(), flow_out_.begin(), flow_out_.end());
   }
 
-  void swapResults() override { std::swap(staging_fl_, work_fl_); }
+  // Clear first so the swap leaves staging_fl_ empty for the next interval (a
+  // plain swap leaks the previous frame's flow back into staging, so work_fl_
+  // grows and flow_buf_ can end up out of timestamp order).
+  void swapResults() override
+  {
+    work_fl_.clear();
+    std::swap(staging_fl_, work_fl_);
+  }
 
   // Frame thread: render the event image, overlay this window's flow arrows.
   bool renderFrame(

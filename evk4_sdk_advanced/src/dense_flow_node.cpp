@@ -58,7 +58,15 @@ protected:
     staging_fl_.insert(staging_fl_.end(), flow_out_.begin(), flow_out_.end());
   }
 
-  void swapResults() override { std::swap(staging_fl_, work_fl_); }
+  // Clear first so the swap leaves staging_fl_ empty for the next interval --
+  // a plain swap would put the previous frame's flow back into staging, where
+  // stageResults keeps appending, so work_fl_ would grow without bound and the
+  // dense field would stack every frame on top of the last.
+  void swapResults() override
+  {
+    work_fl_.clear();
+    std::swap(staging_fl_, work_fl_);
+  }
 
   // Render the dense color flow field (no event image: DenseColorMap fills the
   // whole frame).
