@@ -111,9 +111,21 @@ Uses `FrequencyMapAsyncAlgorithm` → `HeatMapFrameGeneratorAlgorithm`.
 
 The frame is **black where no periodic motion is detected** and colors pixels by
 frequency where it is — so on an ordinary (non-periodic) scene you see a black
-field with the colorbar, which is correct. Point it at a spinning fan or a
-flickering light to see it light up. **Build + run validated** on the Pi
-(2026-06-16); the color output needs a periodic source, which the test bag lacks.
+field with the colorbar, which is correct, **not a broken node**. The SDK only
+reports pixels with a sustained vibration in `[min_freq, max_freq]`, so most
+everyday scenes (hand motion, walking) produce nothing. A status line on the
+image makes this unambiguous: it reads *"no vibration (point at a fan /
+flickering light)"* until something is detected, then *"N px vibrating"* in green.
+
+To see it light up, point it at a genuinely periodic source: a **spinning fan**,
+a **mains-powered light** (flickers at 100 Hz in 50 Hz countries / 120 Hz at
+60 Hz — both in range), a vibrating tool, or a speaker cone. The signal must be
+stable for ~`filter_length` (7) cycles before a pixel registers.
+
+**Validated** on the Pi (2026-06-16): a synthetic 100 Hz / 50 Hz input renders
+exactly that frequency (verified the algorithm, the per-pixel map, and the heat
+map render); the live color output needs a periodic source, which the test bag
+lacks.
 
 ## Active LED / marker tracking — `led_tracking`
 
