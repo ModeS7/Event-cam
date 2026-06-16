@@ -13,24 +13,29 @@ decodes it, and feeds the events to the SDK through its camera-independent
 package, behind the normal event stream. If you never install the SDK, nothing
 else changes; a normal `colcon build` simply skips this package.
 
-## The three pages, in order
+## The pages
 
+**Setup (once):**
 1. [access.md](access.md) — get a Prophesee account and an identity token (the
    gated credential; free for EVK4 owners).
 2. [install.md](install.md) — install the SDK: `apt` on x86_64, or a source
    build on ARM (Raspberry Pi / Jetson).
-3. [optical_flow.md](optical_flow.md) — build and run `evk4_sdk_advanced`, the
-   first pipeline: **sparse optical flow** rendered to a ROS image.
+
+**Pipelines** (build together; same launch shape and real-time harness):
+3. [optical_flow.md](optical_flow.md) — **sparse optical flow**: event edges
+   with flow-vector arrows.
+4. [tracking.md](tracking.md) — **object tracking**: labeled bounding boxes on
+   moving objects.
 
 ## What's implemented vs. planned
 
-`evk4_sdk_advanced` currently ships **one** pipeline — sparse optical flow —
-which establishes the reusable pattern (decode `EventPacket` → `vector<EventCD>`
-→ an SDK algorithm → publish an image, with a real-time threading harness). The
-SDK's `cv` and `analytics` modules hold many more model-free algorithms (dense
-flow, object tracking, counting, frequency/vibration, particle tracking) that
-slot into the same harness; ML detection and stereo calibration are the heavier,
-experimental extensions.
+`evk4_sdk_advanced` ships **two** pipelines — sparse optical flow and object
+tracking — sharing one real-time harness (`event_vision_node.hpp`: decode
+`EventPacket` → `vector<EventCD>` → an SDK algorithm → publish an image). Adding
+a pipeline is three small hooks plus a launch. The SDK's `cv` and `analytics`
+modules hold many more model-free algorithms (dense flow, counting,
+frequency/vibration, particle tracking) that slot into the same harness; ML
+detection and stereo calibration are the heavier, experimental extensions.
 
 ## Validation matrix
 
@@ -42,6 +47,7 @@ the result; **expected** means inferred from an adjacent result, not run;
 |---|---|---|---|
 | SDK build | expected (apt binaries) | **validated** (source, 2026-06-16) | expected (source) |
 | Sparse optical flow | expected | **validated** (2026-06-16) | expected (from Pi) |
+| Object tracking | expected | **validated** (2026-06-16) | expected (from Pi) |
 | Other CV / analytics (model-free) | expected | expected | expected |
 | ML detection (needs LibTorch) | expected (CPU/GPU) | **not viable** (no CUDA) | expected (CUDA, untested) |
 | Stereo calibration | untested skeleton | untested skeleton | untested skeleton |

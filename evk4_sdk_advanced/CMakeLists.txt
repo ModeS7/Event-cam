@@ -15,68 +15,62 @@ find_package(event_camera_codecs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
-# The Metavision SDK CV module is closed (SDK Pro) and is NOT part of
-# openeb_vendor (which ships only the OPEN modules and has no `cv` config
-# target). It must be built/installed separately (see docs/sdk/) and pointed at
+# The Metavision SDK modules are closed (SDK Pro) and NOT part of openeb_vendor.
+# They must be built/installed separately (see docs/sdk/) and pointed at
 # explicitly, because a ROS workspace that sourced openeb_vendor puts the
 # open-only copy first on CMAKE_PREFIX_PATH:
 #
 #   colcon build --packages-select evk4_sdk_advanced \
-#     --cmake-args -DMetavisionSDK_DIR=$HOME/mv_sdk/lib/cmake/MetavisionSDK
+#     --cmake-args -DMetavisionSDK_DIR=$HOME/metavision_src/openeb-5.3.1/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir
 #
-# This package is OPTIONAL: when the SDK (with the cv component) is not found we
-# skip it cleanly so a normal `colcon build` on a machine without SDK Pro still
-# succeeds. SDK 5 splits components as base/core/cv (the old `driver` became
-# `stream`, which we do not need -- events arrive over the EventPacket topic).
-find_package(MetavisionSDK QUIET COMPONENTS base core cv)
+# This package is OPTIONAL: when the SDK (with the needed modules) is not found
+# we skip it so a normal `colcon build` without SDK Pro still succeeds.
+find_package(MetavisionSDK QUIET COMPONENTS base core cv analytics)
 if(NOT MetavisionSDK_FOUND)
   message(WARNING
-    "evk4_sdk_advanced: Metavision SDK (with the cv module) not found -- "
+    "evk4_sdk_advanced: Metavision SDK (base/core/cv/analytics) not found -- "
     "skipping this optional package. To build it, install SDK Pro and pass "
     "-DMetavisionSDK_DIR=<prefix>/lib/cmake/MetavisionSDK (see docs/sdk/).")
   ament_package()
   return()
 endif()
 
-add_library(optical_flow_component SHARED src/optical_flow_node.cpp)
-target_compile_features(optical_flow_component PUBLIC cxx_std_17)
-ament_target_dependencies(optical_flow_component
-  rclcpp rclcpp_components sensor_msgs event_camera_msgs event_camera_codecs
-  cv_bridge)
-target_link_libraries(optical_flow_component
-  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv ${OpenCV_LIBS})
-# Find the SDK .so at runtime without sourcing the SDK's setup_env.sh.
-# INSTALL_RPATH_USE_LINK_PATH bakes the SDK's lib dir (wherever it was found at
-# build time) into the component's RPATH; --disable-new-dtags makes that a
-# DT_RPATH, which the loader searches BEFORE LD_LIBRARY_PATH -- so the SDK Pro
-# 5.x libs win over openeb_vendor's open-only 5.0.0 copy that a sourced ROS
-# workspace puts on LD_LIBRARY_PATH (the version-mismatch hazard, see docs/sdk/).
-set_target_properties(optical_flow_component PROPERTIES
-  INSTALL_RPATH_USE_LINK_PATH TRUE)
-target_link_options(optical_flow_component PRIVATE "-Wl,--disable-new-dtags")
+# Each pipeline is a composable component + standalone executable, sharing the
+# real-time harness in include/evk4_sdk_advanced/event_vision_node.hpp. Extra
+# args are the MetavisionSDK::* modules that pipeline needs.
+function(add_sdk_component name src plugin exec)
+  add_library(${name} SHARED ${src})
+  target_compile_features(${name} PUBLIC cxx_std_17)
+  target_include_directories(${name} PRIVATE include)
+  ament_target_dependencies(${name}
+    rclcpp rclcpp_components sensor_msgs event_camera_msgs event_camera_codecs cv_bridge)
+  target_link_libraries(${name} ${ARGN} ${OpenCV_LIBS})
+  # Find the SDK .so at runtime via a DT_RPATH that beats LD_LIBRARY_PATH; the
+  # launch also sets LD_LIBRARY_PATH (the SDK's libs use RUNPATH). See docs/sdk/.
+  set_target_properties(${name} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+  target_link_options(${name} PRIVATE "-Wl,--disable-new-dtags")
+  rclcpp_components_register_node(${name} PLUGIN "${plugin}" EXECUTABLE ${exec})
+  install(TARGETS ${name}
+    ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
+endfunction()
 
-# Registers the component and a standalone executable
-# (ros2 run evk4_sdk_advanced optical_flow).
-rclcpp_components_register_node(optical_flow_component
-  PLUGIN "evk4_sdk_advanced::OpticalFlow"
-  EXECUTABLE optical_flow)
+add_sdk_component(optical_flow_component src/optical_flow_node.cpp
+  "evk4_sdk_advanced::OpticalFlow" optical_flow
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv)
+
+add_sdk_component(tracking_component src/tracking_node.cpp
+  "evk4_sdk_advanced::Tracking" tracking
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
 
 # Capture the SDK's lib dir (wherever it was found at build time) into the
-# package share, so the launch can prepend it to LD_LIBRARY_PATH. The SDK's own
-# libraries use RUNPATH, so their transitive deps (e.g. sdk_base) follow
-# LD_LIBRARY_PATH -- putting the build tree first keeps the whole process on the
-# Pro 5.x libs instead of leaking to openeb_vendor's open-only 5.0.0. This is
-# what makes the launch a single command (no `source setup_env.sh`).
+# package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's
+# own libraries use RUNPATH, so their transitive deps follow LD_LIBRARY_PATH.
+# Removes the need to source setup_env.sh.
 file(GENERATE
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/sdk_libdir"
   CONTENT "$<TARGET_FILE_DIR:MetavisionSDK::base>")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sdk_libdir"
   DESTINATION share/${PROJECT_NAME})
-
-install(TARGETS optical_flow_component
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})

@@ -350,11 +350,21 @@ Done:
       tutorial written from the user's live run. Details: memory
       `sdk-pro-integration`.
 
+- [x] **Shared harness + object tracking (2026-06-16):** refactored the
+      threading/decode into a reusable base `evk4_sdk_advanced::EventVisionNode`
+      (include/.../event_vision_node.hpp) -- each pipeline is now ~3 hooks
+      (processEvents/stageResults/renderFrame) + a launch. Added the second
+      pipeline, object tracking (`TrackingAlgorithm` -> labeled bounding boxes
+      -> /event_camera/tracking_image), both bag-validated on the Pi. Caught +
+      fixed two real bugs by inspecting pixels: split-lock staging desync (flow
+      arrows vanished) and a destructor-order use-after-free (tracking hung on
+      SIGINT, needed -9). Docs: docs/sdk/tracking.md.
+
 Next (user-ordered):
-- [ ] More SDK CV / analytics pipelines on the same harness (dense flow, object
-      tracking, counting, frequency/vibration — all model-free, Pi-capable).
-      ML detection + stereo calibration are the experimental tier (x86/Jetson;
-      need LibTorch / two cameras).
+- [ ] More model-free SDK pipelines on the EventVisionNode harness: dense flow,
+      counting, frequency/vibration, particle tracking. ML detection + stereo
+      calibration are the experimental tier (x86/Jetson; need LibTorch / two
+      cameras).
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
