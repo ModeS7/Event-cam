@@ -380,13 +380,37 @@ Done:
       pipeline follows `<name>_image`. Pipeline-specific params (tracking
       min_size/max_size, etc.) are node defaults overridden with `--ros-args -p`.
       dense_flow/spatter/counting CONTENT-validated by bag
-      replay + pixel inspection; frequency/led BUILD+RUN validated (no
-      periodic/marker hardware). Total 7 SDK pipelines. Bag-validation gotchas
+      replay + pixel inspection. **frequency + led_tracking are NOT validated**
+      (they build + run; detection unverified on hardware — revisit): frequency's
+      end-to-end live "point at a fan/lamp" run is still pending, led needs
+      modulated-marker hardware. Total 7 SDK pipelines. Bag-validation gotchas
       caught: SIGINT to the `ros2 run` launcher does NOT forward to the node
       binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
       `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
 
+- [x] **Node drops events under load -> overload warning (2026-06-16):** the
+      frequency map went black on a high-rate flicker NOT from the SDK but
+      because `EventVisionNode` runs decode + the algorithm inline on the
+      subscription thread (~3 Mev/s ceiling on a Pi; decode alone ~7.5 Mev/s) and
+      best-effort QoS then SILENTLY drops events, shredding the per-pixel
+      periodicity frequency needs. Proven with a captured flicker bag: full rate
+      drops ~79% -> ~0 detections; fed within budget -> ~2200 px (matches the
+      algorithm offline at 12 Mev/s). Fix: drop-sensitive pipelines
+      (`warnOnOverload()`-> frequency) WARN when wall-time > event-time-span
+      instead of failing silently; heat-map/dense-field pipelines skip the
+      per-packet event-staging copy (`rendersEvents()`-> false for
+      frequency/dense_flow). The real lever for high rates is ERC capping (ERC's
+      controlled on-sensor drop preserves periodicity; transport drops don't).
+      A browser flicker-test page was tried then REMOVED (the fullscreen strobe
+      caused temporary LCD image retention on the user's laptop — do not re-add a
+      strobe tool). Frequency detection itself remains unvalidated (see above).
+
 Next (user-ordered):
+- [ ] **Validate `frequency` + `led_tracking` on hardware (revisit):** frequency
+      needs a clean live run on a non-overrunning periodic source (fan / mains
+      lamp, NOT a fullscreen screen strobe) within the event-rate budget (cap
+      `erc_rate` ~3 Mev/s so the node doesn't drop); led_tracking needs modulated
+      active-LED markers. Both build + run today but detection is unverified.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the

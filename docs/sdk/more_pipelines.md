@@ -120,11 +120,7 @@ flickering light)"* until something is detected, then *"N px vibrating"* in gree
 To see it light up, point it at a genuinely periodic source: a **spinning fan**,
 a **mains-powered light** (flickers at 100 Hz in 50 Hz countries / 120 Hz at
 60 Hz — both in range), a vibrating tool, or a speaker cone. The signal must be
-stable for ~`filter_length` (7) cycles before a pixel registers. For a controlled
-test, open [flicker_test.html](flicker_test.html) in a browser — it flashes a
-small centered patch at an adjustable frequency for the camera to watch.
-(Photosensitivity warning: it flashes; keep the patch small and never fullscreen.
-A full-screen strobe both strains the eyes and overruns the rate budget below.)
+stable for ~`filter_length` (7) cycles before a pixel registers.
 
 ### Keep the event rate within budget (critical for this pipeline)
 
@@ -132,8 +128,8 @@ Unlike the others, frequency needs **every** event at each pixel to lock a stabl
 period — so it is the one pipeline that **dropped events break outright**. If the
 event rate exceeds what the node can decode+process in real time (~3 Mev/s on a
 Pi 5), the transport silently drops events and the map goes black even though a
-strong flicker is present. A **bright, full-frame flickering source** (e.g. a
-fullscreen monitor strobe) easily produces ~8 Mev/s and will do exactly this.
+strong periodic source is present. A **bright, full-frame flickering source**
+easily produces ~8 Mev/s and will do exactly this.
 
 The node detects this and **warns**:
 
@@ -153,13 +149,13 @@ the rate down so the node keeps up:
 - A vibrating object or a fan filling part of the frame is well within budget;
   it is mainly bright full-frame flicker that overruns it.
 
-**Validated** on the Pi (2026-06-16): a synthetic 100 Hz / 50 Hz input renders
-exactly that frequency (verified the algorithm, the per-pixel map, and the heat
-map render). A real ~30 Hz monitor flicker was captured to a bag and replayed
-through the node: at full rate it dropped ~79% of events and detected almost
-nothing (now flagged by the overload warning); fed within budget it detects
-~2200 pixels at 30 Hz, matching the algorithm run offline. The fix is to keep the
-event rate inside the processing budget, not anything in the algorithm.
+**NOT yet hardware-validated end-to-end — revisit.** What *is* verified
+(2026-06-16): the algorithm + heat-map render (synthetic 100 Hz / 50 Hz input
+maps to exactly that frequency), and the node-level overload behaviour (a real
+~30 Hz periodic source captured to a bag detects ~2200 pixels when fed within
+budget, but drops ~79% of events at full rate — now surfaced by the overload
+warning). A clean live "point the camera at a fan / lamp and read the map" run on
+hardware is still pending.
 
 ## Active LED / marker tracking — `led_tracking`
 
@@ -178,7 +174,8 @@ pipeline: `ModulatedLightDetectorAlgorithm` (decodes a source id per event) →
 
 This needs **active LED markers** that blink an encoded ID (`num_bits` /
 `base_period_us`) in view; without them the node simply streams the event image
-(no tracks). **Build + run validated** on the Pi (2026-06-16); track output needs
-modulated-marker hardware, which we don't have — so it's the most specialized of
-the model-free set. The full active-*marker* tracker (`ActiveMarkerTrackerAlgorithm`,
+(no tracks). **NOT validated** — it builds and runs (streams the event image),
+but track output needs modulated-marker hardware we don't have, so detection is
+unverified; revisit when markers are available. It's the most specialized of the
+model-free set. The full active-*marker* tracker (`ActiveMarkerTrackerAlgorithm`,
 with a marker-geometry JSON) is a further extension on top of this LED tracker.
