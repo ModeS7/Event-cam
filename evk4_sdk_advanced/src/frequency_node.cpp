@@ -72,6 +72,13 @@ protected:
     }
   }
 
+  // renderFrame draws only the heat map, never the events -> skip render staging.
+  bool rendersEvents() const override { return false; }
+
+  // Frequency needs every event for per-pixel periodicity: dropped events break
+  // detection outright, so warn loudly when the node can't keep up.
+  bool warnOnOverload() const override { return true; }
+
   void stageResults() override
   {
     if (!latest_map_.empty()) {

@@ -120,12 +120,46 @@ flickering light)"* until something is detected, then *"N px vibrating"* in gree
 To see it light up, point it at a genuinely periodic source: a **spinning fan**,
 a **mains-powered light** (flickers at 100 Hz in 50 Hz countries / 120 Hz at
 60 Hz — both in range), a vibrating tool, or a speaker cone. The signal must be
-stable for ~`filter_length` (7) cycles before a pixel registers.
+stable for ~`filter_length` (7) cycles before a pixel registers. For a controlled
+test, open [flicker_test.html](flicker_test.html) in a browser — it flashes a
+small centered patch at an adjustable frequency for the camera to watch.
+(Photosensitivity warning: it flashes; keep the patch small and never fullscreen.
+A full-screen strobe both strains the eyes and overruns the rate budget below.)
+
+### Keep the event rate within budget (critical for this pipeline)
+
+Unlike the others, frequency needs **every** event at each pixel to lock a stable
+period — so it is the one pipeline that **dropped events break outright**. If the
+event rate exceeds what the node can decode+process in real time (~3 Mev/s on a
+Pi 5), the transport silently drops events and the map goes black even though a
+strong flicker is present. A **bright, full-frame flickering source** (e.g. a
+fullscreen monitor strobe) easily produces ~8 Mev/s and will do exactly this.
+
+The node detects this and **warns**:
+
+```
+event rate exceeds processing budget (145% of real time) -- the transport is
+DROPPING events, degrading results; lower the rate (smaller erc_rate) or reduce
+scene activity / use an ROI
+```
+
+If you see that warning (or a black map on an obviously flickering scene), bring
+the rate down so the node keeps up:
+
+- **Cap `erc_rate`** in your params (e.g. `erc_rate: 3000000`). ERC drops events
+  *on the sensor* in a controlled way that preserves each pixel's periodicity —
+  unlike the transport's random whole-packet drops, which destroy it.
+- **Restrict the field of view** with an `roi` so fewer pixels are active.
+- A vibrating object or a fan filling part of the frame is well within budget;
+  it is mainly bright full-frame flicker that overruns it.
 
 **Validated** on the Pi (2026-06-16): a synthetic 100 Hz / 50 Hz input renders
 exactly that frequency (verified the algorithm, the per-pixel map, and the heat
-map render); the live color output needs a periodic source, which the test bag
-lacks.
+map render). A real ~30 Hz monitor flicker was captured to a bag and replayed
+through the node: at full rate it dropped ~79% of events and detected almost
+nothing (now flagged by the overload warning); fed within budget it detects
+~2200 pixels at 30 Hz, matching the algorithm run offline. The fix is to keep the
+event rate inside the processing budget, not anything in the algorithm.
 
 ## Active LED / marker tracking — `led_tracking`
 

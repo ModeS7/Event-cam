@@ -68,6 +68,9 @@ protected:
     std::swap(staging_fl_, work_fl_);
   }
 
+  // renderFrame draws only the dense color field, never the events -> skip staging.
+  bool rendersEvents() const override { return false; }
+
   // Render the dense color flow field (no event image: DenseColorMap fills the
   // whole frame).
   bool renderFrame(
