@@ -13,6 +13,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(event_camera_msgs REQUIRED)
 find_package(event_camera_codecs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(camera_calibration_parsers REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # The Metavision SDK modules are closed (SDK Pro) and NOT part of openeb_vendor.
@@ -89,6 +90,12 @@ add_sdk_component(psm_component src/psm_node.cpp
 add_sdk_component(jet_component src/jet_node.cpp
   "evk4_sdk_advanced::JetMonitoring" jet_monitoring
   MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
+
+add_sdk_component(undistortion_component src/undistortion_node.cpp
+  "evk4_sdk_advanced::Undistortion" undistortion
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv)
+# Reads the standard camera_info YAML (same file evk4_calibration produces).
+ament_target_dependencies(undistortion_component camera_calibration_parsers)
 
 # Capture the SDK's lib dir (wherever it was found at build time) into the
 # package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's

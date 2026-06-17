@@ -444,6 +444,23 @@ Next (user-ordered):
       apps (Active Marker 3D, ArUco, Edgelet/model-3D tracking) are all `cv3d`
       (NOT built, USE_SOPHUS=OFF) + genuinely 3D (need intrinsics + a marker/model
       def, multi-cam for some) -> documented as the untested tier in pipelines.md.
+- [x] **`undistortion` pipeline added (2026-06-17) -> 10 pipelines.** Event-level
+      lens rectification (the event-stream counterpart of image_proc, which only
+      rectifies image_raw). CV-module `PinholeCameraModel` + `CameraGeometry`,
+      built from the SAME ROS `camera_info` YAML evk4_calibration produces
+      (`info.k`->K[9], `info.d`->D[5] plumb_bob -> the SDK ctor takes K,D directly,
+      NO JSON conversion). Precomputes a distorted->undistorted pixel LUT in onInit
+      (img_to_undist_norm + undist_norm_to_undist_img per cell; ~few-second build),
+      then remaps each event and reuses OnDemandFrameGenerationAlgorithm for the
+      stock event-frame look. `calibration_url` is a launch arg (node param);
+      VALIDATED LIVE on the Pi with a synthetic-distortion camera_info file. Build
+      gotcha caught: `calibration_url` leaked into the included evk4.launch.py
+      (launch configs inherit into IncludeLaunchDescription) -> the driver tried to
+      start its CameraInfoPublisher (needs viz) and errored; fixed by passing
+      `calibration_url: ''` explicitly to the driver include. Linked from
+      calibration.md ("for events, use the SDK undistortion pipeline"). This was
+      the one genuine classical gap from the SDK-catalog audit; noise_filtering/
+      data_rate are redundant (driver does STC on-sensor; ERC + topic hz cover rate).
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the

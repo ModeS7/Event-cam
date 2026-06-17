@@ -24,6 +24,7 @@
   <depend>event_camera_msgs</depend>
   <depend>event_camera_codecs</depend>
   <depend>cv_bridge</depend>
+  <depend>camera_calibration_parsers</depend>
 
   <!-- MetavisionSDK (CV module) is intentionally NOT a <depend>: it is closed
        SDK Pro, found by CMake find_package against a separate install, not by

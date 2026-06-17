@@ -1,6 +1,6 @@
 # SDK pipelines — detailed reference
 
-The deep reference for the nine `evk4_sdk_advanced` pipelines: parameters,
+The deep reference for the ten `evk4_sdk_advanced` pipelines: parameters,
 behavior, tuning, and validation. For the brief overview + the one-command
 quick-start, see [README.md](README.md); for setup, [access.md](access.md) and
 [install.md](install.md).
@@ -14,6 +14,7 @@ Jump to: [optical_flow](#sparse-optical-flow--optical_flow) ·
 [led_tracking](#active-led-tracking--led_tracking) ·
 [psm](#particle-size-monitoring--psm) ·
 [jet_monitoring](#jet-monitoring--jet_monitoring) ·
+[undistortion](#undistortion--undistortion) ·
 [3D apps (untested)](#using-the-untested-3d-applications)
 
 ## How they all work (the shared harness)
@@ -338,6 +339,38 @@ increments the count. **Validated on the Pi.** A real
 dispensing nozzle is the intended source; the ROI, running count, and live rate
 all render. Defaults assume a fast cycle; raise `jet_accumulation_us` for slower
 dispensing, and tune `th_up_kevps` to your stimulus.
+
+---
+
+## Undistortion — `undistortion`
+
+Rectifies the **event stream** for lens distortion — the event-level counterpart
+of `image_proc`, which can only rectify the rendered `image_raw`. It loads a
+standard `camera_info` YAML (the file [evk4_calibration](../calibration.md)
+produces), builds the SDK's pinhole `CameraGeometry` from the `K` matrix +
+plumb_bob distortion, and remaps every event to its undistorted pixel position;
+the output is the rectified event view. Uses `PinholeCameraModel` +
+`CameraGeometry` (CV module).
+
+| Node param | Default | Description |
+|---|---|---|
+| `calibration_url` | (required) | Path to the `camera_info` YAML (K + distortion). The node refuses to start without it. |
+
+Pass the calibration as a launch arg (the other pipelines ignore it):
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=undistortion \
+    params_file:=$HOME/my_params.yaml \
+    calibration_url:=$HOME/ros2_ws/src/Event-cam/evk4_bringup/config/calibration/event_camera.yaml
+```
+
+The distorted-to-undistorted pixel map is precomputed once at startup (a one-time
+cost of a few seconds over the full sensor, logged as "building undistortion
+map"), so each event is a single lookup on the frame thread. **Validated on the
+Pi**: a `camera_info` YAML in our format loads directly, the map builds, and the
+remapped event view publishes. On the EVK4 kit's near-distortion-free 8 mm lens
+the rectified frame looks nearly identical to the raw one — the displacement is
+only a few pixels, which is correct (see [calibration.md](../calibration.md)). The
+zero-distortion placeholder calibration makes this a pass-through.
 
 ---
 

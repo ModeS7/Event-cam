@@ -4,7 +4,7 @@
         params_file:=$HOME/my_params.yaml
 
 `pipeline` is one of: optical_flow, tracking, dense_flow, spatter, counting,
-frequency, led_tracking, psm, jet_monitoring. Each publishes
+frequency, led_tracking, psm, jet_monitoring, undistortion. Each publishes
 /<camera_name>/<pipeline>_image. The
 driver (openeb_vendor) runs in its own process; the SDK node runs separately
 with the SDK libs on its LD_LIBRARY_PATH (captured at build time -- no
@@ -39,11 +39,14 @@ def _launch_setup(context, *args, **kwargs):
     debug_timing = LaunchConfiguration('debug_timing').perform(context).lower() == 'true'
     params_file = LaunchConfiguration('params_file').perform(context)
     node_params_file = LaunchConfiguration('node_params_file').perform(context)
+    calibration_url = LaunchConfiguration('calibration_url').perform(context)
     topic = f'{pipeline}_image'
 
     # Pipeline-specific node parameters (e.g. led_tracking base_period_us,
     # frequency min_freq) -- a YAML applied to the node. Use `/**:` to match.
-    node_parameters = [{'fps': fps, 'debug_timing': debug_timing}]
+    # calibration_url is only read by the undistortion pipeline; others ignore it.
+    node_parameters = [{
+        'fps': fps, 'debug_timing': debug_timing, 'calibration_url': calibration_url}]
     if node_params_file:
         node_parameters.append(node_params_file)
 
@@ -67,6 +70,10 @@ def _launch_setup(context, *args, **kwargs):
             'frame_id': frame_id,
             'viz': 'false',
             'params_file': params_file,
+            # Our calibration_url is for the undistortion NODE; force it empty for
+            # the driver launch so its CameraInfoPublisher (which needs viz) is not
+            # started. Included launches otherwise inherit this configuration.
+            'calibration_url': '',
         }.items(),
     )
 
@@ -92,7 +99,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'pipeline',
             description='optical_flow | tracking | dense_flow | spatter | counting | '
-                        'frequency | led_tracking | psm | jet_monitoring'),
+                        'frequency | led_tracking | psm | jet_monitoring | undistortion'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),
         DeclareLaunchArgument('frame_id', default_value='event_camera_optical_frame'),
@@ -105,5 +112,9 @@ def generate_launch_description():
             'node_params_file', default_value='',
             description='Pipeline node params YAML, e.g. led_tracking '
                         'base_period_us / inactivity_period_us (match a `/**:` block).'),
+        DeclareLaunchArgument(
+            'calibration_url', default_value='',
+            description='camera_info YAML (from evk4_calibration) -- required by the '
+                        'undistortion pipeline, ignored by the others.'),
         OpaqueFunction(function=_launch_setup),
     ])

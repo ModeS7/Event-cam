@@ -31,7 +31,7 @@ stream. If you never install the SDK, a normal `colcon build` skips it.
    (On an **apt** SDK / x86, omit `-DMetavisionSDK_DIR`. The build captures the
    SDK's library path, so the launch sets it automatically — no `setup_env.sh`.)
 
-## Quick start — run any of the nine
+## Quick start — run any of the ten
 
 All pipelines share **one launch**; pick which with `pipeline:=`:
 
@@ -58,24 +58,27 @@ Swap `pipeline:=<name>` and the topic `/event_camera/<name>_image`:
 | `led_tracking` | a circle + the **decoded ID** | an active-LED marker |
 | `psm` | **count + size** of objects crossing lines | parts on a conveyor / falling particles |
 | `jet_monitoring` | **count of dispensed jets** in a ROI | a dispensing nozzle |
+| `undistortion` | the **event stream rectified** for lens distortion | any scene (needs a `calibration_url`) |
 
 `params_file:=$HOME/my_params.yaml` feeds your tuned driver setup (event-rate
 cap, biases, filters — see [tuning.md](../tuning.md)) — that, not the algorithm,
 is the main latency/CPU lever on a Pi.
 
-**Two need more setup than a launch command** — see [pipelines.md](pipelines.md):
+**Three need more setup than a launch command** — see [pipelines.md](pipelines.md):
 - **`frequency`** needs a genuinely *periodic* source and good optics (open the
   aperture, focus, light it) — most everyday scenes display black, which is correct.
 - **`led_tracking`** needs a *coded* marker, and the marker's `base_period_us` /
   `inactivity_period_us` passed via `node_params_file:=...`. The detail page shows
   how to build a test marker from a Raspberry Pi GPIO + an LED.
+- **`undistortion`** needs `calibration_url:=<your event_camera.yaml>` (the file
+  from [calibration](../calibration.md)); it refuses to start without it.
 
 ## Platform note
 
 The SDK ships **prebuilt apt binaries for x86_64 only**. On ARM (Pi, Jetson) you
 **build it from source** — a validated, ~22-minute procedure on a Pi 5
 ([install.md](install.md)). Everything downstream (`evk4_sdk_advanced`, the
-launch, the results) is identical once the SDK is present. All nine pipelines
+launch, the results) is identical once the SDK is present. All ten pipelines
 share one real-time harness (`event_vision_node.hpp`: decode `EventPacket` →
 `vector<Metavision::EventCD>` → an SDK algorithm → publish an image); adding one
 is three small hooks plus a launch entry.

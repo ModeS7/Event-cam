@@ -98,7 +98,7 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
 | `evk4_calibration/` | Guided intrinsic calibrator (`ros2 launch evk4_calibration calibrate.launch.py`) |
-| `evk4_sdk_advanced/` | Opt-in Metavision SDK Pro layer: nine model-free pipelines (optical flow, tracking, dense flow, spatter, counting, frequency, active-LED, particle-size monitoring, jet monitoring) on the event stream (see `docs/sdk/`) |
+| `evk4_sdk_advanced/` | Opt-in Metavision SDK Pro layer: ten model-free pipelines (optical flow, tracking, dense flow, spatter, counting, frequency, active-LED, particle-size monitoring, jet monitoring, event undistortion) on the event stream (see `docs/sdk/`) |
 | `setup/` | `install_deps.sh` (one-command dependency setup) + vendored udev rule and renderer patch |
 | `docs/` | The four-page setup guide + reference pages (see below) |
 
@@ -125,10 +125,10 @@ With more than one camera:
 per-camera calibration.
 
 Advanced (optional): [docs/sdk/](docs/sdk/README.md) — run closed-source
-Metavision SDK Pro algorithms (nine model-free pipelines: optical flow,
+Metavision SDK Pro algorithms (ten model-free pipelines: optical flow,
 tracking, dense flow, spatter, counting, frequency, active-LED, particle-size
-monitoring, jet monitoring) on the event stream. An opt-in layer, not needed
-for the base pipeline.
+monitoring, jet monitoring, event undistortion) on the event stream. An opt-in
+layer, not needed for the base pipeline.
 
 ## License
 

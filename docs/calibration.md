@@ -12,9 +12,9 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 > you created there.
 
 > **Scope:** this calibrates and rectifies the **rendered `image_raw`**. The
-> raw event stream is not an image, so event-level undistortion is a separate
-> downstream step (see the end). The full loop (capture, calibrate, rectify)
-> is hardware-validated on a Raspberry Pi 5.
+> raw event stream is not an image, so event-level undistortion is done by the
+> SDK `undistortion` pipeline (see the end). The full loop (capture, calibrate,
+> rectify) is hardware-validated on a Raspberry Pi 5.
 
 ## What you need
 
@@ -159,10 +159,20 @@ ros2 run tf2_ros static_transform_publisher \
     --frame-id base_link --child-frame-id event_camera_optical_frame
 ```
 
-## Event-level undistortion (downstream)
+## Event-level undistortion
 
-`image_proc` rectifies the *rendered* image only. To undistort the raw events
-themselves, remap each event's `(x, y)` with the same intrinsics in your own
-consumer — e.g. precompute an undistortion lookup from `K` and `D`
-(`cv2.initUndistortRectifyMap` / `cv2.undistortPoints`) and apply it per event.
-This repo does not do it for you; the calibration file is the input you'd use.
+`image_proc` (above) rectifies the *rendered* `image_raw` only — it cannot touch
+the event stream, because events are not an image. To rectify the **events
+themselves**, use the SDK `undistortion` pipeline in the advanced layer: it loads
+this same `event_camera.yaml`, builds the SDK's pinhole camera geometry from your
+`K` + distortion, and remaps every event to its undistorted position.
+
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=undistortion \
+    params_file:=$HOME/my_params.yaml calibration_url:=<path to event_camera.yaml>
+```
+
+See [sdk/pipelines.md](sdk/pipelines.md#undistortion--undistortion). It needs the
+SDK (advanced layer); the base repo does not depend on it. On the kit's
+near-distortion-free lens the rectified event view looks nearly identical to the
+raw one — the same few-pixel displacement seen above, which is correct.
