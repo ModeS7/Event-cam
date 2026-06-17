@@ -1,6 +1,6 @@
 # SDK pipelines — detailed reference
 
-The deep reference for the seven `evk4_sdk_advanced` pipelines: parameters,
+The deep reference for the nine `evk4_sdk_advanced` pipelines: parameters,
 behavior, tuning, and validation. For the brief overview + the one-command
 quick-start, see [README.md](README.md); for setup, [access.md](access.md) and
 [install.md](install.md).
@@ -11,13 +11,16 @@ Jump to: [optical_flow](#sparse-optical-flow--optical_flow) ·
 [spatter](#particle--spatter-tracking--spatter) ·
 [counting](#object-counting--counting) ·
 [frequency](#vibration-frequency--frequency) ·
-[led_tracking](#active-led-tracking--led_tracking)
+[led_tracking](#active-led-tracking--led_tracking) ·
+[psm](#particle-size-monitoring--psm) ·
+[jet_monitoring](#jet-monitoring--jet_monitoring) ·
+[3D apps (untested)](#using-the-untested-3d-applications)
 
 ## How they all work (the shared harness)
 
-Every pipeline decodes `EventPacket` → `vector<Metavision::EventCD>` and feeds the
-SDK over its camera-independent `process_events` API — the SDK is consumed, never
-modified. They share one real-time harness (`event_vision_node.hpp`) with **two
+Every pipeline is one SDK algorithm wrapped as a ROS node. It decodes
+`EventPacket` → `vector<Metavision::EventCD>` and feeds the SDK over its
+camera-independent `process_events` API — the SDK is consumed, never modified. They share one real-time harness (`event_vision_node.hpp`) with **two
 threads**: the subscription thread decodes and runs the algorithm *incrementally*
 per packet (SDK algorithms are streaming and go super-linear on large batches); a
 frame thread, paced to wall-clock `fps`, renders one newest frame on demand and
@@ -39,17 +42,15 @@ window drawn per frame). Each publishes `/event_camera/<pipeline>_image`
 Event edges with **flow-vector arrows** overlaid — each tracked feature's
 direction and speed, color-coded. Uses `SparseOpticalFlowAlgorithm`.
 
-![Sparse optical flow: event edges with flow-vector arrows](images/optical_flow.png)
-
-**Behavior (not what you'd guess):**
+**Behavior:**
 - **Needs close, definite motion.** The tuned config (STC trail filter) keeps the
   stream clean and *sparse*, so distant hand-waving barely registers.
 - **Too much motion makes vectors *disappear* — intended.** Sparse flow only emits
   a vector where it can confidently match a distinct feature between moments;
-  overwhelm it and it goes quiet rather than guess. Sweet spot: moderate motion.
+  overwhelm it and it goes quiet rather than guess. Moderate motion works best.
 - A quiet scene holds the last frame (no events → no update), which is correct.
 
-**Validated (Pi 5, 2026-06-16):** ~21 ms median latency (camera → image), 50 ms
+**Validated on the Pi:** ~21 ms median latency (camera → image), 50 ms
 p99; 30 fps. Dense scenes are flow-bound on the Pi — cost scales with *feature
 count* (~6.7 Mev/s gentle, ~0.5 Mev/s dense). When a scene exceeds what the Pi can
 flow live, it samples the trackable features and drops the surplus — which does
@@ -72,8 +73,6 @@ for throughput / frame rate / visual quality.)
 ## Object tracking — `tracking`
 
 A labeled **bounding box** on each moving object. Uses `TrackingAlgorithm`.
-
-![Object tracking: labeled bounding boxes on moving objects](images/tracking.png)
 
 | Node param | Default | Description |
 |---|---|---|
@@ -99,8 +98,6 @@ node directly with `--ros-args -p min_size:=5 -p max_size:=500`.
 A full **color flow field** (hue = direction, brightness = speed), vs the sparse
 arrows above. Uses `TripletMatchingFlowAlgorithm` → `DenseFlowFrameGeneratorAlgorithm`.
 
-![Dense optical flow color field](images/dense_flow.png)
-
 | Node param | Default | Description |
 |---|---|---|
 | `radius` | `3.0` | Spatial match search radius (px) |
@@ -109,7 +106,7 @@ arrows above. Uses `TripletMatchingFlowAlgorithm` → `DenseFlowFrameGeneratorAl
 
 Coverage follows moving edges (triplet-matching flow is semi-dense, so quiet
 regions stay dark). Brightness is each pixel's speed normalized to
-`display_max_flow`. **Validated** on the Pi (bag 2026-06-16 + live 2026-06-17).
+`display_max_flow`. **Validated on the Pi.**
 
 ---
 
@@ -118,14 +115,12 @@ regions stay dark). Brightness is each pixel's speed normalized to
 Tracks **many small fast movers at once** (sparks, droplets, particles), each a
 small ID-labeled box. Uses `SpatterTrackerAlgorithm`.
 
-![Spatter tracking: many small ID-labeled boxes](images/spatter.png)
-
 | Node param | Default | Description |
 |---|---|---|
 | `cell_size` | `7` | Tracking cell size (px); smaller = finer particles |
 
-Keeps the latest box per cluster id, drops ones unseen for 100 ms. **Validated**
-on the Pi (bag 2026-06-16 + live 2026-06-17).
+Keeps the latest box per cluster id, drops ones unseen for 100 ms. **Validated on
+the Pi.**
 
 ---
 
@@ -134,8 +129,6 @@ on the Pi (bag 2026-06-16 + live 2026-06-17).
 Counts objects **crossing a horizontal line** (e.g. parts on a conveyor) and
 overlays the running count + timestamp. Uses `CountingAlgorithm`.
 
-![Object counting: a red counting line and running count](images/counting.png)
-
 | Node param | Default | Description |
 |---|---|---|
 | `line_row` | `360` | Image row of the counting line (px from top) |
@@ -143,8 +136,7 @@ overlays the running count + timestamp. Uses `CountingAlgorithm`.
 
 Put the line where objects cross, and tune the stream (ERC cap, STC) so each
 object is one clean cluster — on a cluttered scene the count climbs fast (it's
-meant for discrete objects). **Validated** on the Pi (bag 2026-06-16 + live
-2026-06-17).
+meant for discrete objects). **Validated on the Pi.**
 
 ---
 
@@ -178,13 +170,13 @@ and looking straight down at the blades is steadiest.
 **Keep the event rate within budget.** Frequency needs *every* event per pixel, so
 dropped events break it. If the rate exceeds what the node can process in real
 time (~3 Mev/s on a Pi 5), the transport silently drops events and the map goes
-**black even on an obviously flickering scene** — a bright full-frame strobe
+**black even on a visibly flickering scene** — a bright full-frame strobe
 (~8 Mev/s) does exactly this. Fix: **cap `erc_rate`** in your params (e.g.
 `erc_rate: 3000000`) — ERC drops on the sensor in a controlled way that preserves
 periodicity, unlike the transport's random whole-packet drops — or restrict the
 field of view with an `roi`.
 
-**Validated live (Pi, 2026-06-17):** lens at f/2, camera close above a desk fan →
+**Validated on the Pi:** lens at f/2, camera close above a desk fan →
 locked the blade-pass at ~60–70 Hz. The two things that decide success are
 **optics** (focus + light) and **staying within the event-rate budget** — not the
 algorithm (a synthetic 100/50 Hz input maps to exactly that frequency).
@@ -195,8 +187,8 @@ algorithm (a synthetic 100/50 Hz input maps to exactly that frequency).
 
 Tracks **active LED markers** — LEDs that transmit a numeric **ID** by blinking a
 coded pattern — drawing a circle + decoded ID on each. The event-camera answer to
-an ArUco fiducial, and the basis of active-marker motion capture (the ID solves
-the *which marker is which* problem for free). Two SDK stages chained:
+an ArUco fiducial, and the basis of active-marker motion capture (the ID resolves
+marker correspondence — which detection is which marker). Two SDK stages chained:
 
 ```
 EventCD ──▶ ModulatedLightDetectorAlgorithm ──▶ EventSourceId ──▶ ActiveLEDTrackerAlgorithm ──▶ tracks
@@ -231,7 +223,7 @@ GPIO17 (header pin 11) ──[ 220–330 Ω ]──►|── GND (pin 9)
                                          LED   long leg = +,  short leg = –
 ```
 The resistor is mandatory (GPIO is 3.3 V); **150 Ω** is brighter (~9 mA, under the
-~16 mA limit) and helps the camera (see tuning). A backwards LED just won't light.
+~16 mA limit) and helps the camera (see tuning). A backwards LED will not light.
 
 **2. Allow GPIO access** (Pi 5 = `/dev/gpiochip4`, `pinctrl-rp1`, group `dialout`):
 ```bash
@@ -260,7 +252,7 @@ cat > /tmp/led.yaml <<'YAML'
 YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=led_tracking \
     params_file:=$HOME/my_params.yaml node_params_file:=/tmp/led.yaml
-ros2 run rqt_image_view rqt_image_view /event_camera/led_image
+ros2 run rqt_image_view rqt_image_view /event_camera/led_tracking_image
 ```
 Point the EVK4 at the LED (close, focused) → a **green circle + "146"** locks on.
 A real 200 µs hardware marker needs no override — plain `pipeline:=led_tracking`.
@@ -273,13 +265,13 @@ A real 200 µs hardware marker needs no override — plain `pipeline:=led_tracki
 | `tolerance` | `0.1` | Allowed ±fraction per measured gap |
 | `radius` | `10.0` | Event-to-track association radius (px) |
 
-### Tuning (validated Pi, 2026-06-17)
+### Tuning (validated on the Pi)
 
 - **Base period is the master knob.** A word ≈ 9 blinks, so at 5 ms base it takes
   ~115 ms — the LED must stay put that long to decode, so fast motion smears the
   code and drops. Shrink the base for motion: 5 ms → 500 µs cuts the word to
   ~11 ms (~10× better). ~500 µs is the Pi's reliable floor.
-- **A faster code needs a brighter blink** (the non-obvious one). Shrinking the
+- **A faster code needs a brighter blink.** Shrinking the
   base shrinks the LED on-time → less light per blink → fewer events, especially
   mid-motion. Add light back: raise the marker's **flash** (4th arg) and/or the
   LED current (smaller resistor). 200 µs only became usable with more flash:
@@ -298,6 +290,74 @@ i.e. a commercial active marker.
 One camera = **2D position + ID** per marker. 3D needs the same marker across
 **≥2 calibrated cameras** (or single-camera PnP for a known rigid constellation).
 IR LEDs (invisible, filterable) + unique IDs = outside-in mocap, and the
-modulation conveniently **rejects steady light** (room lights, sunlight never
+modulation **rejects steady light** (room lights and sunlight never
 decode). Multi-camera extrinsic calibration is the experimental tier (needs a
 second EVK4); the SDK's calibration module even supports active-LED marker boards.
+
+---
+
+## Particle Size Monitoring — `psm`
+
+Counts objects **crossing a set of horizontal lines** and estimates each
+particle's **size** — conveyor / channel QC of fast-moving objects. Uses
+`PsmAlgorithm` (line-cluster detection + particle tracking across lines).
+
+| Node param | Default | Description |
+|---|---|---|
+| `min_y` / `max_y` | `150` / `570` | Y range over which the lines are placed |
+| `num_lines` | `6` | Number of line trackers between min_y and max_y |
+| `cluster_ths` | `3` | Min cluster width (px) along a line; below = noise |
+| `num_clusters_ths` | `4` | Min cluster measurements for a real particle |
+| `precision_time_us` | `1000` | Async processing period (sets the line bitset buffer) |
+| `dt_first_match_us` | `10000` | Max time to match a particle across two lines |
+| `is_going_up` | `false` | Motion direction (false = downward) |
+
+Place the lines perpendicular to motion; each particle matched across enough lines
+increments the count and gets a size estimate. **Validated on the Pi.**
+Per-particle sizing needs distinct objects crossing cleanly (conveyor-style); hand
+motion exercises the lines + count but not the sizing.
+
+---
+
+## Jet Monitoring — `jet_monitoring`
+
+Detects and **counts jets (dispensed dots)** by spotting **event-rate peaks inside
+a detection ROI**, overlaying the ROI, the running count, and the ROI event rate.
+For monitoring dispensing processes. Uses `JetMonitoringAlgorithm`.
+
+| Node param | Default | Description |
+|---|---|---|
+| `roi_x` / `roi_y` / `roi_w` / `roi_h` | `600` / `330` / `80` / `60` | Detection ROI (px) — where jets pass |
+| `th_up_kevps` | `50` | Event rate (kev/s) above which a jet starts |
+| `th_down_kevps` | `10` | Event rate below which a jet ends |
+| `jet_accumulation_us` | `500` | Detection accumulation window (≈ just under the dispensing cycle) |
+| `time_step_us` | `50` | Monitoring update period |
+
+A jet = a sharp event-rate burst through the ROI as a dot is dispensed; each
+increments the count. **Validated on the Pi.** A real
+dispensing nozzle is the intended source; the ROI, running count, and live rate
+all render. Defaults assume a fast cycle; raise `jet_accumulation_us` for slower
+dispensing, and tune `th_up_kevps` to your stimulus.
+
+---
+
+## Using the untested 3D applications
+
+The SDK also offers **Active Marker 3D Tracking**, **ArUco Marker Tracking**, and
+**Edgelet / Model 3D Tracking** (3D edges + fiducials for AR/VR). These are **not
+built or tested in this repo** — they live in the SDK's `cv3d` module, which the
+lean ARM build skips (`USE_SOPHUS=OFF`), and they are genuinely 3D (they need
+camera intrinsics and produce a 6-DoF pose). To use them:
+
+1. **Rebuild the SDK with `cv3d`** — re-run the source build ([install.md](install.md))
+   with `-DUSE_SOPHUS=ON` and `cv3d` in the selected modules. Sophus is
+   header-only; the rest of the build is unchanged.
+2. **Get camera intrinsics** — calibrate first (`evk4_calibration`); 3D pose needs
+   the camera matrix + distortion (a `camera_info` YAML).
+3. **Provide the marker/model definition** — ArUco needs a dictionary; active
+   markers need a marker-geometry JSON (the LED layout); model-3D needs the edge
+   model.
+4. **Wrap it like the others** — a new `EventVisionNode` subclass feeding the
+   `cv3d` algorithm, publishing the pose and/or an annotated image. Multi-camera
+   variants additionally need extrinsic (stereo) calibration — the experimental
+   tier that needs a second EVK4.

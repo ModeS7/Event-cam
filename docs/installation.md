@@ -5,15 +5,15 @@ any host). The dev machine where you write code needs only `git` and an editor.
 
 **The install steps are the same on every platform** — OpenEB + the Python
 decoder from apt (arm64 and x86 binaries both exist), the renderer from
-source, and our own driver built from this repo. The board (NUC, Raspberry
+source, and the driver built from this repo. The board (NUC, Raspberry
 Pi, Jetson, …) doesn't change the procedure; the table below just records
 where it's been validated.
 
 | Platform | Status |
 |---|---|
-| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-13) |
+| x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | x86_64 · Ubuntu 22.04 · Humble | expected — untested |
-| ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware (2026-06-09) |
+| ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | Other ARM64 SBCs / Humble | expected |
 | Ubuntu < 22.04 (e.g. original Jetson Nano @ 18.04) | unsupported — ROS 2 is EOL there |
 
@@ -64,7 +64,7 @@ to it** — the steps are not additive, and re-applying the renderer patch on
 an already-patched tree errors out (`patch does not apply`).
 
 The manual path is the **same on every platform** (OpenEB + decoder are
-arm64/x86 binaries; the renderer is built from source either way). Our own
+arm64/x86 binaries; the renderer is built from source either way). The
 `evk4_driver` is built from this repo (step 4) directly on OpenEB — there is
 no separate driver to install:
 
@@ -101,7 +101,7 @@ echo '[ -f ~/ros2_ws/install/setup.bash ] && source ~/ros2_ws/install/setup.bash
 (If you are on a platform where `openeb_vendor` has no apt binary, build OpenEB
 from source first
 [[Prophesee guide]](https://docs.prophesee.ai/stable/installation/linux_openeb.html);
-our `evk4_driver` then builds against it like any other underlay.) See the
+the `evk4_driver` then builds against it like any other underlay.) See the
 **Workspaces** note at the end.
 
 ### udev rule (all platforms)
@@ -170,7 +170,7 @@ rebuilds your own packages. **Three layers, on every platform:**
 - `~/ros2_ws` — this repo (overlay)
 
 Build the deps workspace once; thereafter `colcon build` in `~/ros2_ws`
-recompiles only our small packages, not the renderer tree. Source order is
+recompiles only the `evk4_*` packages, not the renderer tree. Source order is
 bottom-up; the script appends these to `~/.bashrc` (and `/etc/skel/.bashrc` for
 future users):
 

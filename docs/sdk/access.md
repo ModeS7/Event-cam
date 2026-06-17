@@ -1,12 +1,5 @@
 # Getting Metavision SDK access
 
-This page is for the **optional advanced layer** only. The base pipeline in
-this repo — driver, renderer, examples, calibration — is built on **OpenEB**
-(the open edition of the Metavision SDK) and needs none of what follows. Read
-this only if you want to run the closed-source Metavision SDK algorithms
-(optical flow, CV, analytics, ...) on top of the event stream, via the
-`evk4_sdk_advanced` package.
-
 The full Metavision SDK is **free for Prophesee USB-camera owners** — owning an
 EVK4 qualifies you. (Commercial *deployment* needs a separate license; that is
 between you and Prophesee and out of scope here.) Access is granted per-account
@@ -14,7 +7,7 @@ through Prophesee's private package repository. This page gets you the account
 and a token; [install.md](install.md) then installs the SDK.
 
 > **Credentials and the run model:** the token below is a personal credential.
-> This project's runtime machines are credential-less, pull-only (see the repo
+> Runtime machines are credential-less and pull-only (see the repo
 > README) — so put the token only where you are comfortable holding one (your
 > dev / lab machine), and keep it out of the repo (it is `.gitignore`-safe by
 > living under `~/.config`, below).
@@ -31,7 +24,7 @@ Fill in the access form — the fields are self-explanatory:
 
 **<https://www.prophesee.ai/resources-access-request/>**
 
-Two fields catch people out:
+Two fields are easy to get wrong:
 
 - **Use an institutional email, not gmail.** The form rejects generic / public
   providers (gmail, qq, etc.) — "No account will be created" for them. Use your

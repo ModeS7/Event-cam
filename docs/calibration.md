@@ -14,7 +14,7 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
 > **Scope:** this calibrates and rectifies the **rendered `image_raw`**. The
 > raw event stream is not an image, so event-level undistortion is a separate
 > downstream step (see the end). The full loop (capture, calibrate, rectify)
-> is hardware-validated on a Raspberry Pi 5 (2026-06-10).
+> is hardware-validated on a Raspberry Pi 5.
 
 ## What you need
 
@@ -51,7 +51,7 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   focus procedure is in [tuning.md](tuning.md) (The lens) — do it at the
   distance you will calibrate from, using the blinking grid as the target.
 - **The preview follows the blink.** The rendered image only refreshes when
-  events arrive, so expect the overlay to feel a bit less smooth than the
+  events arrive, so expect the overlay to be less smooth than the
   raw stream usually does — that is normal. Move the camera slowly and hold
   each pose for a blink or two so the auto-capture can see it.
 

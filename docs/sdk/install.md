@@ -18,8 +18,8 @@ export ROS_DISTRO=jazzy
 
 ## x86_64 (apt)
 
-> **Status:** documented from Prophesee's instructions; this project validated
-> the *ARM source build*, not the apt path. The steps below are the standard
+> **Status:** documented from Prophesee's instructions; the *ARM source build*
+> is validated, not this apt path. The steps below are the standard
 > Prophesee apt flow.
 
 Install the repository signing key:
@@ -58,9 +58,9 @@ apt list --installed 2>/dev/null | grep metavision
 
 ## ARM (build from source)
 
-Validated on a **Raspberry Pi 5 (16 GB), Ubuntu 24.04, ROS 2 Jazzy** on
-2026-06-16: the full build took ~22 minutes with zero errors. The same procedure
-is expected to work on a Jetson (aarch64); this project does not test Jetson.
+Validated on a **Raspberry Pi 5 (16 GB), Ubuntu 24.04, ROS 2 Jazzy**: the full
+build took ~22 minutes with zero errors. The same procedure
+is expected to work on a Jetson (aarch64), which is not tested here.
 
 ### 1. Download the source archives
 
@@ -104,7 +104,7 @@ tar -xzf metavision_sdk_advanced_sources_5.3.1.tar.gz -C openeb-5.3.1/
 
 ### 4. Configure and build (lean)
 
-We disable the parts the optical-flow pipeline does not need, which also drops
+Disable the parts the optical-flow pipeline does not need, which also drops
 the heaviest ARM dependencies:
 
 - `-DCOMPILE_METAVISION_STUDIO=OFF` — **required** on ARM (Studio is amd64-only).
@@ -130,6 +130,8 @@ cmake --build . -- -j"$(nproc)" -k
 package links against the libraries there.) A `sudo cmake --build . --target
 install` is **not** recommended: it aborts on a hardcoded `/etc/udev` step that
 needs root, and a system install risks colliding with `openeb_vendor`.
+
+**Next:** [README.md](README.md) — build the package and run a pipeline.
 
 ### Note for x86 ML (later)
 

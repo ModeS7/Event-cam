@@ -26,14 +26,14 @@ explains what that setup does — and how to tune past it.
 ## What your config just enabled
 
 The recommended file ships with three things active, all validated on
-hardware (EVK4 on a Raspberry Pi 5, 2026-06):
+hardware (EVK4 on a Raspberry Pi 5):
 
 **ERC — the event-rate cap (`erc_mode: enabled`, `erc_rate: 10000000`).**
 Event-pipeline CPU scales with the event rate, and a busy scene easily
 produces more events than a small board can process — the result is a
 stuttering, lagging display. The cap is enforced **on the sensor**, before
 USB. 10 Mev/s (~35 MB/s) keeps rendering smooth on a Raspberry Pi 5 with
-the scene still looking good (validated 2026-06); raise it only for
+the scene still looking good (validated); raise it only for
 downstream algorithms that consume the raw stream.
 
 **Bias contrast thresholds (`bias_diff_on/off: 30`).** Biases are the
@@ -50,7 +50,7 @@ substantially.
 **STC trail filter (`trail_filter: true`, `stc_cut_trail` at 10000 us).**
 An on-sensor filter that drops isolated events — which is exactly what
 sensor noise is — so the image stays clean at the sensitive bias setting
-above, and the `sharp` display mode works well (validated 2026-06).
+above, and the `sharp` display mode works well (validated).
 Side effect to expect: with noise gone, a static scene renders
 black — and in `sharp` display mode the view can freeze entirely at a
 still scene while it waits for events (correct, not broken; the default
@@ -64,7 +64,7 @@ cap): a clean image with quiet background and crisp motion.*
 ## The lens: aperture and focus
 
 The config cannot fix optics, so set these once before tuning. Aperture:
-around **f/8** is the sweet spot — a smaller aperture deepens the depth of
+around **f/8** is the best balance — a smaller aperture deepens the depth of
 field, making focus far more forgiving (closing further costs light, and
 the sensor then needs more contrast to fire events). Focus: defocus is easy
 to miss on an event camera because there is no static image to judge by.
@@ -72,7 +72,7 @@ Aim at something with fine, high-contrast detail (printed text works well)
 at your working distance, keep events flowing by slowly moving the camera,
 and turn the focus ring until the rendered edges are as thin and crisp as
 possible. Moving closer and further while you turn the ring makes the
-sweet spot much easier to find: sharpness changes fastest right around the
+focus point much easier to find: sharpness changes fastest right around the
 correct focus distance.
 
 ## The tuning loop
@@ -155,7 +155,7 @@ for sharpness. Relaunch without the override.
 
 Every knob lives in your `~/my_params.yaml` as a commented, explained
 block. The sensor-side groups run on the chip itself, *before* events
-reach USB; our `evk4_driver` exposes **every facility the EVK4/IMX636
+reach USB; the `evk4_driver` exposes **every facility the EVK4/IMX636
 supports** (a facility the sensor lacks is skipped with a warning).
 
 Biases — the sensor's analog settings, all **live** (list them with
@@ -201,11 +201,11 @@ one-off overrides and win over the file when passed):
   window — steady timing at any event rate) or `sharp` (each frame waits
   for a target event COUNT — crisper edges on busy scenes, but on quiet
   scenes the count takes seconds to fill, so the view integrates seconds
-  of history and feels laggy; validated on hardware 2026-06-11). Use
+  of history and feels laggy; validated on hardware). Use
   `sharp` only on busy scenes — or paired with the **STC trail filter**
   (enabled in the recommended config): with noise removed on-sensor,
   sharp's event count fills with real signal instead of speckle and the
-  mode works well at ordinary scenes too (validated 2026-06).
+  mode works well at ordinary scenes too (validated).
 
 ## Which knob for which symptom
 

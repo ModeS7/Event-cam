@@ -49,8 +49,8 @@ output to each secondary's sync input — see the Prophesee EVK4 manual for the
 connector and signal details.
 
 `primary` and `secondary` are only for an actual synced rig: a lone `primary`
-coordinates with sync hardware and may not stream on its own (observed
-2026-06-09). For a **single camera, use the default `standalone`.**
+coordinates with sync hardware and may not stream on its own. For a
+**single camera, use the default `standalone`.**
 
 ## Per-camera intrinsic calibration
 

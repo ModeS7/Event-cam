@@ -48,7 +48,7 @@ If ROS 2 itself is missing too (`ls /opt/ros/` is empty), install it first:
 
 ## Launch aborts: `required package '...' is not found`
 
-Our launch file checks its dependencies up front. Our own packages (`evk4_*`)
+The launch file checks its dependencies up front. The `evk4_*` packages
 are built from this repo, so a "not found" there means you still need to build:
 
 ```bash
@@ -99,7 +99,7 @@ as possible (full procedure + aperture tip: tuning.md, The lens).
 
 The camera exists but can't be opened — almost always it's held by another
 process. A previous launch that didn't shut down cleanly is the usual
-culprit (our launch runs the driver inside a `component_container_isolated`
+culprit (the launch runs the driver inside a `component_container_isolated`
 process):
 
 ```bash
