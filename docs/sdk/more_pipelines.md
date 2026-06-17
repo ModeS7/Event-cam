@@ -123,16 +123,22 @@ stable for ~`filter_length` (7) cycles before a pixel registers.
 **Get the optics right — this matters more than anything.** A frequency map only
 works on *sharp, well-lit* moving edges; an out-of-focus or dim scene produces
 sensor noise (random speckle), which has no per-pixel periodicity, so nothing is
-detected. In practice:
+detected. If you get nothing, fix the optics before touching any parameter.
 
-- **Open the aperture** (e.g. f/2) for light, and **focus the lens** until edges
-  are crisp — check on `~/image_raw` first; if you see uniform speckle, you're
-  out of focus.
-- **Fill the frame** with the source — get close so many pixels see the periodic
-  signal (a small/distant fan lights up only a few pixels).
-- A **fan** works but is marginal (fast tips blur, only mid-blade pixels lock a
-  clean period); a **slower fan speed** and looking **straight down at the blades
-  from close up** gives the steadiest result.
+> **Recommended for reliable detection (in order of impact):**
+> 1. **Open the aperture all the way (f/2)** — the most light onto the sensor.
+> 2. **Light the object as brightly as you can** — point a lamp or even a **phone
+>    flashlight** straight at it. More light = stronger, higher-contrast moving
+>    edges = far more events to lock onto (this alone took our fan from a few
+>    flickering spots to a solid detection).
+> 3. **Focus precisely** — turn the focus ring until edges are crisp; check on
+>    `~/image_raw` first, and if you see only uniform speckle you are out of focus.
+
+Then **fill the frame** with the source — get close so many pixels see the
+periodic signal (a small/distant fan lights up only a few pixels). A **fan** is
+marginal (fast tips blur, only mid-blade pixels lock a clean period); a **slower
+fan speed** and looking **straight down at the blades from close up** gives the
+steadiest result.
 
 ### Keep the event rate within budget (critical for this pipeline)
 
