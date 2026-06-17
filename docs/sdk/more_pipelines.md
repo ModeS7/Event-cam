@@ -1,7 +1,9 @@
 # More model-free pipelines (`evk4_sdk_advanced`)
 
 Beyond sparse [optical flow](optical_flow.md) and [object tracking](tracking.md),
-the same harness drives five more Metavision SDK model-free algorithms. They all
+the same harness drives more Metavision SDK model-free algorithms — four covered
+here (dense flow, spatter, counting, frequency), plus
+[active-LED tracking](led_tracking.md), which has its own page. They all
 share `event_vision_node.hpp` (decode `EventPacket` → `vector<EventCD>` → an SDK
 algorithm via `process_events` → publish an image), so the build, real-time
 threading, and SDK-lib-path handling are identical — read
@@ -14,9 +16,9 @@ built.
 
 ## One launch for all of them
 
-**All seven pipelines** (these five plus [optical flow](optical_flow.md) and
-[tracking](tracking.md)) share a single parameterized launch — pick the pipeline
-with `pipeline:=`:
+**All seven pipelines** (these four, plus [optical flow](optical_flow.md),
+[tracking](tracking.md), and [led_tracking](led_tracking.md)) share a single
+parameterized launch — pick the pipeline with `pipeline:=`:
 
 ```bash
 ros2 launch evk4_sdk_advanced pipeline.launch.py \
@@ -170,75 +172,9 @@ budget** — not the algorithm.
 
 ## Active LED / marker tracking — `led_tracking`
 
-Detects **modulated-light sources** (LEDs that transmit an ID by blink-frequency
-modulation) and tracks them, drawing a circle + id per LED. Two-stage SDK
-pipeline: `ModulatedLightDetectorAlgorithm` (decodes a source id per event) →
-`ActiveLEDTrackerAlgorithm`.
+Tracks active LED markers that transmit a numeric ID by blinking a coded pattern
+— the event-camera answer to an ArUco fiducial, and the basis of active-marker
+motion capture. It has its own page covering the encoding, **building a
+Raspberry-Pi LED marker** to test it, and the motion / light / reflection tuning:
 
-| Parameter | Default | Description |
-|---|---|---|
-| `radius` | `10.0` | Event-to-track association radius (px) |
-| `inactivity_period_us` | `1000` | Drop a track after this long without an update (µs) |
-| `num_bits` | `8` | Bits per encoded light ID |
-| `base_period_us` | `200` | Base blink period for ID encoding (µs) |
-| `tolerance` | `0.1` | Blink-period measurement tolerance |
-
-This needs **active LED markers** that blink an encoded ID; without them the node
-simply streams the event image (no tracks).
-
-### The encoding (how to make a marker)
-
-A blink is an LED **rising edge**; the gap between consecutive rising edges, in
-multiples of the base period `p` (= `base_period_us`), encodes a symbol:
-
-| Gap | Symbol |
-|---|---|
-| `2p` | bit `0` |
-| `3p` | bit `1` |
-| `4p` | start / sync |
-
-An ID is `num_bits` (8) bits sent **LSB-first**, framed by start symbols. So a
-marker is just an LED a microcontroller — **or the Raspberry Pi itself** — pulses
-with those gaps.
-
-### Validate it with a Raspberry Pi GPIO + an LED
-
-No commercial marker needed. Wire an **LED + 220–330 Ω resistor** from **GPIO17
-(header pin 11)** to **GND (pin 9)**, then:
-
-```bash
-# one-time: let your user reach the GPIO chardev
-sudo usermod -aG dialout $USER          # /dev/gpiochip4 (Pi 5 RP1) is group dialout
-
-gcc -O2 -o led_marker docs/sdk/led_marker.c
-./led_marker 146 5000 17 &              # blink ID 146, base 5 ms, GPIO17
-
-# slow-marker node params (must match the marker's base):
-cat > /tmp/led.yaml <<'YAML'
-/**:
-  ros__parameters:
-    base_period_us: 5000          # = the marker's base
-    inactivity_period_us: 50000   # > the slow blink gap, so the track survives
-YAML
-
-# point the EVK4 at the LED (close + focused -- a compact bright dot), then ONE command:
-ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=led_tracking \
-    params_file:=$HOME/my_params.yaml node_params_file:=/tmp/led.yaml
-# view it:
-ros2 run rqt_image_view rqt_image_view /event_camera/led_image
-```
-
-Those two node params matter for a **Pi-driven** (slow) marker: `base_period_us`
-(Linux can't reliably hit the 200 µs of a real hardware marker, so use a bigger
-base and match it here — the code re-syncs on every start, so jitter just drops a
-word) and `inactivity_period_us` (must exceed the slow blink gap, else the track
-drops between blinks). A fast hardware marker at `p = 200 µs` needs no override —
-just `pipeline:=led_tracking` with the defaults. (`node_params_file` is how the
-generic launch passes any pipeline-specific parameter.)
-
-**Validated live on the Pi (2026-06-17):** GPIO17 drove an LED with ID 146; the
-node decoded **146** and drew a green circle + "146" on it — full chain (Pi GPIO →
-EVK4 → ModulatedLightDetector → ActiveLEDTracker). Marker generator:
-[led_marker.c](led_marker.c). The full active-*marker* tracker
-(`ActiveMarkerTrackerAlgorithm`, with a marker-geometry JSON) is a further
-extension on top of this LED tracker.
+**→ [led_tracking.md](led_tracking.md)**

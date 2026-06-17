@@ -287,9 +287,14 @@ well-documented, easy to extend.
   (621,370) vs image center (640,360), fx/fy match to 0.07%, max
   undistortion displacement 5.7 px (the EVK4 kit 8mm lens is nearly
   distortion-free — side-by-side raw/rect looking identical is correct).
-  Note:
-  Metavision's own Calibration module is x86-only + Pro-licensed, so our
-  open OpenCV tool is the better fit for the base repo.
+  Note on Metavision's own Calibration module (corrected 2026-06-17): it is NOT
+  x86-only -- `libmetavision_sdk_calibration.so` DID build in our ARM SDK 5.3.1
+  source build (it needs only OpenCV calib3d + Ceres, not Sophus/cv3d). We still
+  prefer our open OpenCV `evk4_calibration` for INTRINSICS (no SDK dep, integrated,
+  validated). Where the SDK module would actually help is EXTRINSIC / multi-camera
+  (stereo -> 3D / mocap) calibration -- and it supports active-LED marker boards,
+  tying into led_tracking. That needs cv3d (NOT built -- USE_SOPHUS=OFF) + a 2nd
+  camera, i.e. the experimental stereo tier.
 - **Decoding:** `ros-jazzy-event-camera-py` (Python `Decoder` → NumPy
   arrays); `event_camera_codecs` (C++); `event_camera_tools` (CLI: echo,
   perf). All consume our `EventPacket` unchanged.

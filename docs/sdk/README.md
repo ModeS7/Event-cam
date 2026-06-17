@@ -26,9 +26,11 @@ else changes; a normal `colcon build` simply skips this package.
    with flow-vector arrows.
 4. [tracking.md](tracking.md) — **object tracking**: labeled bounding boxes on
    moving objects.
-5. [more_pipelines.md](more_pipelines.md) — five more model-free pipelines on the
-   same harness: **dense flow**, **particle/spatter tracking**, **counting**,
-   **vibration frequency**, and **active-LED tracking**.
+5. [more_pipelines.md](more_pipelines.md) — four more model-free pipelines on the
+   same harness: **dense flow**, **particle/spatter tracking**, **counting**, and
+   **vibration frequency**.
+6. [led_tracking.md](led_tracking.md) — **active-LED tracking**: decode + track
+   LEDs that blink a coded ID; includes building a Raspberry-Pi LED test marker.
 
 ## What's implemented vs. planned
 
