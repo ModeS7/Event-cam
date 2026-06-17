@@ -8,7 +8,7 @@ You need a Prophesee account and identity token first — see
   [Jump to ARM.](#arm-build-from-source)
 
 Either way, `evk4_sdk_advanced` finds the SDK by CMake and the rest is identical
-([optical_flow.md](optical_flow.md)).
+([README.md](README.md)).
 
 Set your distro once:
 
@@ -126,7 +126,7 @@ cmake --build . -- -j"$(nproc)" -k
 
 **No install step.** The build tree exports usable CMake config files, so
 `evk4_sdk_advanced` builds directly against it — see
-[optical_flow.md](optical_flow.md). (Do not delete `~/metavision_src`; the
+[README.md](README.md). (Do not delete `~/metavision_src`; the
 package links against the libraries there.) A `sudo cmake --build . --target
 install` is **not** recommended: it aborts on a hardcoded `/etc/udev` step that
 needs root, and a system install risks colliding with `openeb_vendor`.

@@ -1,4 +1,4 @@
-yeah/*
+/*
  * Active-LED marker generator for the evk4_sdk_advanced `led_tracking` pipeline.
  *
  * Blinks an LED on a Raspberry Pi GPIO with the Metavision modulated-light

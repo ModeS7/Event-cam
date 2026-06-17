@@ -365,7 +365,7 @@ Done:
       -> /event_camera/tracking_image), both bag-validated on the Pi. Caught +
       fixed two real bugs by inspecting pixels: split-lock staging desync (flow
       arrows vanished) and a destructor-order use-after-free (tracking hung on
-      SIGINT, needed -9). Docs: docs/sdk/tracking.md.
+      SIGINT, needed -9). Docs: docs/sdk/pipelines.md.
 
 - [x] **Five more model-free pipelines (2026-06-16):** on the same
       `EventVisionNode` harness — `dense_flow` (TripletMatchingFlow ->
@@ -392,7 +392,7 @@ Done:
       "146"). ALL 7 SDK pipelines now validated. Bag-validation gotchas
       caught: SIGINT to the `ros2 run` launcher does NOT forward to the node
       binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
-      `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
+      `EventSourceId`, not `EventCD`. Docs: docs/sdk/pipelines.md.
 
 - [x] **Node-drops-events investigation (2026-06-16), overload-warning fix
       REVERTED (2026-06-17):** the frequency map went black on a high-rate flicker
