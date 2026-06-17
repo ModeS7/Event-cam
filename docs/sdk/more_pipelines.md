@@ -57,7 +57,7 @@ moving edges — triplet-matching flow is semi-dense, so quiet regions stay dark
 
 Brightness is each pixel's speed normalized to `display_max_flow`; the default
 1000 px/s matching ceiling kept fast motion in range while 300 px/s lights up
-ordinary motion. **Validated** on the Pi (2026-06-16, bag replay).
+ordinary motion. **Validated** on the Pi (bag replay 2026-06-16 + live by the user 2026-06-17).
 
 ## Particle / spatter tracking — `spatter`
 
@@ -73,7 +73,7 @@ a small ID-labeled box over the event image. Uses `SpatterTrackerAlgorithm`.
 | `cell_size` | `7` | Tracking cell size (px); smaller = finer particles |
 
 The node keeps the latest box per cluster id and drops ones unseen for 100 ms.
-**Validated** on the Pi (2026-06-16, bag replay).
+**Validated** on the Pi (bag replay 2026-06-16 + live by the user 2026-06-17).
 
 ## Object counting — `counting`
 
@@ -93,7 +93,7 @@ crossing the line, not a cluttered field.*
 | `cluster_ths` | `5` | Minimum cluster size to count |
 
 Put the line where objects cross it, and tune the stream (ERC cap, STC) so each
-object is one clean cluster. **Validated** on the Pi (2026-06-16, bag replay);
+object is one clean cluster. **Validated** on the Pi (bag 2026-06-16 + live by the user 2026-06-17);
 the count is meaningful only for a discrete-object scene.
 
 ## Vibration frequency — `frequency`
