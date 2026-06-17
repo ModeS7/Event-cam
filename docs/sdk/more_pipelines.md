@@ -122,6 +122,20 @@ a **mains-powered light** (flickers at 100 Hz in 50 Hz countries / 120 Hz at
 60 Hz — both in range), a vibrating tool, or a speaker cone. The signal must be
 stable for ~`filter_length` (7) cycles before a pixel registers.
 
+**Get the optics right — this matters more than anything.** A frequency map only
+works on *sharp, well-lit* moving edges; an out-of-focus or dim scene produces
+sensor noise (random speckle), which has no per-pixel periodicity, so nothing is
+detected. In practice:
+
+- **Open the aperture** (e.g. f/2) for light, and **focus the lens** until edges
+  are crisp — check on `~/image_raw` first; if you see uniform speckle, you're
+  out of focus.
+- **Fill the frame** with the source — get close so many pixels see the periodic
+  signal (a small/distant fan lights up only a few pixels).
+- A **fan** works but is marginal (fast tips blur, only mid-blade pixels lock a
+  clean period); a **slower fan speed** and looking **straight down at the blades
+  from close up** gives the steadiest result.
+
 ### Keep the event rate within budget (critical for this pipeline)
 
 Unlike the others, frequency needs **every** event at each pixel to lock a stable
@@ -149,13 +163,15 @@ the rate down so the node keeps up:
 - A vibrating object or a fan filling part of the frame is well within budget;
   it is mainly bright full-frame flicker that overruns it.
 
-**NOT yet hardware-validated end-to-end — revisit.** What *is* verified
-(2026-06-16): the algorithm + heat-map render (synthetic 100 Hz / 50 Hz input
-maps to exactly that frequency), and the node-level overload behaviour (a real
-~30 Hz periodic source captured to a bag detects ~2200 pixels when fed within
-budget, but drops ~79% of events at full rate — now surfaced by the overload
-warning). A clean live "point the camera at a fan / lamp and read the map" run on
-hardware is still pending.
+**Validated live on the Pi (2026-06-17):** with the lens focused at f/2 and the
+camera close above a running desk fan, the map locked the **blade-pass frequency
+(~60–70 Hz, amber on the bar)** over a cluster of pixels — the status overlay
+read *"31 px vibrating"*. Earlier checks (2026-06-16) verified the algorithm +
+heat-map render (synthetic 100 Hz / 50 Hz → exactly that frequency) and the
+overload behaviour (a captured ~30 Hz source detects ~2200 px when fed within
+budget; ~79% of events drop at full rate, now surfaced by the warning). The two
+things that decide success are **optics** (focus + light) and **staying within
+the event-rate budget** — not the algorithm.
 
 ## Active LED / marker tracking — `led_tracking`
 

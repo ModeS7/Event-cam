@@ -380,10 +380,10 @@ Done:
       pipeline follows `<name>_image`. Pipeline-specific params (tracking
       min_size/max_size, etc.) are node defaults overridden with `--ros-args -p`.
       dense_flow/spatter/counting CONTENT-validated by bag
-      replay + pixel inspection. **frequency + led_tracking are NOT validated**
-      (they build + run; detection unverified on hardware — revisit): frequency's
-      end-to-end live "point at a fan/lamp" run is still pending, led needs
-      modulated-marker hardware. Total 7 SDK pipelines. Bag-validation gotchas
+      replay + pixel inspection. **frequency VALIDATED live 2026-06-17** (fan
+      blade-pass ~60-70 Hz, "31 px vibrating"); **led_tracking still NOT
+      validated** (builds + runs; needs modulated-marker hardware). Total 7 SDK
+      pipelines. Bag-validation gotchas
       caught: SIGINT to the `ros2 run` launcher does NOT forward to the node
       binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
       `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
@@ -403,14 +403,19 @@ Done:
       controlled on-sensor drop preserves periodicity; transport drops don't).
       A browser flicker-test page was tried then REMOVED (the fullscreen strobe
       caused temporary LCD image retention on the user's laptop — do not re-add a
-      strobe tool). Frequency detection itself remains unvalidated (see above).
+      strobe tool; for vibration tests use a FAN or mains lamp, never a screen).
+      Frequency then VALIDATED live 2026-06-17. The two real blockers to live
+      detection turned out to be OPTICS and the rate budget, not code: an
+      out-of-focus / dim scene gives only sensor noise (no periodicity) -> open
+      the aperture (f/2), focus until edges are crisp (check on image_raw), get
+      CLOSE so the source fills the frame; and cap erc_rate (~2-3 Mev/s) so the
+      node doesn't drop. A fan is marginal (fast tips blur) -> low speed, look
+      straight down at the blades from close.
 
 Next (user-ordered):
-- [ ] **Validate `frequency` + `led_tracking` on hardware (revisit):** frequency
-      needs a clean live run on a non-overrunning periodic source (fan / mains
-      lamp, NOT a fullscreen screen strobe) within the event-rate budget (cap
-      `erc_rate` ~3 Mev/s so the node doesn't drop); led_tracking needs modulated
-      active-LED markers. Both build + run today but detection is unverified.
+- [ ] **Validate `led_tracking` on hardware:** needs modulated active-LED
+      markers (blink-encoded IDs); builds + runs today but track output is
+      unverified. (`frequency` validated 2026-06-17 — see above.)
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
