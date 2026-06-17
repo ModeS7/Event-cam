@@ -18,7 +18,11 @@
  * and busy-waits; run it on a Pi 5 (RP1 = /dev/gpiochip4).
  *
  *   gcc -O2 -o led_marker led_marker.c
- *   ./led_marker [id=146] [base_us=5000] [gpio_line=17]
+ *   ./led_marker [id=146] [base_us=5000] [gpio_line=17] [flash_us=base/4]
+ *
+ * flash_us is the LED on-time per blink -- raise it for MORE light per blink
+ * (more events, better at small base / fast motion); it does not change the
+ * encoding (the detector times rising edges). Clamped below the smallest gap.
  *
  * Wiring: GPIO17 (header pin 11) -> 220-330 ohm -> LED(+) ; LED(-) -> GND (pin 9).
  * Access: the SSH user must reach /dev/gpiochip4 (e.g. `sudo usermod -aG dialout $USER`).
@@ -48,7 +52,11 @@ int main(int argc, char** argv) {
   const unsigned line_off = (argc > 3) ? (unsigned)atoi(argv[3]) : 17;
   const int num_bits  = 8;
   const long base_ns  = base_us * 1000L;
-  const long flash_ns = base_ns / 4;  // LED on-time per blink (< smallest gap)
+  long flash_us = (argc > 4) ? atol(argv[4]) : base_us / 4;  // LED on-time per blink
+  const long max_flash = base_us * 2 - 50;                   // keep < smallest gap (2p)
+  if (flash_us > max_flash) flash_us = max_flash;
+  if (flash_us < 1) flash_us = 1;
+  const long flash_ns = flash_us * 1000L;
 
   signal(SIGINT, onsig); signal(SIGTERM, onsig);
   cpu_set_t set; CPU_ZERO(&set); CPU_SET(3, &set); sched_setaffinity(0, sizeof(set), &set);
@@ -67,7 +75,8 @@ int main(int argc, char** argv) {
   int led = req.fd;
   struct gpio_v2_line_values hi = {.bits = 1, .mask = 1}, lo = {.bits = 0, .mask = 1};
 
-  printf("marker: GPIO%u id=%d base=%ldus (LSB-first, 2p=0/3p=1/4p=start)\n", line_off, id, base_us);
+  printf("marker: GPIO%u id=%d base=%ldus flash=%ldus (LSB-first, 2p=0/3p=1/4p=start)\n",
+         line_off, id, base_us, flash_us);
   fflush(stdout);
   long t = nowns();
   while (run) {
