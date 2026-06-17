@@ -31,7 +31,7 @@ class LedTracking : public EventVisionNode
 {
 public:
   explicit LedTracking(const rclcpp::NodeOptions & options)
-  : EventVisionNode("led_tracking", "led_image", options)
+  : EventVisionNode("led_tracking", "led_tracking_image", options)
   {
     radius_ = declare_parameter("radius", 10.0);
     inactivity_us_ = static_cast<int>(declare_parameter("inactivity_period_us", 1000));
