@@ -213,20 +213,28 @@ sudo usermod -aG dialout $USER          # /dev/gpiochip4 (Pi 5 RP1) is group dia
 gcc -O2 -o led_marker docs/sdk/led_marker.c
 ./led_marker 146 5000 17 &              # blink ID 146, base 5 ms, GPIO17
 
-# point the EVK4 at the LED (close + focused -- a compact bright dot), then:
-ros2 launch evk4_bringup evk4.launch.py viz:=false params_file:=$HOME/my_params.yaml &
-ros2 run evk4_sdk_advanced led_tracking --ros-args \
-    -r events:=/event_camera/events -r led_image:=/event_camera/led_image \
-    -p base_period_us:=5000 -p inactivity_period_us:=50000
+# slow-marker node params (must match the marker's base):
+cat > /tmp/led.yaml <<'YAML'
+/**:
+  ros__parameters:
+    base_period_us: 5000          # = the marker's base
+    inactivity_period_us: 50000   # > the slow blink gap, so the track survives
+YAML
+
+# point the EVK4 at the LED (close + focused -- a compact bright dot), then ONE command:
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=led_tracking \
+    params_file:=$HOME/my_params.yaml node_params_file:=/tmp/led.yaml
+# view it:
 ros2 run rqt_image_view rqt_image_view /event_camera/led_image
 ```
 
-Two parameters matter for a **Pi-driven** (slow) marker: `base_period_us:=5000`
+Those two node params matter for a **Pi-driven** (slow) marker: `base_period_us`
 (Linux can't reliably hit the 200 µs of a real hardware marker, so use a bigger
 base and match it here — the code re-syncs on every start, so jitter just drops a
-word) and `inactivity_period_us:=50000` (must exceed the slow blink gap, else the
-track drops between blinks). A fast hardware marker at `p = 200 µs` uses the
-defaults.
+word) and `inactivity_period_us` (must exceed the slow blink gap, else the track
+drops between blinks). A fast hardware marker at `p = 200 µs` needs no override —
+just `pipeline:=led_tracking` with the defaults. (`node_params_file` is how the
+generic launch passes any pipeline-specific parameter.)
 
 **Validated live on the Pi (2026-06-17):** GPIO17 drove an LED with ID 146; the
 node decoded **146** and drew a green circle + "146" on it — full chain (Pi GPIO →

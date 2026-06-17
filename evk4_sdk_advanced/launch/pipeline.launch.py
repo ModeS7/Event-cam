@@ -8,8 +8,13 @@ frequency, led_tracking. Each publishes /<camera_name>/<pipeline>_image. The
 driver (openeb_vendor) runs in its own process; the SDK node runs separately
 with the SDK libs on its LD_LIBRARY_PATH (captured at build time -- no
 `source setup_env.sh` needed). Pipeline-specific params (min_size, radius,
-cell_size, min_freq, ...) keep their node defaults; override with
-`--ros-args -p name:=value`.
+cell_size, min_freq, led_tracking base_period_us, ...) keep their node defaults;
+pass a YAML with `node_params_file:=...` to override them, e.g.:
+
+    ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=led_tracking \
+        params_file:=$HOME/my_params.yaml node_params_file:=/tmp/led.yaml
+
+where /tmp/led.yaml is `/**:` -> `ros__parameters:` -> base_period_us: 5000 ...
 """
 
 import os
@@ -32,7 +37,14 @@ def _launch_setup(context, *args, **kwargs):
     fps = float(LaunchConfiguration('fps').perform(context))
     debug_timing = LaunchConfiguration('debug_timing').perform(context).lower() == 'true'
     params_file = LaunchConfiguration('params_file').perform(context)
+    node_params_file = LaunchConfiguration('node_params_file').perform(context)
     topic = f'{pipeline}_image'
+
+    # Pipeline-specific node parameters (e.g. led_tracking base_period_us,
+    # frequency min_freq) -- a YAML applied to the node. Use `/**:` to match.
+    node_parameters = [{'fps': fps, 'debug_timing': debug_timing}]
+    if node_params_file:
+        node_parameters.append(node_params_file)
 
     sdk_libdir = ''
     libdir_file = os.path.join(
@@ -62,7 +74,7 @@ def _launch_setup(context, *args, **kwargs):
         executable=pipeline,
         name=pipeline,
         namespace=camera_name,
-        parameters=[{'fps': fps, 'debug_timing': debug_timing}],
+        parameters=node_parameters,
         remappings=[
             ('events', f'/{camera_name}/events'),
             (topic, f'/{camera_name}/{topic}'),
@@ -88,5 +100,9 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'params_file', default_value='',
             description='Driver params YAML (use your ~/my_params.yaml).'),
+        DeclareLaunchArgument(
+            'node_params_file', default_value='',
+            description='Pipeline node params YAML, e.g. led_tracking '
+                        'base_period_us / inactivity_period_us (match a `/**:` block).'),
         OpaqueFunction(function=_launch_setup),
     ])
