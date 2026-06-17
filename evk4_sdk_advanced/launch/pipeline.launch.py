@@ -4,7 +4,8 @@
         params_file:=$HOME/my_params.yaml
 
 `pipeline` is one of: optical_flow, tracking, dense_flow, spatter, counting,
-frequency, led_tracking. Each publishes /<camera_name>/<pipeline>_image. The
+frequency, led_tracking, psm, jet_monitoring. Each publishes
+/<camera_name>/<pipeline>_image. The
 driver (openeb_vendor) runs in its own process; the SDK node runs separately
 with the SDK libs on its LD_LIBRARY_PATH (captured at build time -- no
 `source setup_env.sh` needed). Pipeline-specific params (min_size, radius,
@@ -90,8 +91,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'pipeline',
-            description='optical_flow | tracking | dense_flow | spatter | '
-                        'counting | frequency | led_tracking'),
+            description='optical_flow | tracking | dense_flow | spatter | counting | '
+                        'frequency | led_tracking | psm | jet_monitoring'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),
         DeclareLaunchArgument('frame_id', default_value='event_camera_optical_frame'),

@@ -82,6 +82,14 @@ add_sdk_component(led_component src/led_node.cpp
   "evk4_sdk_advanced::LedTracking" led_tracking
   MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv)
 
+add_sdk_component(psm_component src/psm_node.cpp
+  "evk4_sdk_advanced::Psm" psm
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
+
+add_sdk_component(jet_component src/jet_node.cpp
+  "evk4_sdk_advanced::JetMonitoring" jet_monitoring
+  MetavisionSDK::base MetavisionSDK::core MetavisionSDK::analytics)
+
 # Capture the SDK's lib dir (wherever it was found at build time) into the
 # package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's
 # own libraries use RUNPATH, so their transitive deps follow LD_LIBRARY_PATH.

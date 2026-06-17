@@ -430,6 +430,20 @@ Next (user-ordered):
       LSB-first, framed by starts. For a Pi-driven (slow) marker use base 5 ms +
       `inactivity_period_us` > the blink gap (Linux can't do the real 200 us
       reliably; the code re-syncs on every start). Decoded ID 146, tracked it.
+- [x] **PSM + jet_monitoring added (2026-06-17) -> 9 pipelines.** Particle Size
+      Monitoring (`PsmAlgorithm`: count + size of objects crossing N horizontal
+      lines; move-only `LineParticleTrackingOutput` -> std::move across threads)
+      and Jet Monitoring (`JetMonitoringAlgorithm`: count dispensed jets via
+      event-rate peaks in a ROI). Both analytics-module, on the harness. Both
+      VALIDATED LIVE on the Pi (2026-06-17): PSM ran the count up (Counter=231)
+      with line clusters + a particle trajectory as objects passed vertically; jet
+      counted fast bursts flicked through the center ROI (Counter=2, ~590 kev/s
+      bursts vs the 50 kev/s th_up, no false counts at the ~30 kev/s baseline).
+      ALL 9 SDK pipelines now live-validated. This
+      covers every 2D model-free analytics app the SDK lists. The remaining SDK
+      apps (Active Marker 3D, ArUco, Edgelet/model-3D tracking) are all `cv3d`
+      (NOT built, USE_SOPHUS=OFF) + genuinely 3D (need intrinsics + a marker/model
+      def, multi-cam for some) -> documented as the untested tier in pipelines.md.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
