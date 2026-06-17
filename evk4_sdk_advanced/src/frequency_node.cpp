@@ -12,11 +12,7 @@
 #include <metavision/sdk/analytics/algorithms/heat_map_frame_generator_algorithm.h>
 #include <metavision/sdk/cv/configs/frequency_estimation_config.h>
 
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace evk4_sdk_advanced
@@ -48,10 +44,8 @@ protected:
       static_cast<unsigned int>(diff_thresh_us_), false);
     freq_algo_ = std::make_unique<Metavision::FrequencyMapAsyncAlgorithm>(width, height, config);
     freq_algo_->set_update_frequency(static_cast<float>(fps()));
-    // Async callback: fires inside process_events (sub thread) ONLY when the
-    // algorithm actually detects vibration -- on a non-periodic scene it never
-    // fires, which is why the map stays the seeded black below. Just keep the
-    // latest map; the frame thread reports the detection count (renderFrame).
+    // Async callback: fires inside process_events (sub thread) at the update
+    // frequency; keep the latest frequency map.
     freq_algo_->set_output_callback(
       [this](Metavision::timestamp, Metavision::FrequencyMapAsyncAlgorithm::OutputMap & m) {
         latest_map_ = m.clone();
@@ -72,13 +66,6 @@ protected:
     }
   }
 
-  // renderFrame draws only the heat map, never the events -> skip render staging.
-  bool rendersEvents() const override { return false; }
-
-  // Frequency needs every event for per-pixel periodicity: dropped events break
-  // detection outright, so warn loudly when the node can't keep up.
-  bool warnOnOverload() const override { return true; }
-
   void stageResults() override
   {
     if (!latest_map_.empty()) {
@@ -96,18 +83,6 @@ protected:
       return false;
     }
     heat_gen_->generate_bgr_heat_map(work_map_, frame);
-    // Status line, so a black frame is never mistaken for a broken node: the
-    // heat map only colors pixels that register a 10-150 Hz vibration, so a
-    // non-periodic scene is correctly all-black.
-    const int detected = cv::countNonZero(work_map_);
-    const cv::Scalar color = detected > 0 ? cv::Scalar(0, 255, 0) : cv::Scalar(80, 80, 80);
-    const std::string status = detected > 0
-      ? std::to_string(detected) + " px vibrating"
-      : "no vibration (point at a fan / flickering light)";
-    cv::putText(frame, status, cv::Point(8, 24), cv::FONT_HERSHEY_SIMPLEX, 0.6, color, 1);
-    RCLCPP_INFO_THROTTLE(
-      get_logger(), *get_clock(), 3000,
-      "vibration: %d pixels in [%.0f, %.0f] Hz", detected, min_freq_, max_freq_);
     return true;
   }
 

@@ -111,17 +111,6 @@ protected:
     const std::vector<Metavision::EventCD> & events, Metavision::timestamp ts,
     cv::Mat & frame) = 0;
 
-  // Override to false when renderFrame ignores its `events` argument (heat-map /
-  // dense-field pipelines): the base then skips copying every decoded event into
-  // the render staging buffer, saving a per-packet copy on the hot path.
-  virtual bool rendersEvents() const { return true; }
-
-  // Override to true for pipelines where dropped events CORRUPT the result (e.g.
-  // frequency estimation needs every event for per-pixel periodicity). Such
-  // pipelines warn when the node can't keep up; pipelines that merely degrade
-  // gracefully on drops (flow, tracking) stay quiet to avoid crying wolf.
-  virtual bool warnOnOverload() const { return false; }
-
   std::mutex & mutex() { return mtx_; }
   double fps() const { return fps_; }
   uint32_t accTimeUs() const { return acc_time_us_; }
@@ -139,7 +128,6 @@ private:
     }
     decoder->setTimeMultiplier(1);  // native usec timestamps for the SDK
     cd_buf_.clear();
-    const auto t_work0 = std::chrono::steady_clock::now();
     while (decoder->decode(*msg, this)) {
     }
     if (cd_buf_.empty()) {
@@ -153,22 +141,10 @@ private:
     {
       std::lock_guard<std::mutex> lock(mtx_);
       stageResults();  // stage results atomically with the events + timestamp
-      // The render staging copy is only needed if the subclass draws the events
-      // (event image). Heat-map / dense-field pipelines ignore them -- skip the
-      // per-packet copy of the whole buffer.
-      if (rendersEvents()) {
-        staging_ev_.insert(staging_ev_.end(), cd_buf_.begin(), cd_buf_.end());
-      }
+      staging_ev_.insert(staging_ev_.end(), cd_buf_.begin(), cd_buf_.end());
       header_ = msg->header;
       last_ts_ = cd_buf_.back().t;
     }
-    // Real-time budget check: if processing one packet costs more wall-clock time
-    // than the span of events it covers, the node cannot keep up at the live rate
-    // and the (best-effort) transport will DROP events -- which silently degrades
-    // results (e.g. frequency estimation needs every event for periodicity).
-    checkOverload(
-      ms(t_work0, std::chrono::steady_clock::now()),
-      (cd_buf_.back().t - cd_buf_.front().t) / 1000.0);
     n_ev_.fetch_add(cd_buf_.size(), std::memory_order_relaxed);
   }
 
@@ -220,31 +196,6 @@ private:
     return std::chrono::duration<double, std::milli>(b - a).count();
   }
 
-  // Warn (throttled) when decode+process can't keep up with the live event rate,
-  // so a silently-degraded result (dropped events) is never mistaken for "broken".
-  void checkOverload(double wall_ms, double span_ms)
-  {
-    if (!warnOnOverload()) {
-      return;
-    }
-    ovl_wall_ += wall_ms;
-    ovl_span_ += span_ms;
-    const auto now = std::chrono::steady_clock::now();
-    if (now - ovl_last_ < std::chrono::seconds(3)) {
-      return;
-    }
-    const double ratio = ovl_span_ > 0.0 ? ovl_wall_ / ovl_span_ : 0.0;
-    if (ratio > 0.9) {
-      RCLCPP_WARN(
-        get_logger(),
-        "event rate exceeds processing budget (%.0f%% of real time) -- the transport is "
-        "DROPPING events, degrading results; lower the rate (smaller erc_rate) or reduce "
-        "scene activity / use an ROI", ratio * 100.0);
-    }
-    ovl_wall_ = ovl_span_ = 0.0;
-    ovl_last_ = now;
-  }
-
   void reportTiming(double render_ms, double pub_ms)
   {
     t_render_ += render_ms;
@@ -287,8 +238,6 @@ private:
   bool debug_timing_{false};
   std::atomic<uint64_t> n_ev_{0};
   std::chrono::steady_clock::time_point last_report_{std::chrono::steady_clock::now()};
-  double ovl_wall_{0.0}, ovl_span_{0.0};
-  std::chrono::steady_clock::time_point ovl_last_{std::chrono::steady_clock::now()};
   double t_render_{0}, t_pub_{0};
   uint64_t n_frame_{0};
 };

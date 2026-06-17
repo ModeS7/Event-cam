@@ -388,19 +388,22 @@ Done:
       binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
       `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
 
-- [x] **Node drops events under load -> overload warning (2026-06-16):** the
-      frequency map went black on a high-rate flicker NOT from the SDK but
-      because `EventVisionNode` runs decode + the algorithm inline on the
-      subscription thread (~3 Mev/s ceiling on a Pi; decode alone ~7.5 Mev/s) and
-      best-effort QoS then SILENTLY drops events, shredding the per-pixel
-      periodicity frequency needs. Proven with a captured flicker bag: full rate
-      drops ~79% -> ~0 detections; fed within budget -> ~2200 px (matches the
-      algorithm offline at 12 Mev/s). Fix: drop-sensitive pipelines
-      (`warnOnOverload()`-> frequency) WARN when wall-time > event-time-span
-      instead of failing silently; heat-map/dense-field pipelines skip the
-      per-packet event-staging copy (`rendersEvents()`-> false for
-      frequency/dense_flow). The real lever for high rates is ERC capping (ERC's
-      controlled on-sensor drop preserves periodicity; transport drops don't).
+- [x] **Node-drops-events investigation (2026-06-16), overload-warning fix
+      REVERTED (2026-06-17):** the frequency map went black on a high-rate flicker
+      NOT from the SDK but because `EventVisionNode` runs decode + the algorithm
+      inline on the subscription thread (~3 Mev/s ceiling on a Pi; decode alone
+      ~7.5 Mev/s) and best-effort QoS then SILENTLY drops events, shredding the
+      per-pixel periodicity frequency needs. Proven with a captured flicker bag:
+      full rate drops ~79% -> ~0 detections; fed within budget -> ~2200 px
+      (matches the algorithm offline at 12 Mev/s). A fix was built (an overload
+      WARNING via `warnOnOverload()`/`checkOverload`, a `rendersEvents()`
+      staging-skip, an on-image status overlay) then **REVERTED at the user's
+      request** after an A/B showed the pre-fix code detects the fan identically:
+      the fix only matters for bright HIGH-rate full-frame sources, and the
+      validated use cases (fan, etc.) are low-rate, so it was dead weight. The
+      drop FACT stands (high rate -> silent black -> cap erc_rate); we just don't
+      warn. The real lever for high rates is ERC capping (ERC's controlled
+      on-sensor drop preserves periodicity; transport drops don't).
       A browser flicker-test page was tried then REMOVED (the fullscreen strobe
       caused temporary LCD image retention on the user's laptop — do not re-add a
       strobe tool; for vibration tests use a FAN or mains lamp, never a screen).

@@ -113,9 +113,7 @@ The frame is **black where no periodic motion is detected** and colors pixels by
 frequency where it is — so on an ordinary (non-periodic) scene you see a black
 field with the colorbar, which is correct, **not a broken node**. The SDK only
 reports pixels with a sustained vibration in `[min_freq, max_freq]`, so most
-everyday scenes (hand motion, walking) produce nothing. A status line on the
-image makes this unambiguous: it reads *"no vibration (point at a fan /
-flickering light)"* until something is detected, then *"N px vibrating"* in green.
+everyday scenes (hand motion, walking) produce nothing.
 
 To see it light up, point it at a genuinely periodic source: a **spinning fan**,
 a **mains-powered light** (flickers at 100 Hz in 50 Hz countries / 120 Hz at
@@ -139,22 +137,14 @@ detected. In practice:
 ### Keep the event rate within budget (critical for this pipeline)
 
 Unlike the others, frequency needs **every** event at each pixel to lock a stable
-period — so it is the one pipeline that **dropped events break outright**. If the
-event rate exceeds what the node can decode+process in real time (~3 Mev/s on a
-Pi 5), the transport silently drops events and the map goes black even though a
-strong periodic source is present. A **bright, full-frame flickering source**
-easily produces ~8 Mev/s and will do exactly this.
+period — so dropped events break it outright. If the event rate exceeds what the
+node can decode+process in real time (~3 Mev/s on a Pi 5), the transport silently
+drops events and the map goes **black even though a strong periodic source is
+present** (no warning — it just looks like nothing is detected). A **bright,
+full-frame flickering source** easily produces ~8 Mev/s and will do exactly this.
 
-The node detects this and **warns**:
-
-```
-event rate exceeds processing budget (145% of real time) -- the transport is
-DROPPING events, degrading results; lower the rate (smaller erc_rate) or reduce
-scene activity / use an ROI
-```
-
-If you see that warning (or a black map on an obviously flickering scene), bring
-the rate down so the node keeps up:
+So if an obviously flickering/vibrating scene reads black, suspect the rate and
+bring it down so the node keeps up:
 
 - **Cap `erc_rate`** in your params (e.g. `erc_rate: 3000000`). ERC drops events
   *on the sensor* in a controlled way that preserves each pixel's periodicity —
@@ -165,13 +155,12 @@ the rate down so the node keeps up:
 
 **Validated live on the Pi (2026-06-17):** with the lens focused at f/2 and the
 camera close above a running desk fan, the map locked the **blade-pass frequency
-(~60–70 Hz, amber on the bar)** over a cluster of pixels — the status overlay
-read *"31 px vibrating"*. Earlier checks (2026-06-16) verified the algorithm +
-heat-map render (synthetic 100 Hz / 50 Hz → exactly that frequency) and the
-overload behaviour (a captured ~30 Hz source detects ~2200 px when fed within
-budget; ~79% of events drop at full rate, now surfaced by the warning). The two
-things that decide success are **optics** (focus + light) and **staying within
-the event-rate budget** — not the algorithm.
+(~60–70 Hz, amber on the bar)** over a cluster of pixels. Earlier checks
+(2026-06-16) verified the algorithm + heat-map render (synthetic 100 Hz / 50 Hz →
+exactly that frequency) and that a captured ~30 Hz source detects ~2200 px when
+fed within budget (it drops ~79% of events at full rate). The two things that
+decide success are **optics** (focus + light) and **staying within the event-rate
+budget** — not the algorithm.
 
 ## Active LED / marker tracking — `led_tracking`
 
