@@ -183,10 +183,54 @@ pipeline: `ModulatedLightDetectorAlgorithm` (decodes a source id per event) →
 | `base_period_us` | `200` | Base blink period for ID encoding (µs) |
 | `tolerance` | `0.1` | Blink-period measurement tolerance |
 
-This needs **active LED markers** that blink an encoded ID (`num_bits` /
-`base_period_us`) in view; without them the node simply streams the event image
-(no tracks). **NOT validated** — it builds and runs (streams the event image),
-but track output needs modulated-marker hardware we don't have, so detection is
-unverified; revisit when markers are available. It's the most specialized of the
-model-free set. The full active-*marker* tracker (`ActiveMarkerTrackerAlgorithm`,
-with a marker-geometry JSON) is a further extension on top of this LED tracker.
+This needs **active LED markers** that blink an encoded ID; without them the node
+simply streams the event image (no tracks).
+
+### The encoding (how to make a marker)
+
+A blink is an LED **rising edge**; the gap between consecutive rising edges, in
+multiples of the base period `p` (= `base_period_us`), encodes a symbol:
+
+| Gap | Symbol |
+|---|---|
+| `2p` | bit `0` |
+| `3p` | bit `1` |
+| `4p` | start / sync |
+
+An ID is `num_bits` (8) bits sent **LSB-first**, framed by start symbols. So a
+marker is just an LED a microcontroller — **or the Raspberry Pi itself** — pulses
+with those gaps.
+
+### Validate it with a Raspberry Pi GPIO + an LED
+
+No commercial marker needed. Wire an **LED + 220–330 Ω resistor** from **GPIO17
+(header pin 11)** to **GND (pin 9)**, then:
+
+```bash
+# one-time: let your user reach the GPIO chardev
+sudo usermod -aG dialout $USER          # /dev/gpiochip4 (Pi 5 RP1) is group dialout
+
+gcc -O2 -o led_marker docs/sdk/led_marker.c
+./led_marker 146 5000 17 &              # blink ID 146, base 5 ms, GPIO17
+
+# point the EVK4 at the LED (close + focused -- a compact bright dot), then:
+ros2 launch evk4_bringup evk4.launch.py viz:=false params_file:=$HOME/my_params.yaml &
+ros2 run evk4_sdk_advanced led_tracking --ros-args \
+    -r events:=/event_camera/events -r led_image:=/event_camera/led_image \
+    -p base_period_us:=5000 -p inactivity_period_us:=50000
+ros2 run rqt_image_view rqt_image_view /event_camera/led_image
+```
+
+Two parameters matter for a **Pi-driven** (slow) marker: `base_period_us:=5000`
+(Linux can't reliably hit the 200 µs of a real hardware marker, so use a bigger
+base and match it here — the code re-syncs on every start, so jitter just drops a
+word) and `inactivity_period_us:=50000` (must exceed the slow blink gap, else the
+track drops between blinks). A fast hardware marker at `p = 200 µs` uses the
+defaults.
+
+**Validated live on the Pi (2026-06-17):** GPIO17 drove an LED with ID 146; the
+node decoded **146** and drew a green circle + "146" on it — full chain (Pi GPIO →
+EVK4 → ModulatedLightDetector → ActiveLEDTracker). Marker generator:
+[led_marker.c](led_marker.c). The full active-*marker* tracker
+(`ActiveMarkerTrackerAlgorithm`, with a marker-geometry JSON) is a further
+extension on top of this LED tracker.

@@ -381,9 +381,10 @@ Done:
       min_size/max_size, etc.) are node defaults overridden with `--ros-args -p`.
       dense_flow/spatter/counting CONTENT-validated by bag
       replay + pixel inspection. **frequency VALIDATED live 2026-06-17** (fan
-      blade-pass ~60-70 Hz, "31 px vibrating"); **led_tracking still NOT
-      validated** (builds + runs; needs modulated-marker hardware). Total 7 SDK
-      pipelines. Bag-validation gotchas
+      blade-pass ~60-70 Hz); **led_tracking VALIDATED live 2026-06-17** too -- a
+      Raspberry Pi GPIO drove an LED with the modulated-light code (a homemade
+      active marker), the node decoded ID 146 and tracked it (green circle +
+      "146"). ALL 7 SDK pipelines now validated. Bag-validation gotchas
       caught: SIGINT to the `ros2 run` launcher does NOT forward to the node
       binary -> use `setsid` + `kill -INT -PGID`; the LED tracker consumes
       `EventSourceId`, not `EventCD`. Docs: docs/sdk/more_pipelines.md.
@@ -416,9 +417,14 @@ Done:
       straight down at the blades from close.
 
 Next (user-ordered):
-- [ ] **Validate `led_tracking` on hardware:** needs modulated active-LED
-      markers (blink-encoded IDs); builds + runs today but track output is
-      unverified. (`frequency` validated 2026-06-17 — see above.)
+- [x] **All 7 SDK pipelines validated (2026-06-17).** `led_tracking` was the
+      last: validated with a homemade marker -- a Pi GPIO blinking an LED with the
+      modulated-light code (`docs/sdk/led_marker.c`). Encoding (from the SDK
+      gtest): a blink = an LED rising edge; gap between rising edges in multiples
+      of base period p encodes a symbol -- 2p=bit0, 3p=bit1, 4p=start; ID = 8 bits
+      LSB-first, framed by starts. For a Pi-driven (slow) marker use base 5 ms +
+      `inactivity_period_us` > the blink gap (Linux can't do the real 200 us
+      reliably; the code re-syncs on every start). Decoded ID 146, tracked it.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the

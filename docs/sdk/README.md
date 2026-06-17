@@ -53,7 +53,7 @@ the result; **expected** means inferred from an adjacent result, not run;
 | Object tracking | expected | **validated** (2026-06-16) | expected (from Pi) |
 | Dense flow / spatter / counting | expected | **validated** (2026-06-16, bag) | expected (from Pi) |
 | Frequency (vibration) | expected | **validated** (2026-06-17, fan ~60-70 Hz) | expected (from Pi) |
-| Active-LED tracking | expected | **NOT validated** (builds + runs; needs markers) | expected (from Pi) |
+| Active-LED tracking | expected | **validated** (2026-06-17, Pi-GPIO LED marker, ID 146) | expected (from Pi) |
 | ML detection (needs LibTorch) | expected (CPU/GPU) | **not viable** (no CUDA) | expected (CUDA, untested) |
 | Stereo calibration | untested skeleton | untested skeleton | untested skeleton |
 
