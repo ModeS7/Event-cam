@@ -133,8 +133,40 @@ needs root, and a system install risks colliding with `openeb_vendor`.
 
 **Next:** [README.md](README.md) — build the package and run a pipeline.
 
-### Note for x86 ML (later)
+## ML pipelines (GPU, x86)
 
-To use the ML detection module, rebuild with `-DUSE_TORCH=ON` and a LibTorch
-(CUDA on x86/Jetson). That is the experimental tier — not needed for, and not
-covered by, the optical-flow pipeline.
+The neural-network pipelines (gesture / detection / flow inference) need the SDK
+`ml` module **and** LibTorch, so they only build on a full x86 + GPU setup; the
+lean Pi build skips them automatically.
+
+1. **Build the SDK with Torch.** Re-run the source build above with a CUDA
+   LibTorch: install an NVIDIA driver + CUDA toolkit (e.g. `cuda-toolkit-12-6`),
+   download and unzip CUDA LibTorch (e.g. `cu126`, version matching the SDK's —
+   2.9.1), then configure with `-DUSE_TORCH=ON
+   -DTorch_DIR=<libtorch>/share/cmake/Torch/` (add `-DCOMPILE_PYTHON3_BINDINGS=ON`
+   for the Python samples). Validated on a 2× RTX 2080 Ti box (Ubuntu 24.04,
+   CUDA 12.6, LibTorch 2.9.1).
+2. **Get the pretrained models.** Download `metavision_sdk_ml_models_<ver>.tar.gz`
+   from the JFrog `metavision-sdk-5-archives-nc/main/sources` folder and extract
+   it into `<src>/sdk/modules/` (it lands as `ml/models/` and `core_ml/models/`).
+3. **Build the `evk4_sdk_advanced` ML tier.** Point CMake at both the SDK and
+   LibTorch, with `nvcc` on PATH (Torch enables CMake's CUDA language):
+   ```bash
+   cd ~/ros2_ws
+   export PATH=/usr/local/cuda/bin:$PATH          # nvcc, for CUDA-language detection
+   export LD_LIBRARY_PATH=$HOME/libtorch/lib:$LD_LIBRARY_PATH
+   colcon build --packages-select evk4_sdk_advanced --cmake-args \
+     -DMetavisionSDK_DIR=<src>/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
+     -DTorch_DIR=$HOME/libtorch/share/cmake/Torch
+   ```
+   CMake auto-generates the `hdf5_ecf` config the no-install SDK build doesn't
+   export, then builds the ML pipelines (gesture/…); without Torch they are
+   skipped and the model-free pipelines build as usual.
+
+Run one with its model on the GPU — set `model_path` (the `.ptjit`) and `gpu_id`
+in a node-params YAML:
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
+    params_file:=$HOME/my_params.yaml node_params_file:=gesture.yaml
+# gesture.yaml: /**: -> ros__parameters: -> model_path: <...rnn_model_classifier.ptjit>, gpu_id: 0
+```

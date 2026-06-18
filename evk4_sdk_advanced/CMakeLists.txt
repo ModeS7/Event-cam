@@ -97,6 +97,45 @@ add_sdk_component(undistortion_component src/undistortion_node.cpp
 # Reads the standard camera_info YAML (same file evk4_calibration produces).
 ament_target_dependencies(undistortion_component camera_calibration_parsers)
 
+# --- ML sub-tier (optional) -------------------------------------------------
+# Neural-network pipelines (gesture/detection/flow inference) need the SDK `ml`
+# module AND LibTorch. These are only present in the full x86 SDK build (built
+# with -DUSE_TORCH=ON); the Pi's lean build (USE_TORCH=OFF) has neither, so the
+# ML pipelines are simply skipped there. Pass -DTorch_DIR=<libtorch>/share/cmake/Torch
+# to enable.
+find_package(Torch QUIET)
+# The ml module pulls in `stream` -> hdf5_ecf. A no-install SDK build (the one we
+# use) never exports a hdf5_ecfConfig.cmake -- only an install-relative targets
+# fragment -- so find_package(hdf5_ecf) fails. Synthesize a config pointing the
+# imported target straight at the built codec .so (derived from MetavisionSDK_DIR =
+# <build>/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir).
+if(Torch_FOUND AND MetavisionSDK_DIR AND NOT hdf5_ecf_DIR)
+  get_filename_component(_sdk_build "${MetavisionSDK_DIR}/../../../.." ABSOLUTE)
+  set(_ecf_so "${_sdk_build}/lib/libhdf5_ecf_codec.so")
+  if(EXISTS "${_ecf_so}")
+    set(_shim_dir "${CMAKE_CURRENT_BINARY_DIR}/hdf5_ecf_shim")
+    file(WRITE "${_shim_dir}/hdf5_ecf-config.cmake"
+"if(NOT TARGET hdf5_ecf_codec)
+  add_library(hdf5_ecf_codec SHARED IMPORTED)
+  set_target_properties(hdf5_ecf_codec PROPERTIES IMPORTED_LOCATION \"${_ecf_so}\")
+endif()
+set(hdf5_ecf_FOUND TRUE)
+")
+    set(hdf5_ecf_DIR "${_shim_dir}")
+  endif()
+endif()
+find_package(MetavisionSDK QUIET COMPONENTS ml)
+if(Torch_FOUND AND TARGET MetavisionSDK::ml)
+  message(STATUS "evk4_sdk_advanced: ML tier ENABLED (Torch + SDK ml module found)")
+  add_sdk_component(gesture_component src/gesture_node.cpp
+    "evk4_sdk_advanced::GestureClassification" gesture
+    MetavisionSDK::base MetavisionSDK::core MetavisionSDK::ml ${TORCH_LIBRARIES})
+else()
+  message(STATUS "evk4_sdk_advanced: ML tier skipped (need Torch + SDK ml module; "
+    "pass -DTorch_DIR=... on a full SDK build)")
+endif()
+# ----------------------------------------------------------------------------
+
 # Capture the SDK's lib dir (wherever it was found at build time) into the
 # package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's
 # own libraries use RUNPATH, so their transitive deps follow LD_LIBRARY_PATH.
