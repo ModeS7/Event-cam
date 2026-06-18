@@ -29,7 +29,7 @@ public:
     confidence_threshold_ = static_cast<float>(declare_parameter("confidence_threshold", 0.8));
   }
 
-  ~GestureClassification() override { stopFrameThread(); }
+  ~GestureClassification() override { stopThreads(); }
 
 protected:
   void onModelReady(const std::filesystem::path & json_path, uint16_t, uint16_t) override
@@ -38,7 +38,7 @@ protected:
     RCLCPP_INFO(get_logger(), "gesture classifier: %zu classes", labels_.size());
   }
 
-  // Subscription thread: softmax + argmax of the class logits.
+  // Inference thread: softmax + argmax of the class logits.
   void extractResults(Metavision::timestamp) override
   {
     const Tensor & out = Metavision::get_tensor(modelOutput().at("cls_output"));

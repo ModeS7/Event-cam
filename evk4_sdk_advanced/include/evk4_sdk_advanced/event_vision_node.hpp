@@ -114,6 +114,7 @@ protected:
   std::mutex & mutex() { return mtx_; }
   double fps() const { return fps_; }
   uint32_t accTimeUs() const { return acc_time_us_; }
+  bool debugTiming() const { return debug_timing_; }
 
 private:
   void onMsg(EventPacket::ConstSharedPtr msg)

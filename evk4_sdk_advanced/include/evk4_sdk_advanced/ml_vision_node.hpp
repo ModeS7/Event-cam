@@ -7,9 +7,19 @@
 // (delta_t_us), run model_->infer() at each window boundary, and render the event
 // image. Each concrete pipeline (gesture/detection/flow) implements three hooks:
 //   onModelReady  - set up output-specific state (labels, NMS+tracker, flow gen)
-//   extractResults- read model_output_ after inference (subscription thread)
+//   extractResults- read model_output_ after inference (inference thread)
 //   drawResults   - overlay onto the event frame (frame thread)
 // plus stageResults/swapResults (from EventVisionNode) for its own result type.
+//
+// Threading: a single GPU inference takes ~50 ms, far longer than the ~4 ms
+// between event packets, so it CANNOT run on the subscription thread without
+// stalling event ingestion (a 50 ms inference per 50 ms window saturates the
+// thread -> the stream backs up, packets drop, and the renderer starves to ~0
+// fps). Inference therefore runs on its OWN thread: the subscription thread only
+// decodes events and hands them to a bounded queue; this inference thread drains
+// the queue through the slicer + model; the frame thread renders the event image
+// at fps with the latest results overlaid. The event frame is thus smooth (30
+// fps) while the model output refreshes at the inference rate.
 //
 // Built only when Torch + the SDK ml module are present (the x86 full SDK build);
 // see CMakeLists.txt and docs/sdk/install.md.
@@ -30,10 +40,14 @@
 
 #include <algorithm>
 #include <any>
+#include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -60,18 +74,32 @@ public:
     }
   }
 
+  ~MlVisionNode() override { stopInferThread(); }
+
 protected:
   // --- hooks for concrete pipelines ---
   // After the model + tensors are ready: set up output-specific state from the
   // model metadata JSON (labels, NMS, tracker, flow generator, ...).
   virtual void onModelReady(const std::filesystem::path & json_path, uint16_t w, uint16_t h) = 0;
-  // Subscription thread, after model_->infer(): read modelOutput() into members.
+  // Inference thread, after model_->infer(): read modelOutput() into members.
+  // Called under mutex() (so it is serialized with stageResults reading those
+  // members on the subscription thread); keep it cheap -- NMS/tracking only.
   virtual void extractResults(Metavision::timestamp ts) = 0;
   // Frame thread: overlay results onto the already-generated event frame.
   virtual void drawResults(cv::Mat & frame) = 0;
   // Optional: the model's event-input tensor name (default: first non-scale_factor
   // input). Override when a model has several inputs (e.g. detection's score_thresh).
   virtual std::string eventInputName() const { return ""; }
+
+  // Stop the inference thread (and the frame thread). Derived destructors MUST
+  // call this FIRST so the inference thread (which calls extractResults) and the
+  // frame thread (which calls drawResults) are joined before the derived members
+  // they touch are destroyed. Idempotent.
+  void stopThreads()
+  {
+    stopInferThread();
+    stopFrameThread();
+  }
 
   // --- accessors for concrete pipelines ---
   std::unordered_map<std::string, Value> & modelInput() { return model_input_; }
@@ -181,28 +209,48 @@ protected:
       width, height, accTimeUs());
 
     onModelReady(json_path, width, height);
+
+    // Warm up: a large model's FIRST inference triggers cuDNN autotuning +
+    // TorchScript optimization (tens of seconds for the detector). Pay it once
+    // here, on the zero-initialized input, so the first LIVE inference is not
+    // stalled mid-stream.
+    const auto wu = std::chrono::steady_clock::now();
+    model_->infer(model_input_, model_output_);
+    Metavision::get_tensor(model_input_.at(input_name_)).set_to(0.f);
+    const double warmup_s =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - wu).count();
     RCLCPP_INFO(
-      get_logger(), "pipeline initialized for %ux%u (model input %dx%d)",
-      width, height, net_w_, net_h_);
+      get_logger(), "pipeline initialized for %ux%u (model input %dx%d, warmup %.1f s)",
+      width, height, net_w_, net_h_, warmup_s);
+
+    // Start the inference thread now that the model + slicer are ready.
+    infer_running_ = true;
+    infer_thread_ = std::thread([this]() { inferLoop(); });
   }
 
+  // Subscription thread: just hand the decoded events to the inference thread.
+  // Cheap (a copy + a notify), so event ingestion never stalls on inference.
   void processEvents(const std::vector<EventCD> & events) override
   {
     if (events.empty()) {
       return;
     }
-    slicer_->process_events(
-      events.data(), events.data() + events.size(),
-      [this](const EventCD * cbegin, const EventCD * cend) {
-        if (rescaler_) {
-          rescaled_.clear();
-          rescaler_->process_events(cbegin, cend, std::back_inserter(rescaled_));
-          event_preprocessor_->process_events(
-            win_ts_, rescaled_.data(), rescaled_.data() + rescaled_.size(), processed_data_);
-        } else {
-          event_preprocessor_->process_events(win_ts_, cbegin, cend, processed_data_);
-        }
-      });
+    {
+      std::lock_guard<std::mutex> lk(q_mtx_);
+      queued_.insert(queued_.end(), events.begin(), events.end());
+      // Bound the backlog so a slow inference thread processes RECENT events
+      // (fresh results) instead of an ever-growing tail: keep at most a few
+      // windows of event-time, dropping the oldest under sustained overload.
+      const Metavision::timestamp span = kMaxQueueWindows * delta_t_us_;
+      const Metavision::timestamp cutoff = queued_.back().t - span;
+      if (queued_.front().t < cutoff) {
+        auto it = std::lower_bound(
+          queued_.begin(), queued_.end(), cutoff,
+          [](const EventCD & e, Metavision::timestamp c) { return e.t < c; });
+        queued_.erase(queued_.begin(), it);
+      }
+    }
+    q_cv_.notify_one();
   }
 
   bool renderFrame(
@@ -218,13 +266,79 @@ protected:
   }
 
 private:
-  // Subscription thread: run inference at a window boundary, then reset the cube.
+  // Inference thread: drain the queue through the slicer; the slicer fires
+  // runWindow() at each window boundary, where the model actually runs.
+  void inferLoop()
+  {
+    std::vector<EventCD> batch;
+    while (true) {
+      {
+        std::unique_lock<std::mutex> lk(q_mtx_);
+        q_cv_.wait(lk, [this]() { return !infer_running_ || !queued_.empty(); });
+        if (!infer_running_ && queued_.empty()) {
+          break;
+        }
+        std::swap(queued_, batch);
+      }
+      if (!batch.empty()) {
+        slicer_->process_events(
+          batch.data(), batch.data() + batch.size(),
+          [this](const EventCD * cbegin, const EventCD * cend) {
+            const auto p0 = std::chrono::steady_clock::now();
+            if (rescaler_) {
+              rescaled_.clear();
+              rescaler_->process_events(cbegin, cend, std::back_inserter(rescaled_));
+              event_preprocessor_->process_events(
+                win_ts_, rescaled_.data(), rescaled_.data() + rescaled_.size(), processed_data_);
+            } else {
+              event_preprocessor_->process_events(win_ts_, cbegin, cend, processed_data_);
+            }
+            preprocess_ms_ += std::chrono::duration<double, std::milli>(
+              std::chrono::steady_clock::now() - p0).count();
+          });
+        batch.clear();
+      }
+    }
+  }
+
+  // Inference thread: run inference at a window boundary, then reset the cube.
   void runWindow(Metavision::timestamp ts)
   {
+    const auto t0 = std::chrono::steady_clock::now();
     model_->infer(model_input_, model_output_);
-    extractResults(ts);
+    const auto t1 = std::chrono::steady_clock::now();
+    {
+      // Serialize the model-output read + the subclass result members with the
+      // subscription thread's stageResults() (which copies those members).
+      std::lock_guard<std::mutex> lock(mutex());
+      extractResults(ts);
+    }
+    const auto t2 = std::chrono::steady_clock::now();
     Metavision::get_tensor(model_input_.at(input_name_)).set_to(0.f);
     win_ts_ = ts;
+    if (debugTiming()) {
+      RCLCPP_INFO_THROTTLE(
+        get_logger(), *get_clock(), 1000,
+        "ml window: preprocess=%.1f ms, infer=%.1f ms, post=%.1f ms", preprocess_ms_,
+        std::chrono::duration<double, std::milli>(t1 - t0).count(),
+        std::chrono::duration<double, std::milli>(t2 - t1).count());
+    }
+    preprocess_ms_ = 0.0;
+  }
+
+  void stopInferThread()
+  {
+    {
+      std::lock_guard<std::mutex> lk(q_mtx_);
+      if (!infer_running_) {
+        return;
+      }
+      infer_running_ = false;
+    }
+    q_cv_.notify_all();
+    if (infer_thread_.joinable()) {
+      infer_thread_.join();
+    }
   }
 
   std::string model_path_;
@@ -244,6 +358,16 @@ private:
   Tensor processed_data_;
   Metavision::timestamp win_ts_{0};
   std::vector<EventCD> rescaled_;
+
+  // Subscription thread -> inference thread event hand-off.
+  static constexpr Metavision::timestamp kMaxQueueWindows = 4;
+  std::mutex q_mtx_;
+  std::condition_variable q_cv_;
+  std::vector<EventCD> queued_;  // guarded by q_mtx_
+  bool infer_running_{false};
+  std::thread infer_thread_;
+
+  double preprocess_ms_{0.0};  // preprocess time accumulated per window (debug_timing)
 };
 
 }  // namespace evk4_sdk_advanced

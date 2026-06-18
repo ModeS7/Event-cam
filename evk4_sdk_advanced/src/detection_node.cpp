@@ -39,7 +39,7 @@ public:
     confidence_ = static_cast<float>(declare_parameter("confidence_threshold", 0.4));
   }
 
-  ~DetectionTracking() override { stopFrameThread(); }
+  ~DetectionTracking() override { stopThreads(); }
 
 protected:
   std::string eventInputName() const override { return "event_cube"; }
@@ -76,7 +76,7 @@ protected:
     RCLCPP_INFO(get_logger(), "detection: %zu classes", labels_.size());
   }
 
-  // Subscription thread: decode boxes -> NMS -> tracking.
+  // Inference thread: decode boxes -> NMS -> tracking.
   void extractResults(Metavision::timestamp ts) override
   {
     bboxes_.clear();
@@ -132,8 +132,8 @@ private:
   std::vector<std::string> labels_;
   std::unique_ptr<Metavision::NonMaximumSuppression> nms_;
   std::unique_ptr<DataAssoc> tracker_;
-  std::vector<Metavision::EventBbox> bboxes_, valid_;                 // sub thread
-  std::vector<Metavision::EventTrackedBox> tracked_, staged_, work_;  // sub / staged / frame
+  std::vector<Metavision::EventBbox> bboxes_, valid_;                 // inference thread
+  std::vector<Metavision::EventTrackedBox> tracked_, staged_, work_;  // infer / staged / frame
 };
 
 }  // namespace evk4_sdk_advanced

@@ -29,7 +29,7 @@ public:
     visu_step_ = static_cast<int>(declare_parameter("visu_step", 8));
   }
 
-  ~OpticalFlowInference() override { stopFrameThread(); }
+  ~OpticalFlowInference() override { stopThreads(); }
 
 protected:
   void onModelReady(const std::filesystem::path &, uint16_t, uint16_t) override
@@ -42,7 +42,7 @@ protected:
     RCLCPP_INFO(get_logger(), "flow output: '%s'", output_name_.c_str());
   }
 
-  // Subscription thread: copy the predicted flow field (flow_x[H*W], flow_y[H*W]).
+  // Inference thread: copy the predicted flow field (flow_x[H*W], flow_y[H*W]).
   void extractResults(Metavision::timestamp) override
   {
     const Tensor & t = Metavision::get_tensor(modelOutput().at(output_name_));
@@ -110,7 +110,7 @@ private:
   float min_disp_{3.0f};
   int visu_step_{8};
   std::string output_name_;
-  std::vector<float> flow_buf_, staged_buf_, work_buf_;  // sub / staged / frame
+  std::vector<float> flow_buf_, staged_buf_, work_buf_;  // infer / staged / frame
   int flow_h_{0}, flow_w_{0}, staged_h_{0}, staged_w_{0}, work_h_{0}, work_w_{0};
 };
 
