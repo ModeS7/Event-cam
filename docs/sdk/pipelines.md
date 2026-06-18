@@ -15,6 +15,7 @@ Jump to: [optical_flow](#sparse-optical-flow--optical_flow) ·
 [psm](#particle-size-monitoring--psm) ·
 [jet_monitoring](#jet-monitoring--jet_monitoring) ·
 [undistortion](#undistortion--undistortion) ·
+[ML pipelines (GPU)](#ml-inference-pipelines-gpu) ·
 [3D apps (untested)](#using-the-untested-3d-applications)
 
 ## How they all work (the shared harness)
@@ -371,6 +372,41 @@ remapped event view publishes. On the EVK4 kit's near-distortion-free 8 mm lens
 the rectified frame looks nearly identical to the raw one — the displacement is
 only a few pixels, which is correct (see [calibration.md](../calibration.md)). The
 zero-distortion placeholder calibration makes this a pass-through.
+
+---
+
+## ML inference pipelines (GPU)
+
+Three neural-network pipelines run the SDK's pretrained models on the event
+stream. Unlike the model-free pipelines above they need **LibTorch + the SDK `ml`
+module**, so they build and run only on the x86 + GPU setup ([install.md](install.md));
+the Pi's lean build skips them. They share one base (`MlVisionNode`): decode
+events → SDK `EventPreprocessor` → run the model on the GPU every `delta_t_us`
+(default 50 ms) → draw the result.
+
+| `pipeline:=` | Model | Shows |
+|---|---|---|
+| `gesture` | `convRNN_chifoumi` | Rock / Paper / Scissors label |
+| `detection` | `red_event_cube` (automotive) | tracked, labeled boxes |
+| `flow_inference` | `model_flow` | flow-vector arrows |
+
+Each takes `model_path` (the `.ptjit`) and `gpu_id` (0 = first GPU, -1 = CPU) via
+`node_params_file`:
+```bash
+cat > /tmp/ml.yaml <<'YAML'
+/**:
+  ros__parameters:
+    model_path: <MODELS>/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
+    gpu_id: 0
+YAML
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
+    params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
+```
+publishing `/event_camera/<pipeline>_image`. **Validated on a 2× RTX 2080 Ti box**
+(GPU-resident inference confirmed: 254 MiB / 618 MiB / 1242 MiB respectively).
+Notes: `detection` is automotive — point it at driving footage, a desk yields no
+boxes — and heavy at full sensor resolution; `gesture` and `flow_inference` run
+live on any motion. ERC and the camera link (USB3) govern throughput.
 
 ---
 

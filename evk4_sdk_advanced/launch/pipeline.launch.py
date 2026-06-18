@@ -4,7 +4,9 @@
         params_file:=$HOME/my_params.yaml
 
 `pipeline` is one of: optical_flow, tracking, dense_flow, spatter, counting,
-frequency, led_tracking, psm, jet_monitoring, undistortion. Each publishes
+frequency, led_tracking, psm, jet_monitoring, undistortion. The ML-tier pipelines
+(x86 + GPU build only) are gesture, detection, flow_inference -- pass their
+`model_path` (a `.ptjit`) and `gpu_id` via `node_params_file:=...`. Each publishes
 /<camera_name>/<pipeline>_image. The
 driver (openeb_vendor) runs in its own process; the SDK node runs separately
 with the SDK libs on its LD_LIBRARY_PATH (captured at build time -- no
@@ -99,7 +101,8 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'pipeline',
             description='optical_flow | tracking | dense_flow | spatter | counting | '
-                        'frequency | led_tracking | psm | jet_monitoring | undistortion'),
+                        'frequency | led_tracking | psm | jet_monitoring | undistortion | '
+                        'gesture | detection | flow_inference (ML tier, x86+GPU)'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),
         DeclareLaunchArgument('frame_id', default_value='event_camera_optical_frame'),
