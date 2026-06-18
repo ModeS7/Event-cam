@@ -405,10 +405,9 @@ ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
 publishing `/event_camera/<pipeline>_image`. **Validated on a 2× RTX 2080 Ti box**
 (GPU-resident inference confirmed: 254 MiB / 618 MiB / 1242 MiB respectively).
 Notes: `detection` is automotive — point it at driving footage, a desk yields no
-boxes — and heavy at full sensor resolution (the inference, not the camera link,
-is the limit; downscaling the model input is the lever); `gesture` and
-`flow_inference` run live on any motion. At the recommended ERC cap the event rate
-stays within the camera link (USB2 included), so the link is not the bottleneck.
+boxes — and inference-heavy at full sensor resolution (a lower model input
+resolution would speed it up); `gesture` and `flow_inference` run live on any
+motion.
 
 ---
 
