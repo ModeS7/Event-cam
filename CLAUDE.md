@@ -293,8 +293,9 @@ well-documented, easy to extend.
   prefer our open OpenCV `evk4_calibration` for INTRINSICS (no SDK dep, integrated,
   validated). Where the SDK module would actually help is EXTRINSIC / multi-camera
   (stereo -> 3D / mocap) calibration -- and it supports active-LED marker boards,
-  tying into led_tracking. That needs cv3d (NOT built -- USE_SOPHUS=OFF) + a 2nd
-  camera, i.e. the experimental stereo tier.
+  tying into led_tracking. That needs cv3d (now BUILT 2026-06-18 -- USE_SOPHUS=ON
+  via `ros-$ROS_DISTRO-sophus`) + a 2nd camera; with cv3d solved, the only blocker
+  left for stereo/mocap is the second camera (the experimental stereo tier).
 - **Decoding:** `ros-jazzy-event-camera-py` (Python `Decoder` → NumPy
   arrays); `event_camera_codecs` (C++); `event_camera_tools` (CLI: echo,
   perf). All consume our `EventPacket` unchanged.
@@ -441,9 +442,9 @@ Next (user-ordered):
       bursts vs the 50 kev/s th_up, no false counts at the ~30 kev/s baseline).
       ALL 9 SDK pipelines now live-validated. This
       covers every 2D model-free analytics app the SDK lists. The remaining SDK
-      apps (Active Marker 3D, ArUco, Edgelet/model-3D tracking) are all `cv3d`
-      (NOT built, USE_SOPHUS=OFF) + genuinely 3D (need intrinsics + a marker/model
-      def, multi-cam for some) -> documented as the untested tier in pipelines.md.
+      apps (ArUco, model-3D, active markers, stereo) are all `cv3d` -- NOT built at
+      this point (USE_SOPHUS=OFF), documented then as the untested 3D tier.
+      (SUPERSEDED 2026-06-18: cv3d built + `edgelet` added -- see below.)
 - [x] **`undistortion` pipeline added (2026-06-17) -> 10 pipelines.** Event-level
       lens rectification (the event-stream counterpart of image_proc, which only
       rectifies image_raw). CV-module `PinholeCameraModel` + `CameraGeometry`,
@@ -461,6 +462,34 @@ Next (user-ordered):
       calibration.md ("for events, use the SDK undistortion pipeline"). This was
       the one genuine classical gap from the SDK-catalog audit; noise_filtering/
       data_rate are redundant (driver does STC on-sensor; ERC + topic hz cover rate).
+- [x] **ML inference tier (`evk4_sdk_advanced`, x86 + GPU) — 3 pipelines + a
+      throughput fix (2026-06-18).** Source-built the SDK with Torch/CUDA (LibTorch
+      cu126) on the lab PC; added `gesture` (`convRNN_chifoumi`), `detection`
+      (`red_event_cube` SSD + DataAssociation tracking), `flow_inference`
+      (`model_flow`) on a shared `MlVisionNode` base (model load + EventPreprocessor
+      + slicer + `model_->infer` every `delta_t_us`). Gated on Torch + the SDK `ml`
+      module (the Pi's lean build skips them). **Fixed a 300x throughput bug:** the
+      ~50 ms GPU inference ran INLINE on the EventVisionNode subscription thread and
+      saturated it (detection fell to ~0.07 fps; the `0.00 Mev/s` reading was a
+      saturation artifact -- the thread never reached the event counter, NOT zero
+      events). Moved inference to its OWN thread (sub thread only decodes + enqueues,
+      bounded drop-oldest so the model sees recent events; frame thread renders at
+      fps with the latest results; `extractResults` under `mutex()`). Detection
+      0.07 -> 21 fps, gesture 27, flow 25, all at the 30 fps node rate, clean SIGINT.
+      Memory `ml-inference-needs-own-thread`.
+- [x] **cv3d tier + `edgelet` pipeline -> 11 model-free/CV pipelines (2026-06-18).**
+      Enabled the SDK `cv3d` module (`ros-$ROS_DISTRO-sophus` apt + reconfigure the
+      SDK with `-DUSE_SOPHUS=ON`; our package passes `-DSophus_DIR=...` for cv3d's
+      transitive Sophus dep). Added `edgelet` (Edgelet2dDetection/Tracking on a time
+      surface, plain EventVisionNode harness -- cheap CV algo, no inference thread),
+      VALIDATED on the lab PC (30 fps, ~2 Mev/s). **STOPPED at edgelet** (user
+      decision): the rest of the cv3d/3D apps are gated NOT on the build (solved) but
+      on -- ArUco: BLOCKED on licensing (its marker detection is proprietary SDK
+      *sample* code `aruco_nano.h`, not a library API -> can't vendor into the Apache
+      repo; OpenCV `cv::aruco` is the substitute); model-3D: needs a CAD model +
+      pose; active markers: need a marker board; stereo: a 2nd camera. Documented as
+      the gated tier in pipelines.md + install.md (cv3d build steps). Memory
+      `cv3d-tier`.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
