@@ -5,9 +5,8 @@ launching it once per camera with a distinct `camera_name` and `serial`. Each
 gets its own namespace (`/cam0/events`, `/cam1/events`, ...) and its own
 container, biases, and calibration.
 
-> Not yet tested with more than one camera. The single-camera pieces work; the
-> multi-camera wiring below is the intended path, and **extrinsic (stereo)
-> calibration is future work** (see the end).
+> The wiring below follows from the per-camera bringup. Extrinsic (stereo)
+> calibration is covered as a future extension at the end of this page.
 
 ## Hardware
 
@@ -55,20 +54,33 @@ coordinates with sync hardware and may not stream on its own. For a
 ## Per-camera intrinsic calibration
 
 Calibrate each camera separately (see [calibration.md](calibration.md)), giving
-each its own output file and `calibration_url`:
+each its own output file and `calibration_url`. The calibrator **starts no
+camera** — it only subscribes to `image_raw`, so the camera must already be
+running. The one-command `calibrate.launch.py` assumes the default camera name, so
+with multiple cameras run the calibrator node directly and remap it per camera.
+
+For cam0, in three terminals:
 
 ```bash
-# calibrate cam0 (the one-command calibrate.launch.py assumes the default
-# camera name, so with multiple cameras run the calibrator directly and
-# remap per camera; watch /calibrate/overlay in rqt_image_view as usual)
-ros2 run evk4_calibration calibrate --ros-args \
-    -p grid_size:=5x17 -p output:=cam0.yaml \
-    -r image_raw:=/cam0/image_raw
-# ...then cam1 with output:=cam1.yaml and image_raw:=/cam1/image_raw
+# terminal 1 — bring up cam0 with your tuned setup
+ros2 launch evk4_bringup evk4.launch.py \
+    camera_name:=cam0 serial:=00050591 params_file:=$HOME/my_params.yaml
 
-# launch each with its own intrinsics
-ros2 launch evk4_bringup evk4.launch.py camera_name:=cam0 serial:=... \
-    sync_mode:=primary calibration_url:=$(pwd)/cam0.yaml
+# terminal 2 — calibrate against cam0's image, writing cam0.yaml
+ros2 run evk4_calibration calibrate --ros-args \
+    -p output:=cam0.yaml -r image_raw:=/cam0/image_raw
+
+# terminal 3 — watch the calibrator's annotated view
+ros2 run rqt_image_view rqt_image_view /calibrate/overlay
+```
+
+Repeat for cam1 (`output:=cam1.yaml`, `-r image_raw:=/cam1/image_raw`). Then bring
+each camera up with its own intrinsics, still passing your tuned setup:
+
+```bash
+ros2 launch evk4_bringup evk4.launch.py camera_name:=cam0 serial:=00050591 \
+    sync_mode:=primary params_file:=$HOME/my_params.yaml \
+    calibration_url:=$(pwd)/cam0.yaml
 ```
 
 ## Frames, TF, and extrinsic calibration (future work)

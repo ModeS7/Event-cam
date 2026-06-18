@@ -197,8 +197,8 @@ one-off overrides and win over the file when passed):
   cost scales roughly linearly with it, so raise it only with CPU to spare.
   In `sharp` mode it is a ceiling instead: frames wait for their event
   count, so quiet scenes emit below it.
-- `display_type` — `time_slice` (default: all events in a fixed 40 ms
-  window — steady timing at any event rate) or `sharp` (each frame waits
+- `display_type` — `time_slice` (default: all events in one frame interval —
+  `1/fps`, so 40 ms at the default fps=25, steady timing at any rate) or `sharp` (each frame waits
   for a target event COUNT — crisper edges on busy scenes, but on quiet
   scenes the count takes seconds to fill, so the view integrates seconds
   of history and feels laggy; validated on hardware). Use
@@ -253,8 +253,9 @@ are live, so watch the image while you tune:
 `erc_rate` relieves the machine, but know the trade: ERC drops events
 **indiscriminately** — it cannot prefer a signal event over a noise event —
 so a stream that constantly rides the cap is uniformly thinned and overall
-worse. If the driver's statistics line shows the rate pinned at the cap,
-retune so the scene's natural rate sits *below* it instead: raise
+worse. The driver prints a periodic statistics line — MB/s and msgs/s — in the
+launch terminal (a 10 Mev/s cap is ~35 MB/s there); if that throughput sits pinned
+at the cap, retune so the scene's natural rate sits *below* it instead: raise
 `bias_diff_on`/`bias_diff_off`, tune away noise (the ladder above), and add
 an `roi` / `digital_crop_region` if only part of the view matters. Also
 close viewers/rectification you are not using — every subscriber adds work,

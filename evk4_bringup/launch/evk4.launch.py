@@ -193,15 +193,15 @@ def generate_launch_description():
             description='Camera serial number (empty: first camera found).'),
         DeclareLaunchArgument(
             'frame_id', default_value='event_camera_optical_frame',
-            description='TF frame for camera messages (driver 3.0.0 ignores '
-                        'this and uses the serial tail; see docs/calibration.md).'),
+            description='TF frame stamped on all camera messages (honored by the '
+                        'driver).'),
         DeclareLaunchArgument(
             'sync_mode', default_value='standalone',
             description='Hardware sync: standalone | primary | secondary '
                         '(multi-camera; see docs/multi_camera.md).'),
         DeclareLaunchArgument(
             'trigger_in_mode', default_value='disabled',
-            description='External trigger input: disabled | external | '
+            description='External trigger input: disabled | external | aux | '
                         'loopback (timestamp sync with other sensors).'),
         DeclareLaunchArgument(
             'settings', default_value='',

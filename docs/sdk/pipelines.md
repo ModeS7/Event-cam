@@ -1,6 +1,7 @@
 # SDK pipelines — detailed reference
 
-The deep reference for the eleven `evk4_sdk_advanced` pipelines: parameters,
+The deep reference for every `evk4_sdk_advanced` pipeline — the 10 model-free
+pipelines, the `edgelet` cv3d tier, and the 3 ML/GPU pipelines: parameters,
 behavior, tuning, and validation. For the brief overview + the one-command
 quick-start, see [README.md](README.md); for setup, [access.md](access.md) and
 [install.md](install.md).
@@ -23,13 +24,18 @@ Jump to: [optical_flow](#sparse-optical-flow--optical_flow) ·
 
 Every pipeline is one SDK algorithm wrapped as a ROS node. It decodes
 `EventPacket` → `vector<Metavision::EventCD>` and feeds the SDK over its
-camera-independent `process_events` API — the SDK is consumed, never modified. They share one real-time harness (`event_vision_node.hpp`) with **two
-threads**: the subscription thread decodes and runs the algorithm *incrementally*
-per packet (SDK algorithms are streaming and go super-linear on large batches); a
-frame thread, paced to wall-clock `fps`, renders one newest frame on demand and
-publishes it. A mutex guards only a cheap buffer swap, so rendering never stalls
-ingestion — that split is what keeps latency low. Adding a pipeline is three small
-hooks (`processEvents` / `stageResults` / `renderFrame`) plus a launch entry.
+camera-independent `process_events` API — the SDK is consumed, never modified. The
+model-free and `edgelet` pipelines share one real-time harness
+(`event_vision_node.hpp`) with **two threads**: the subscription thread decodes and
+runs the algorithm *incrementally* per packet (SDK algorithms are streaming and go
+super-linear on large batches); a frame thread, paced to wall-clock `fps`, renders
+one newest frame on demand and publishes it. A mutex guards only a cheap buffer
+swap, so rendering never stalls ingestion — that split is what keeps latency low.
+The ML pipelines extend this (`ml_vision_node.hpp`) with a **third, dedicated
+inference thread**: the subscription thread only enqueues events while that thread
+runs the ~50 ms GPU model, so a heavy model never stalls ingestion either. Adding a
+pipeline is a few small hooks (`processEvents` / `stageResults` / `renderFrame`)
+plus a launch entry.
 
 Common launch args (all pipelines): `pipeline`, `params_file` (your driver
 `~/my_params.yaml`), `camera_name`, `serial`, `frame_id`, `fps` (default 30),
@@ -68,8 +74,11 @@ ros2 bag play ~/flow_demo &
 ros2 run evk4_sdk_advanced optical_flow --ros-args \
   -r events:=/event_camera/events -r optical_flow_image:=/event_camera/optical_flow_image
 ```
-(Latency must be checked live — a bag carries the original timestamps; the bag is
-for throughput / frame rate / visual quality.)
+(During playback you run the pipeline node directly with `ros2 run` + topic
+remaps, **not** `pipeline.launch.py` — the bag already replays
+`/event_camera/events`, so a full launch would just start a second driver. Latency
+must still be checked live — a bag carries the original timestamps; the bag is for
+throughput / frame rate / visual quality.)
 
 ---
 
@@ -358,11 +367,13 @@ the output is the rectified event view. Uses `PinholeCameraModel` +
 |---|---|---|
 | `calibration_url` | (required) | Path to the `camera_info` YAML (K + distortion). The node refuses to start without it. |
 
-Pass the calibration as a launch arg (the other pipelines ignore it):
+Pass the calibration as a launch arg (the other pipelines ignore it) — point it at
+**your own** `event_camera.yaml` from [calibration](../calibration.md), not the
+committed placeholder (which is zero-distortion, so it would rectify to a no-op):
 ```bash
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=undistortion \
     params_file:=$HOME/my_params.yaml \
-    calibration_url:=$HOME/ros2_ws/src/Event-cam/evk4_bringup/config/calibration/event_camera.yaml
+    calibration_url:=$HOME/event_camera.yaml      # the file your calibration wrote
 ```
 
 The distorted-to-undistorted pixel map is precomputed once at startup (a one-time
@@ -416,8 +427,14 @@ events → SDK `EventPreprocessor` → run the model on the GPU every `delta_t_u
 | `detection` | `red_event_cube` (automotive) | tracked, labeled boxes |
 | `flow_inference` | `model_flow` | flow-vector arrows |
 
-Each takes `model_path` (the `.ptjit`) and `gpu_id` (0 = first GPU, -1 = CPU) via
-`node_params_file`:
+Each takes these node params via `node_params_file`:
+
+| Node param | Default | Description |
+|---|---|---|
+| `model_path` | (required) | Path to the model `.ptjit` file |
+| `gpu_id` | `0` | GPU index; `-1` runs on CPU |
+| `delta_t_us` | `50000` | Inference window (µs) — one model run per window |
+
 ```bash
 cat > /tmp/ml.yaml <<'YAML'
 /**:

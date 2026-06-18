@@ -16,11 +16,9 @@ rest of the repo is launch/config glue, example consumers, calibration, and
 documentation.
 
 > **Status:** `evk4_driver` (OpenEB-based) is validated end-to-end on a
-> Raspberry Pi 5 (2026-06-09) — live events, renderer, Python/C++ examples,
-> calibration, and recording — exposing all on-sensor facilities (ERC,
-> Trail/STC, ROI, sync, AFK, Digital Crop, Event Mask), and re-validated
-> end-to-end on x86 (lab PC, 2026-06-13) incl. tuning, calibration, and
-> rectification.
+> Raspberry Pi 5 and on x86 — live events, renderer, Python/C++ examples,
+> tuning, calibration, recording, and rectification — exposing all on-sensor
+> facilities (ERC, Trail/STC, ROI, sync, AFK, Digital Crop, Event Mask).
 
 ## Supported platforms
 
@@ -80,7 +78,7 @@ see the recipe at the top of [docs/tuning.md](docs/tuning.md).
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (25 fps render) | `viz:=true` (default) |
 | `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
-| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` |
+| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` (needs `calibration_url`) |
 
 Raw events are the processing contract — decode them with
 [event_camera_py](https://github.com/ros-event-camera/event_camera_py) (Python)
@@ -98,7 +96,7 @@ need sensor-data QoS (see [docs/usage.md](docs/usage.md)).
 | `evk4_examples/` | Example Python subscriber (`ros2 run evk4_examples event_rate`) |
 | `evk4_examples_cpp/` | Same example in C++, as a composable component |
 | `evk4_calibration/` | Guided intrinsic calibrator (`ros2 launch evk4_calibration calibrate.launch.py`) |
-| `evk4_sdk_advanced/` | Opt-in Metavision SDK Pro layer: ten model-free pipelines (optical flow, tracking, dense flow, spatter, counting, frequency, active-LED, particle-size monitoring, jet monitoring, event undistortion) on the event stream (see `docs/sdk/`) |
+| `evk4_sdk_advanced/` | Opt-in Metavision SDK Pro layer, three tiers on the event stream: 10 model-free pipelines (optical flow, tracking, dense flow, spatter, counting, frequency, active-LED, particle-size monitoring, jet monitoring, undistortion), an `edgelet` tracker (cv3d), and 3 GPU/ML pipelines (gesture, detection, flow inference) (see `docs/sdk/`) |
 | `setup/` | `install_deps.sh` (one-command dependency setup) + vendored udev rule and renderer patch |
 | `docs/` | The four-page setup guide + reference pages (see below) |
 
@@ -125,13 +123,14 @@ With more than one camera:
 per-camera calibration.
 
 Advanced (optional): [docs/sdk/](docs/sdk/README.md) — run closed-source
-Metavision SDK Pro algorithms (ten model-free pipelines: optical flow,
-tracking, dense flow, spatter, counting, frequency, active-LED, particle-size
-monitoring, jet monitoring, event undistortion) on the event stream. An opt-in
-layer, not needed for the base pipeline.
+Metavision SDK Pro algorithms on the event stream, in three tiers: 10 model-free
+pipelines (optical flow, tracking, dense flow, spatter, counting, frequency,
+active-LED, particle-size monitoring, jet monitoring, undistortion), an `edgelet`
+tracker (cv3d), and 3 GPU/ML pipelines (gesture, detection, flow inference). An
+opt-in layer, not needed for the base pipeline.
 
 ## License
 
 Apache 2.0 (see [LICENSE](LICENSE)). This repo never contains proprietary
 Metavision SDK files; OpenEB (the open edition) is installed separately via
-apt, and our driver builds against it from this repo.
+apt, and the driver builds against it from this repo.

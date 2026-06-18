@@ -92,10 +92,13 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 # 3. make new terminals source the workspaces (the script does this too).
-#    Guarded so they are harmless before the build; the overlay (step 4)
-#    chains its underlays, so a new terminal then gets the whole stack.
-echo '[ -f ~/workspaces/3rd_party_ws/install/setup.bash ] && source ~/workspaces/3rd_party_ws/install/setup.bash' >> ~/.bashrc
-echo '[ -f ~/ros2_ws/install/setup.bash ] && source ~/ros2_ws/install/setup.bash' >> ~/.bashrc
+#    Guarded two ways: grep -qxF skips re-adding the line on a re-run, and the
+#    [ -f ] makes it harmless before the build. The overlay (step 4) chains its
+#    underlays, so a new terminal then gets the whole stack.
+L1='[ -f ~/workspaces/3rd_party_ws/install/setup.bash ] && source ~/workspaces/3rd_party_ws/install/setup.bash'
+L2='[ -f ~/ros2_ws/install/setup.bash ] && source ~/ros2_ws/install/setup.bash'
+grep -qxF "$L1" ~/.bashrc || echo "$L1" >> ~/.bashrc
+grep -qxF "$L2" ~/.bashrc || echo "$L2" >> ~/.bashrc
 ```
 
 (If you are on a platform where `openeb_vendor` has no apt binary, build OpenEB

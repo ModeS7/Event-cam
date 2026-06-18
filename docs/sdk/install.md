@@ -7,8 +7,9 @@ You need a Prophesee account and identity token first — see
 - **ARM (Raspberry Pi 5, Jetson)** → build from source (no ARM binaries exist).
   [Jump to ARM.](#arm-build-from-source)
 
-Either way, `evk4_sdk_advanced` finds the SDK by CMake and the rest is identical
-([README.md](README.md)).
+Either way, the rest is identical ([README.md](README.md)) — `evk4_sdk_advanced`
+finds an **apt** SDK automatically; a **source** build (ARM, or the ML / cv3d
+tiers) needs `-DMetavisionSDK_DIR=` pointed at its build tree.
 
 Set your distro once:
 
@@ -18,9 +19,7 @@ export ROS_DISTRO=jazzy
 
 ## x86_64 (apt)
 
-> **Status:** documented from Prophesee's instructions; the *ARM source build*
-> is validated, not this apt path. The steps below are the standard
-> Prophesee apt flow.
+> The steps below are the standard Prophesee apt flow for x86_64.
 
 Install the repository signing key:
 
@@ -55,6 +54,10 @@ sudo apt -y install metavision-sdk
 ```bash
 apt list --installed 2>/dev/null | grep metavision
 ```
+
+**Next:** [README.md](README.md) — build the package and run a pipeline. (The apt
+SDK covers the model-free pipelines; the ML/GPU tier needs a source build with
+Torch — see [ML pipelines (GPU, x86)](#ml-pipelines-gpu-x86) below.)
 
 ## ARM (build from source)
 
@@ -137,8 +140,11 @@ needs root, and a system install risks colliding with `openeb_vendor`.
 ## ML pipelines (GPU, x86)
 
 The neural-network pipelines (gesture / detection / flow inference) need the SDK
-`ml` module **and** LibTorch, so they only build on a full x86 + GPU setup; the
-lean Pi build skips them automatically.
+`ml` module built **against LibTorch with CUDA** — which the **apt binaries do not
+provide**. So even on x86 the ML tier requires a **source SDK build** with
+`-DUSE_TORCH=ON` (the same source build as the ARM section above, plus Torch); the
+apt path covers only the model-free pipelines. The lean Pi build skips the ML tier
+automatically.
 
 1. **Build the SDK with Torch.** Re-run the source build above with a CUDA
    LibTorch: install an NVIDIA driver + CUDA toolkit (e.g. `cuda-toolkit-12-6`),
@@ -165,11 +171,16 @@ lean Pi build skips them automatically.
    skipped and the model-free pipelines build as usual.
 
 Run one with its model on the GPU — set `model_path` (the `.ptjit`) and `gpu_id`
-in a node-params YAML:
+in a node-params YAML (see [pipelines.md](pipelines.md) for the full ML param set):
 ```bash
+cat > /tmp/ml.yaml <<'YAML'
+/**:
+  ros__parameters:
+    model_path: <MODELS>/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
+    gpu_id: 0
+YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
-    params_file:=$HOME/my_params.yaml node_params_file:=gesture.yaml
-# gesture.yaml: /**: -> ros__parameters: -> model_path: <...rnn_model_classifier.ptjit>, gpu_id: 0
+    params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
 ```
 
 ## cv3d tier (geometric pipelines)

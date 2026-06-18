@@ -31,7 +31,7 @@ stream. If you never install the SDK, a normal `colcon build` skips it.
    (On an **apt** SDK / x86, omit `-DMetavisionSDK_DIR`. The build captures the
    SDK's library path, so the launch sets it automatically — no `setup_env.sh`.)
 
-## Quick start — run any of the ten
+## Quick start — run a pipeline
 
 All pipelines share **one launch**; pick which with `pipeline:=`:
 
@@ -73,19 +73,30 @@ is the main latency/CPU lever on a Pi.
 - **`undistortion`** needs `calibration_url:=<your event_camera.yaml>` (the file
   from [calibration](../calibration.md)); it refuses to start without it.
 
+The ten above are the **model-free** pipelines — they build with the base SDK and
+run anywhere. Two more tiers launch the same way but need an extra SDK build
+(see [install.md](install.md), [pipelines.md](pipelines.md)):
+
+- **`edgelet`** (cv3d tier) — 2D edge-segment tracking; needs the SDK rebuilt with
+  `-DUSE_SOPHUS=ON` (no GPU).
+- **`gesture`, `detection`, `flow_inference`** (ML/GPU tier) — pretrained neural
+  nets; need LibTorch + the SDK `ml` module + a GPU (x86).
+
 ## Platform note
 
 The SDK ships **prebuilt apt binaries for x86_64 only**. On ARM (Pi, Jetson) you
 **build it from source** — a validated, ~22-minute procedure on a Pi 5
 ([install.md](install.md)). Everything downstream (`evk4_sdk_advanced`, the
-launch, the results) is identical once the SDK is present. All ten pipelines
-share one real-time harness (`event_vision_node.hpp`: decode `EventPacket` →
-`vector<Metavision::EventCD>` → an SDK algorithm → publish an image); adding one
-is three small hooks plus a launch entry.
+launch, the results) is identical once the SDK is present. The model-free and
+cv3d pipelines share one real-time harness (`event_vision_node.hpp`: decode
+`EventPacket` → `vector<Metavision::EventCD>` → an SDK algorithm → publish an
+image); the ML pipelines extend it (`ml_vision_node.hpp`) with a dedicated
+inference thread so the ~50 ms GPU model never stalls event ingestion. Adding a
+pipeline is a few small hooks plus a launch entry.
 
 Validated on a **Raspberry Pi 5** (ARM source build) and an x86 dev box;
 **Jetson is untested** (same aarch64). The ML pipelines need CUDA, so they won't
-run on the Pi (the **GPU tier**). The `edgelet` pipeline is the **cv3d tier** — it
+run on the Pi (the **ML/GPU tier**). The `edgelet` pipeline is the **cv3d tier** — it
 needs the SDK rebuilt with `-DUSE_SOPHUS=ON` ([install.md](install.md)) but no
 GPU. The remaining 3D apps (ArUco, model-3D, active markers, stereo) stay gated on
 a marker / model / second camera. See [pipelines.md](pipelines.md) for the

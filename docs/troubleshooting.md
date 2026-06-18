@@ -71,7 +71,7 @@ particular). Aim at a flickering high-contrast target (e.g. the blinking
 circle grid, <https://modes7.github.io/Event-cam/circle_grid.html>) at
 your working distance, watch
 `image_raw`, and turn the focus ring until the dots are as small and crisp
-as possible (full procedure + aperture tip: tuning.md, The lens).
+as possible (full procedure + aperture tip: tuning.md, "The lens: aperture and focus").
 
 ## Driver starts but finds no camera
 
@@ -90,8 +90,7 @@ as possible (full procedure + aperture tip: tuning.md, The lens).
    ls -l /dev/bus/usb/002/003   # must be rw for everyone: crw-rw-rw-
    ```
    If not, the udev rule is missing — see
-   [installation.md](installation.md#udev-rule-all-platforms) (step 3, udev
-   rule), then replug.
+   [installation.md](installation.md#udev-rule-all-platforms), then replug.
 3. Another process may hold the camera (e.g. a second driver instance or
    Metavision Studio). Only one consumer can open it.
 

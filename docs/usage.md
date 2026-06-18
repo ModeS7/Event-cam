@@ -35,7 +35,7 @@ ros2 launch evk4_bringup evk4.launch.py
 | `display_type` | `time_slice` | Renderer mode; `sharp` is for busy scenes only ([tuning.md](tuning.md)) |
 | `frame_id` | `event_camera_optical_frame` | TF frame stamped on all messages |
 | `sync_mode` | `standalone` | Hardware sync role: `standalone`/`primary`/`secondary` ([multi_camera.md](multi_camera.md)) |
-| `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`loopback` (sync with other sensors) |
+| `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`aux`/`loopback` (sync with other sensors) |
 | `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
 | `calibration_url` | `''` | Path to a camera_info YAML → publish `camera_info` |
 | `rectify` | `false` | Also publish undistorted `image_rect` (needs `calibration_url`) |
@@ -69,7 +69,7 @@ zero-copy path.
 | `/event_camera/events` | `event_camera_msgs/msg/EventPacket` (EVT3) | always |
 | `/event_camera/image_raw` | `sensor_msgs/msg/Image` (default 25 fps) | `viz:=true` |
 | `/event_camera/camera_info` | `sensor_msgs/msg/CameraInfo` | `calibration_url` set |
-| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` ([calibration.md](calibration.md)) |
+| `/event_camera/image_rect` | `sensor_msgs/msg/Image` (undistorted) | `rectify:=true` (needs `calibration_url`) |
 
 Message headers carry the `frame_id` launch argument (default
 `event_camera_optical_frame`) — set it to match your robot's TF tree
@@ -172,8 +172,7 @@ ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 ![Rendered event stream in rqt_image_view](images/rqt_image_view.png)
 
 Blue pixels are ON events (brightness increased), red are OFF events
-(brightness decreased) — verified in the renderer source (`bgr8`, ON →
-channel 0). A static scene renders black; only change is visible. The
+(brightness decreased). A static scene renders black; only change is visible. The
 frame rate follows scene activity: a quiet scene updates rarely (correct,
 not frozen — see [tuning.md](tuning.md)), a busy one at the full `fps`.
 
@@ -211,3 +210,10 @@ ros2 run evk4_examples event_rate      # or your own subscriber
 needed) — see its README. For conversion to/from Prophesee `.raw` files and
 other utilities, see
 [event_camera_tools](https://github.com/ros-event-camera/event_camera_tools).
+
+## Next steps
+
+Continue the setup sequence with [tuning.md](tuning.md) — noise, the event-rate
+cap, and filters → your `~/my_params.yaml`, which every later page launches with.
+For the optional SDK algorithm layer (optical flow, tracking, detection, …) on the
+event stream, see [docs/sdk/](sdk/README.md).

@@ -48,7 +48,7 @@ rectify with `image_proc` — no deep learning, no external toolboxes.
   the same ROS network (a headless camera host is fine).
 - **A focused lens at ~f/8 — check this first.** Defocus is easy to miss on
   an event camera and quietly degrades the calibration. The aperture and
-  focus procedure is in [tuning.md](tuning.md) (The lens) — do it at the
+  focus procedure is in [tuning.md](tuning.md) ("The lens: aperture and focus") — do it at the
   distance you will calibrate from, using the blinking grid as the target.
 - **The preview follows the blink.** The rendered image only refreshes when
   events arrive, so expect the overlay to be less smooth than the
@@ -169,7 +169,7 @@ this same `event_camera.yaml`, builds the SDK's pinhole camera geometry from you
 
 ```bash
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=undistortion \
-    params_file:=$HOME/my_params.yaml calibration_url:=<path to event_camera.yaml>
+    params_file:=$HOME/my_params.yaml calibration_url:=$(pwd)/event_camera.yaml
 ```
 
 See [sdk/pipelines.md](sdk/pipelines.md#undistortion--undistortion). It needs the
