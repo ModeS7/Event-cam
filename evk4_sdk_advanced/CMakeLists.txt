@@ -130,6 +130,9 @@ if(Torch_FOUND AND TARGET MetavisionSDK::ml)
   add_sdk_component(gesture_component src/gesture_node.cpp
     "evk4_sdk_advanced::GestureClassification" gesture
     MetavisionSDK::base MetavisionSDK::core MetavisionSDK::ml ${TORCH_LIBRARIES})
+  add_sdk_component(detection_component src/detection_node.cpp
+    "evk4_sdk_advanced::DetectionTracking" detection
+    MetavisionSDK::base MetavisionSDK::core MetavisionSDK::ml ${TORCH_LIBRARIES})
 else()
   message(STATUS "evk4_sdk_advanced: ML tier skipped (need Torch + SDK ml module; "
     "pass -DTorch_DIR=... on a full SDK build)")
