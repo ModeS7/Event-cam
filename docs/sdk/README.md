@@ -84,7 +84,9 @@ share one real-time harness (`event_vision_node.hpp`: decode `EventPacket` →
 is three small hooks plus a launch entry.
 
 Validated on a **Raspberry Pi 5** (ARM source build) and an x86 dev box;
-**Jetson is untested** (same aarch64). ML detection needs CUDA, so it won't run
-on the Pi; the 3D apps (markers / ArUco / edgelet) and stereo calibration need a
-`cv3d` rebuild — the experimental tier. See [pipelines.md](pipelines.md) for the
-per-pipeline behavior, tuning, and validation status.
+**Jetson is untested** (same aarch64). The ML pipelines need CUDA, so they won't
+run on the Pi (the **GPU tier**). The `edgelet` pipeline is the **cv3d tier** — it
+needs the SDK rebuilt with `-DUSE_SOPHUS=ON` ([install.md](install.md)) but no
+GPU. The remaining 3D apps (ArUco, model-3D, active markers, stereo) stay gated on
+a marker / model / second camera. See [pipelines.md](pipelines.md) for the
+per-pipeline behavior, tuning, and gating.

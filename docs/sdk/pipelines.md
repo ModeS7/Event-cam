@@ -1,6 +1,6 @@
 # SDK pipelines — detailed reference
 
-The deep reference for the ten `evk4_sdk_advanced` pipelines: parameters,
+The deep reference for the eleven `evk4_sdk_advanced` pipelines: parameters,
 behavior, tuning, and validation. For the brief overview + the one-command
 quick-start, see [README.md](README.md); for setup, [access.md](access.md) and
 [install.md](install.md).
@@ -15,8 +15,9 @@ Jump to: [optical_flow](#sparse-optical-flow--optical_flow) ·
 [psm](#particle-size-monitoring--psm) ·
 [jet_monitoring](#jet-monitoring--jet_monitoring) ·
 [undistortion](#undistortion--undistortion) ·
+[edgelet](#2d-edgelet-tracking--edgelet) ·
 [ML pipelines (GPU)](#ml-inference-pipelines-gpu) ·
-[3D apps (untested)](#using-the-untested-3d-applications)
+[3D apps (gated)](#using-the-gated-3d-applications)
 
 ## How they all work (the shared harness)
 
@@ -375,6 +376,31 @@ zero-distortion placeholder calibration makes this a pass-through.
 
 ---
 
+## 2D edgelet tracking — `edgelet`
+
+Detects short **oriented edge segments** ("edgelets") in a time surface and tracks
+them packet to packet, drawing each as a green line on the event image. Single
+camera, no calibration. Uses `Edgelet2dDetectionAlgorithm` +
+`Edgelet2dTrackingAlgorithm` — the 2D building block the SDK's monocular 3D model
+tracking is built on.
+
+| Node param | Default | Description |
+|---|---|---|
+| `grid_cell_size` | `16` | Detection grid cell (px); one new edgelet is sought per empty cell |
+| `stc_threshold_us` | `5000` | Spatio-temporal contrast window (µs) — denoises before detection |
+
+Each packet: STC-filter the events, update the time surface, track the
+carried-over edgelets, then detect new ones in grid cells that hold none. Edgelets
+appear on **moving edges** and vanish when the scene is still (no events → no
+update), which is correct — point it at structured edges in motion.
+
+This is the **cv3d tier**: it needs the SDK built with `-DUSE_SOPHUS=ON`
+([install.md](install.md)), so the lean Pi build skips it. Unlike the ML tier it
+needs no GPU. **Validated on the lab PC**: 30 fps, ~2 Mev/s, edgelets locking onto
+moving edges.
+
+---
+
 ## ML inference pipelines (GPU)
 
 Three neural-network pipelines run the SDK's pretrained models on the event
@@ -411,23 +437,32 @@ motion.
 
 ---
 
-## Using the untested 3D applications
+## Using the gated 3D applications
 
-The SDK also offers **Active Marker 3D Tracking**, **ArUco Marker Tracking**, and
-**Edgelet / Model 3D Tracking** (3D edges + fiducials for AR/VR). These are **not
-built or tested in this repo** — they live in the SDK's `cv3d` module, which the
-lean ARM build skips (`USE_SOPHUS=OFF`), and they are genuinely 3D (they need
-camera intrinsics and produce a 6-DoF pose). To use them:
+The SDK also offers **ArUco Marker Tracking**, **Model-3D Tracking**, **Active
+Marker 2D/3D Tracking**, and **stereo depth**. They all sit on the same `cv3d`
+module the [edgelet](#2d-edgelet-tracking--edgelet) pipeline already uses, so the
+build is solved — but each is **not wrapped here** for a concrete reason:
 
-1. **Rebuild the SDK with `cv3d`** — re-run the source build ([install.md](install.md))
-   with `-DUSE_SOPHUS=ON` and `cv3d` in the selected modules. Sophus is
-   header-only; the rest of the build is unchanged.
-2. **Get camera intrinsics** — calibrate first (`evk4_calibration`); 3D pose needs
-   the camera matrix + distortion (a `camera_info` YAML).
-3. **Provide the marker/model definition** — ArUco needs a dictionary; active
-   markers need a marker-geometry JSON (the LED layout); model-3D needs the edge
-   model.
-4. **Wrap it like the others** — a new `EventVisionNode` subclass feeding the
-   `cv3d` algorithm, publishing the pose and/or an annotated image. Multi-camera
-   variants additionally need extrinsic (stereo) calibration — the experimental
-   tier that needs a second EVK4.
+- **ArUco** — the SDK's app is not a plain marker detector but a monocular
+  3D-model tracker initialized from a marker, and its marker detection is
+  proprietary SDK *sample* code (a bundled `aruco_nano.h` +
+  `ArucoMarkerDetectionAlgorithm`), not a library API. This repo is Apache-2.0 and
+  does not vendor proprietary SDK files, so it cannot ship that code. OpenCV's own
+  `cv::aruco` (detect + `solvePnP` from a `camera_info`) is the clean substitute
+  for fiducials.
+- **Model-3D tracking** — `Model3dTrackingAlgorithm` *is* a `cv3d` library API and
+  so is portable, but it needs a **CAD edge model**, an **initial pose**, and
+  camera intrinsics specific to the object — there is no general "just point it"
+  default.
+- **Active marker 2D/3D** — needs an **active-LED marker board** (a fixed LED
+  constellation), beyond the single LED the
+  [led_tracking](#active-led-tracking--led_tracking) pipeline uses, plus intrinsics
+  for the 3D pose.
+- **Stereo depth** — needs **two synchronized EVK4s** and a stereo (extrinsic)
+  calibration: the multi-camera tier.
+
+Wrapping any of them is a new `EventVisionNode` subclass feeding the `cv3d`
+algorithm, once the model / marker / second camera it needs is in hand. Intrinsics
+come from `evk4_calibration`; extrinsic (stereo) calibration is the experimental
+tier that needs the second EVK4.

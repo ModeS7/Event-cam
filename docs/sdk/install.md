@@ -109,7 +109,8 @@ the heaviest ARM dependencies:
 
 - `-DCOMPILE_METAVISION_STUDIO=OFF` — **required** on ARM (Studio is amd64-only).
 - `-DUSE_TORCH=OFF` — skip the ML module (needs LibTorch; the Pi has no CUDA).
-- `-DUSE_SOPHUS=OFF` — skip CV3D (needs a manual Sophus build).
+- `-DUSE_SOPHUS=OFF` — skip the `cv3d` module (geometric/3D algorithms; enable it
+  for the edgelet pipeline — see the cv3d tier below).
 - `-DCOMPILE_PYTHON3_BINDINGS=OFF`, `-DBUILD_TESTING=OFF` — not needed here.
 
 ```bash
@@ -169,4 +170,45 @@ in a node-params YAML:
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
     params_file:=$HOME/my_params.yaml node_params_file:=gesture.yaml
 # gesture.yaml: /**: -> ros__parameters: -> model_path: <...rnn_model_classifier.ptjit>, gpu_id: 0
+```
+
+## cv3d tier (geometric pipelines)
+
+The `edgelet` pipeline needs the SDK `cv3d` module, which builds only when the SDK
+is configured with `-DUSE_SOPHUS=ON`. Unlike the ML tier this needs no GPU, so it
+is not x86-only.
+
+1. **Install Sophus** — `cv3d`'s pose optimizer needs it (Ceres and fmt, its other
+   dependencies, are already among the SDK's apt prerequisites):
+   ```bash
+   sudo apt install -y ros-$ROS_DISTRO-sophus
+   ```
+2. **Rebuild the SDK with `cv3d`.** Re-configure the existing build tree with
+   `-DUSE_SOPHUS=ON` (pointed at the apt Sophus) and rebuild — only `cv3d`
+   compiles, the rest is cached:
+   ```bash
+   cd ~/metavision_src/openeb-5.3.1/build
+   cmake -DUSE_SOPHUS=ON -DSophus_DIR=/opt/ros/$ROS_DISTRO/share/sophus/cmake .
+   cmake --build . -- -j"$(nproc)" -k
+   ```
+   `cv3d`'s OGRE-based 3D *sample viewers* need OGRE; the library and the
+   algorithms the pipelines use do not, so a missing OGRE only fails those samples
+   (harmless with `-k`).
+3. **Build the `evk4_sdk_advanced` cv3d tier.** Add `-DSophus_DIR` so the package
+   resolves `cv3d`'s transitive Sophus dependency:
+   ```bash
+   cd ~/ros2_ws
+   colcon build --packages-select evk4_sdk_advanced --cmake-args \
+     -DMetavisionSDK_DIR=<src>/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
+     -DSophus_DIR=/opt/ros/$ROS_DISTRO/share/sophus/cmake
+   ```
+   `find_package(MetavisionSDK COMPONENTS cv3d)` then succeeds and the `edgelet`
+   pipeline builds; without it the cv3d tier is skipped, like the ML tier. On a box
+   that also has the ML tier, pass both `-DTorch_DIR=...` and `-DSophus_DIR=...`.
+
+Run it:
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=edgelet \
+    params_file:=$HOME/my_params.yaml
+ros2 run rqt_image_view rqt_image_view /event_camera/edgelet_image
 ```

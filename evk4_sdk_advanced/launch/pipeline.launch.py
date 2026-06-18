@@ -4,7 +4,7 @@
         params_file:=$HOME/my_params.yaml
 
 `pipeline` is one of: optical_flow, tracking, dense_flow, spatter, counting,
-frequency, led_tracking, psm, jet_monitoring, undistortion. The ML-tier pipelines
+frequency, led_tracking, psm, jet_monitoring, undistortion, edgelet. The ML-tier pipelines
 (x86 + GPU build only) are gesture, detection, flow_inference -- pass their
 `model_path` (a `.ptjit`) and `gpu_id` via `node_params_file:=...`. Each publishes
 /<camera_name>/<pipeline>_image. The
@@ -102,6 +102,7 @@ def generate_launch_description():
             'pipeline',
             description='optical_flow | tracking | dense_flow | spatter | counting | '
                         'frequency | led_tracking | psm | jet_monitoring | undistortion | '
+                        'edgelet (cv3d tier, needs USE_SOPHUS=ON) | '
                         'gesture | detection | flow_inference (ML tier, x86+GPU)'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),

@@ -142,6 +142,22 @@ else()
 endif()
 # ----------------------------------------------------------------------------
 
+# --- cv3d sub-tier (optional) -----------------------------------------------
+# Geometric pipelines (edgelet tracking, and the future ArUco/model-3D/active
+# marker ones) need the SDK `cv3d` module, which only builds when the SDK is
+# configured with -DUSE_SOPHUS=ON (Sophus). A lean build without it skips these.
+find_package(MetavisionSDK QUIET COMPONENTS cv3d)
+if(TARGET MetavisionSDK::cv3d)
+  message(STATUS "evk4_sdk_advanced: cv3d tier ENABLED (SDK cv3d module found)")
+  add_sdk_component(edgelet_component src/edgelet_node.cpp
+    "evk4_sdk_advanced::EdgeletTracking" edgelet
+    MetavisionSDK::base MetavisionSDK::core MetavisionSDK::cv MetavisionSDK::cv3d)
+else()
+  message(STATUS "evk4_sdk_advanced: cv3d tier skipped (need the SDK built with "
+    "-DUSE_SOPHUS=ON; see docs/sdk/install.md).")
+endif()
+# ----------------------------------------------------------------------------
+
 # Capture the SDK's lib dir (wherever it was found at build time) into the
 # package share, so the launches can prepend it to LD_LIBRARY_PATH -- the SDK's
 # own libraries use RUNPATH, so their transitive deps follow LD_LIBRARY_PATH.
