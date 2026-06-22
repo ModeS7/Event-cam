@@ -35,7 +35,7 @@ The ML pipelines extend this (`ml_vision_node.hpp`) with a **third, dedicated
 inference thread**: the subscription thread only enqueues events while that thread
 runs the ~50 ms GPU model, so a heavy model never stalls ingestion either. Adding a
 pipeline is a few small hooks (`processEvents` / `stageResults` / `renderFrame`)
-plus a launch entry.
+plus a launch entry — see [extending.md](extending.md) for the full walkthrough.
 
 Common launch args (all pipelines): `pipeline`, `params_file` (your driver
 `~/my_params.yaml`), `camera_name`, `serial`, `frame_id`, `fps` (default 30),

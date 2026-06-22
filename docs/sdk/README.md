@@ -92,7 +92,8 @@ cv3d pipelines share one real-time harness (`event_vision_node.hpp`: decode
 `EventPacket` → `vector<Metavision::EventCD>` → an SDK algorithm → publish an
 image); the ML pipelines extend it (`ml_vision_node.hpp`) with a dedicated
 inference thread so the ~50 ms GPU model never stalls event ingestion. Adding a
-pipeline is a few small hooks plus a launch entry.
+pipeline is a few small hooks plus a launch entry —
+see [extending.md](extending.md).
 
 Validated on a **Raspberry Pi 5** (ARM source build) and an x86 dev box;
 **Jetson is untested** (same aarch64). The ML pipelines need CUDA, so they won't
