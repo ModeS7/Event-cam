@@ -89,6 +89,31 @@ run anywhere. Two more tiers launch the same way but need an extra SDK build
 - **`gesture`, `detection`, `flow_inference`** (ML/GPU tier) — pretrained neural
   nets; need LibTorch + the SDK `ml` module + a GPU (x86).
 
+`edgelet` runs exactly like the table above (`pipeline:=edgelet`, topic
+`/event_camera/edgelet_image`). The three **ML pipelines** additionally need a
+model `.ptjit` (extracted by `install_sdk.sh --ml` under
+`<sdk_src>/sdk/modules/ml/models/`), passed via `node_params_file`:
+
+| `pipeline:=` | Model | Shows |
+|---|---|---|
+| `gesture` | `classification/convRNN_chifoumi/rnn_model_classifier` | Rock / Paper / Scissors |
+| `detection` | `detection/red_event_cube_05_2020/model` | tracked boxes (automotive footage) |
+| `flow_inference` | `optical_flow/model_flow/model_flow` | flow-vector arrows |
+
+```bash
+cat > /tmp/ml.yaml <<YAML
+/**:
+  ros__parameters:
+    model_path: $HOME/metavision_src/openeb-5.3.1/sdk/modules/ml/models/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
+    gpu_id: 0          # -1 = CPU
+YAML
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
+    params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
+ros2 run rqt_image_view rqt_image_view /event_camera/gesture_image
+```
+
+Full ML param set + the other two models: [pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
+
 ## Platform note
 
 The SDK ships **prebuilt apt binaries for x86_64 only**. On ARM (Pi, Jetson) you
