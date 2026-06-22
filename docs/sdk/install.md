@@ -39,6 +39,18 @@ CUDA LibTorch (point `TORCH_DIR` at it). It source-builds the SDK in both tiers
 right CMake args. It does **not** install the GPU driver / CUDA toolkit — that
 stays a documented prerequisite for `--ml` (below).
 
+**When it finishes, run a pipeline** — one launch starts the camera and the
+algorithm together (use a new terminal, or `source ~/ros2_ws/install/setup.bash`):
+
+```bash
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=optical_flow \
+    params_file:=$HOME/my_params.yaml
+ros2 run rqt_image_view rqt_image_view /event_camera/optical_flow_image   # 2nd terminal
+```
+
+The full pipeline menu (and how to swap between them) is the
+[quick start in README.md](README.md#quick-start--run-a-pipeline).
+
 The sections below are the **manual reference** behind that script — including the
 x86 apt fast-path if you only want the model-free pipelines.
 
