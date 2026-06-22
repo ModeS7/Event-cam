@@ -252,7 +252,13 @@ well-documented, easy to extend.
   (`time_slice`|`sharp`) — both exposed as `evk4.launch.py` args. Copies the
   EventPacket header onto image_raw, so `image_raw` frame_id == our driver's
   `frame_id` (now `event_camera_optical_frame`, honored). Publishes NO
-  camera_info.
+  camera_info. **Bag replay (no camera):** the renderer times frames off the
+  clock's `now()`, so replaying a bag renders NOTHING on wall time (target
+  frame times sit ahead of the bag's old event stamps). Fix = sim time:
+  `ros2 launch evk4_bringup replay.launch.py` (renderer alone,
+  `use_sim_time:=true`, no driver) + `ros2 bag play <bag> --clock`. Validated
+  2026-06-22; the sample bag is the `sample-data` GitHub release; docs in
+  usage.md "No camera?".
 - **camera_info / calibration:** `evk4.launch.py` args `fps`/`display_type`
   (→ renderer), `frame_id` (→ driver; honored), `calibration_url` (→ starts
   the camera_info component). camera_info has no native source, so
