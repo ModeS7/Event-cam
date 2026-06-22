@@ -14,6 +14,7 @@ from ament_index_python.packages import PackageNotFoundError
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import OpaqueFunction
+from launch.actions import SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
@@ -164,7 +165,20 @@ def _launch_setup(context, *args, **kwargs):
                 extra_arguments=[{'use_intra_process_comms': True}],
             ))
 
-    return [
+    # The Metavision HAL locates its device plugins via MV_HAL_PLUGIN_PATH. The
+    # apt openeb_vendor SDK installs them under its own prefix but ships no env
+    # hook, so without this the driver fails to open the camera ("no plugin
+    # found" -> "Camera not found") on a clean install. Point the HAL at them,
+    # unless the user already set the variable (e.g. for a source-built SDK).
+    setup_actions = []
+    ros_distro = os.environ.get('ROS_DISTRO', 'jazzy')
+    hal_plugins = (
+        f'/opt/ros/{ros_distro}/opt/openeb_vendor/lib/metavision/hal/plugins')
+    if not os.environ.get('MV_HAL_PLUGIN_PATH') and os.path.isdir(hal_plugins):
+        setup_actions.append(
+            SetEnvironmentVariable('MV_HAL_PLUGIN_PATH', hal_plugins))
+
+    return setup_actions + [
         ComposableNodeContainer(
             name=f'{camera_name}_container',
             namespace='',
