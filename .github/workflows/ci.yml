@@ -1,0 +1,51 @@
+name: CI
+
+# Builds the repo on ROS 2 Jazzy and checks the docs links. The optional
+# evk4_sdk_advanced package needs the closed Metavision SDK (credentialed), which
+# CI does not have; it self-skips at CMake configure time (the open openeb_vendor
+# SDK lacks the `analytics` component), so CI exercises the core packages:
+# evk4_driver, evk4_bringup, evk4_examples, evk4_examples_cpp, evk4_calibration.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build (ROS 2 Jazzy)
+    runs-on: ubuntu-latest
+    container: ros:jazzy-ros-base
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ros2_ws/src/Event-cam
+
+      - name: Resolve dependencies (rosdep)
+        shell: bash
+        run: |
+          apt-get update
+          rosdep update
+          rosdep install --from-paths ros2_ws/src --ignore-src -y
+
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd ros2_ws
+          colcon build --event-handlers console_cohesion+
+
+  docs-links:
+    name: docs link check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check relative links in the docs
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --offline --no-progress --verbose 'README.md' 'docs/**/*.md'
+          fail: true
