@@ -229,6 +229,17 @@ well-documented, easy to extend.
   `udevadm control --reload-rules && udevadm trigger`, replug. (Deliberately
   NOT vendoring pandect-setup's `99-usb.rules`, MODE 0666 on ALL usb — a
   security downgrade.)
+- **HAL plugin path (found 2026-06-22, a from-scratch-wipe finding):** the apt
+  `openeb_vendor` SDK installs the Metavision HAL device plugins under its own
+  prefix (`/opt/ros/$ROS_DISTRO/opt/openeb_vendor/lib/metavision/hal/plugins`)
+  but ships NO env hook, so `MV_HAL_PLUGIN_PATH` is **unset** after sourcing —
+  and the driver then fails to open the camera (`[HAL] no plugin found` ->
+  `Error 101001: Camera not found`) on a CLEAN install. This had been masked for
+  months by a manual export on the dev/lab boxes; only a full ROS-and-all wipe
+  exposed it. Fix: `evk4.launch.py` now sets `MV_HAL_PLUGIN_PATH` to that dir
+  (only if unset and the dir exists); `pipeline.launch.py` inherits it via its
+  `IncludeLaunchDescription` of `evk4.launch.py`. A standalone `driver_node`
+  run still needs the env set by hand.
 - **Setup script + workspaces (decision 2026-06-08, modeled on
   AIS-CPS-Lab/pandect-setup):** `setup/install_deps.sh` — apt for
   `openeb_vendor` + `event_camera_py` ONLY, and **always source-build**
