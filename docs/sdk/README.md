@@ -114,6 +114,10 @@ ros2 run rqt_image_view rqt_image_view /event_camera/gesture_image
 
 Full ML param set + the other two models: [pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
 
+**A high event rate crashes the ML pipelines** (the SDK preprocessor aborts,
+`SIGABRT`). Keep the rate down — low `erc_rate`, plainer background, subject
+close and filling the frame — see [pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
+
 ## Platform note
 
 The SDK ships **prebuilt apt binaries for x86_64 only**. On ARM (Pi, Jetson) you

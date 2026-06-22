@@ -445,6 +445,18 @@ ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
 ```
 publishing `/event_camera/<pipeline>_image`. **Validated on an x86 GPU box**
 (GPU-resident inference confirmed).
+
+> **Too many events crash the ML pipelines.** Fed a high event rate — a busy,
+> bright, or full-frame scene — the ML node aborts mid-stream with a
+> `histo_processor ... Assertion 'ev.t >= cur_frame_start_ts' failed`
+> (`SIGABRT`; the node logs `process has died ... exit code -6`). The SDK's ML
+> preprocessor cannot keep up and rejects the overwhelming stream. **Keep the
+> event rate down:** lower `erc_rate` to a few Mev/s (well under the 10 Mev/s
+> recommended default — see [tuning.md](../tuning.md)), use a plainer
+> background, and get close so the subject fills the frame instead of flooding it
+> with background events. The model-free pipelines tolerate high rates; only this
+> ML tier aborts.
+
 Notes: `detection` is automotive — point it at driving footage, a desk yields no
 boxes — and inference-heavy at full sensor resolution (a lower model input
 resolution would speed it up); `gesture` and `flow_inference` run live on any
