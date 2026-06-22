@@ -17,11 +17,18 @@ stream. If you never install the SDK, a normal `colcon build` skips it.
 
 ## Setup (once)
 
-1. [access.md](access.md) — get a Prophesee account and an identity token (the
-   gated credential; free for EVK4 owners).
-2. [install.md](install.md) — install the SDK: `apt` on x86_64, or a source
+Both paths start with a token: [access.md](access.md) — a Prophesee account + an
+identity token (free for EVK4 owners).
+
+**Quickest — one command:** `setup/install_sdk.sh` (LITE) or
+`setup/install_sdk.sh --ml` (FULL/GPU) builds the SDK and the package together; see
+[install.md](install.md#quick-install-recommended).
+
+**Or manually:**
+
+1. [install.md](install.md) — install the SDK: `apt` on x86_64, or a source
    build on ARM (Raspberry Pi / Jetson).
-3. **Build the package** (it's skipped unless you point CMake at the SDK):
+2. **Build the package** (it's skipped unless you point CMake at the SDK):
    ```bash
    cd ~/ros2_ws
    colcon build --packages-select evk4_sdk_advanced --cmake-args \

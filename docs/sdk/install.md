@@ -17,6 +17,30 @@ Set your distro once:
 export ROS_DISTRO=jazzy
 ```
 
+## Quick install (recommended)
+
+`setup/install_sdk.sh` does the whole SDK source build **and** the
+`evk4_sdk_advanced` package build in one command, in two tiers:
+
+```bash
+export ROS_DISTRO=jazzy
+export PROPHESEE_USER=you@customers.prophesee.ai   # your JFrog login (see access.md)
+
+./setup/install_sdk.sh          # LITE -- model-free + edgelet pipelines (no GPU; Raspberry Pi)
+./setup/install_sdk.sh --ml     # FULL -- also the ML/GPU pipelines (Jetson / x86 + NVIDIA)
+```
+
+It checks its prerequisites and stops with instructions if any are missing: a
+JFrog token at `~/.config/prophesee/jfrog_token` ([access.md](access.md)); the base
+stack ([installation.md](../installation.md)); and, for `--ml`, CUDA (`nvcc`) plus a
+CUDA LibTorch (point `TORCH_DIR` at it). It source-builds the SDK in both tiers
+(with `USE_SOPHUS=ON`, so `edgelet` is included), then builds the package with the
+right CMake args. It does **not** install the GPU driver / CUDA toolkit — that
+stays a documented prerequisite for `--ml` (below).
+
+The sections below are the **manual reference** behind that script — including the
+x86 apt fast-path if you only want the model-free pipelines.
+
 ## x86_64 (apt)
 
 > The steps below are the standard Prophesee apt flow for x86_64.
