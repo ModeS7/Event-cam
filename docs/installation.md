@@ -31,6 +31,11 @@ export ROS_DISTRO=jazzy      # jazzy (Ubuntu 24.04) or humble (Ubuntu 22.04)
   cover those in an hour or two and make everything here much easier to follow.
 - The Ubuntu + ROS 2 version for your platform, installed
   ([official guide](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html)).
+  Install a complete set that includes the **`ros2` command-line tool** —
+  `ros-jazzy-desktop`, or `ros-jazzy-ros-base` for a headless machine — not just
+  individual packages. Confirm with `ros2 --help` before continuing: if that
+  says `No such file or directory`, you have the libraries but not the CLI
+  (install `ros-jazzy-ros-base`).
   If a `ros-...` package is "unable to locate", the ROS 2 apt repo is missing —
   see [troubleshooting.md](troubleshooting.md#e-unable-to-locate-package-ros-jazzy-).
 - **On a Raspberry Pi / SBC: flash Ubuntu (24.04 LTS, 64-bit), NOT Raspberry

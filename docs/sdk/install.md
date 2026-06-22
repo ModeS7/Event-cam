@@ -23,6 +23,7 @@ export ROS_DISTRO=jazzy
 `evk4_sdk_advanced` package build in one command, in two tiers:
 
 ```bash
+cd ~/ros2_ws/src/Event-cam       # the script lives in this repo
 export ROS_DISTRO=jazzy
 export PROPHESEE_USER=you@customers.prophesee.ai   # your JFrog login (see access.md)
 
