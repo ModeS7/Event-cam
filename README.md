@@ -69,6 +69,9 @@ The camera starts at **stock sensor defaults**. For the validated tuned setup
 (noise suppression + an event-rate cap that keeps small boards responsive),
 see the recipe at the top of [docs/tuning.md](docs/tuning.md).
 
+**No camera yet?** Replay a sample recording through the whole pipeline instead —
+see [Play the sample bag](docs/usage.md#no-camera-play-the-sample-bag).
+
 ## Topic contract
 
 `evk4.launch.py` brings up the camera under the `/event_camera` namespace:

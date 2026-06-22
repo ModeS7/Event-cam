@@ -211,6 +211,43 @@ needed) — see its README. For conversion to/from Prophesee `.raw` files and
 other utilities, see
 [event_camera_tools](https://github.com/ros-event-camera/event_camera_tools).
 
+## No camera? Play the sample bag
+
+You can try the whole pipeline without an EVK4 by replaying a short recording.
+Download `event_camera_sample_15s.tar` from the
+[latest release](https://github.com/ModeS7/Event-cam/releases) (a ~15 s pan of a
+lab scene, raw EVT3 events) and unpack it:
+
+```bash
+wget https://github.com/ModeS7/Event-cam/releases/download/sample-data/event_camera_sample_15s.tar
+tar xf event_camera_sample_15s.tar          # -> sample_events/
+```
+
+`replay.launch.py` runs the renderer alone — no driver — so the bag is the only
+event source (it must be the renderer, not `evk4.launch.py`, which would try to
+open a camera that isn't there):
+
+```bash
+ros2 launch evk4_bringup replay.launch.py            # renderer; waits for events
+ros2 bag play sample_events --loop --clock           # feeds /event_camera/events
+ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
+```
+
+The **`--clock`** flag is required: `replay.launch.py` runs the renderer on
+simulated time so it follows the *bag's* timeline (the renderer times its frames
+off the clock, and the bag's events carry old recorded stamps). Play without
+`--clock` and the renderer never emits a frame.
+
+The replayed image looks exactly like a live camera — blue/red ON/OFF pixels,
+motion only. Every consumer works the same on the replayed stream: the
+Python/C++ examples above, and the [SDK pipelines](sdk/README.md). For a
+pipeline, run its node directly with `-r events:=/event_camera/events` (the bag,
+not the driver, is publishing the events) rather than `pipeline.launch.py`,
+which would also start the driver.
+
+To make your own sample instead of downloading, record a live camera as in the
+previous section.
+
 ## Next steps
 
 Continue the setup sequence with [tuning.md](tuning.md) — noise, the event-rate

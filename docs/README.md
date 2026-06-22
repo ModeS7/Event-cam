@@ -12,6 +12,9 @@ its artifact to the next. Read in order:
 4. [calibration.md](calibration.md) — guided intrinsic calibration →
    `event_camera.yaml` for camera_info / rectification.
 
+No camera? You can run the whole pipeline on a downloadable sample recording —
+see [usage.md → No camera?](usage.md#no-camera-play-the-sample-bag).
+
 Reference, as needed:
 
 - [troubleshooting.md](troubleshooting.md) — camera not found, permissions, no
