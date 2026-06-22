@@ -5,8 +5,8 @@ Symptoms are ordered roughly by how often they occur.
 ## Stream is seconds behind, frames smushed together, high CPU, or topics silently empty
 
 If the pipeline degrades badly — image lagging tens of seconds behind reality,
-multiple time slices blended into one frame, node CPU far above normal
-(40-60% instead of ~10%), or some subscribers receiving nothing while others
+multiple time slices blended into one frame, node CPU far above normal,
+or some subscribers receiving nothing while others
 work — and **restarting the nodes does not help**, the cause is usually stale
 Fast DDS shared-memory state from a killed ROS process. Force-killing nodes
 (`kill -9`, crashes) leaves transport files and port-mutex semaphores behind in
@@ -160,7 +160,7 @@ display pipeline running. Cap the rate on the sensor: `erc_mode: enabled` +
 using, and raise `event_message_time_threshold` for fewer, larger messages.
 
 Check actual rates in the statistics line the driver prints every second in
-the launch terminal (`254 msgs/s, 7.81 MB/s (queue 0)`), or with
+the launch terminal (`<msgs/s>, <MB/s> (queue 0)`), or with
 `ros2 run evk4_examples event_rate`.
 
 ## Stream feels laggy even though the event rate is low

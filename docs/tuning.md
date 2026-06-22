@@ -32,9 +32,9 @@ hardware (EVK4 on a Raspberry Pi 5):
 Event-pipeline CPU scales with the event rate, and a busy scene easily
 produces more events than a small board can process — the result is a
 stuttering, lagging display. The cap is enforced **on the sensor**, before
-USB. 10 Mev/s (~35 MB/s) keeps rendering smooth on a Raspberry Pi 5 with
-the scene still looking good (validated); raise it only for
-downstream algorithms that consume the raw stream.
+USB. The default cap keeps the display smooth on a Raspberry Pi 5 while the
+scene still looks good; raise it only for downstream algorithms that consume
+the raw stream.
 
 **Bias contrast thresholds (`bias_diff_on/off: 30`).** Biases are the
 sensor's analog settings; the contrast thresholds decide how much a pixel's
@@ -43,8 +43,8 @@ noise lever. At stock (0) a static scene crackles with salt-and-pepper
 noise; 30 cuts most of it while keeping good sensitivity to faint motion —
 the STC filter below cleans up the rest, which beats trading sensitivity
 away with higher thresholds. Fewer noise events also means less USB,
-decoding, and rendering work: on the Pi a busy scene at stock biases cost
-~45% CPU with a viewer open, and raising the thresholds dropped it
+decoding, and rendering work: on the Pi a busy scene at stock biases costs
+noticeably more CPU with a viewer open, and raising the thresholds drops it
 substantially.
 
 **STC trail filter (`trail_filter: true`, `stc_cut_trail` at 10000 us).**
@@ -254,8 +254,8 @@ are live, so watch the image while you tune:
 **indiscriminately** — it cannot prefer a signal event over a noise event —
 so a stream that constantly rides the cap is uniformly thinned and overall
 worse. The driver prints a periodic statistics line — MB/s and msgs/s — in the
-launch terminal (a 10 Mev/s cap is ~35 MB/s there); if that throughput sits pinned
-at the cap, retune so the scene's natural rate sits *below* it instead: raise
+launch terminal; if that throughput sits pinned at the cap, retune so the scene's
+natural rate sits *below* it instead: raise
 `bias_diff_on`/`bias_diff_off`, tune away noise (the ladder above), and add
 an `roi` / `digital_crop_region` if only part of the view matters. Also
 close viewers/rectification you are not using — every subscriber adds work,

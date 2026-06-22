@@ -133,7 +133,7 @@ downstream tool; rectification runs in the camera container and costs
 nothing while nobody subscribes to `image_rect`. The launch uses
 nearest-neighbor interpolation for the remap — event images are sparse
 hard-edged pixels, so it is both crisper and substantially cheaper than
-the bilinear default (~60 ms/frame on a Pi 5).)
+the bilinear default.)
 
 To keep a calibration with the repo, copy the YAML into
 `evk4_bringup/config/calibration/` (it ships a zero-distortion placeholder).

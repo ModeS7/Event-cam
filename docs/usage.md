@@ -91,7 +91,7 @@ rate statistics no service is needed: the driver prints them to the launch
 terminal every second (`statistics_print_interval` parameter, 0 disables):
 
 ```
-[event_camera]: 254 msgs/s, 7.81 MB/s (queue 0)
+[event_camera]: <msgs/s>, <MB/s> (queue 0)
 ```
 
 That counts *published* event packets — the driver publishes lazily, so

@@ -33,7 +33,8 @@ one newest frame on demand and publishes it. A mutex guards only a cheap buffer
 swap, so rendering never stalls ingestion — that split is what keeps latency low.
 The ML pipelines extend this (`ml_vision_node.hpp`) with a **third, dedicated
 inference thread**: the subscription thread only enqueues events while that thread
-runs the ~50 ms GPU model, so a heavy model never stalls ingestion either. Adding a
+runs the heavy GPU model (tens of milliseconds per inference), so it never stalls
+ingestion either. Adding a
 pipeline is a few small hooks (`processEvents` / `stageResults` / `renderFrame`)
 plus a launch entry — see [extending.md](extending.md) for the full walkthrough.
 
@@ -59,12 +60,10 @@ direction and speed, color-coded. Uses `SparseOpticalFlowAlgorithm`.
   overwhelm it and it goes quiet rather than guess. Moderate motion works best.
 - A quiet scene holds the last frame (no events → no update), which is correct.
 
-**Validated on the Pi:** ~21 ms median latency (camera → image), 50 ms
-p99; 30 fps. Dense scenes are flow-bound on the Pi — cost scales with *feature
-count* (~6.7 Mev/s gentle, ~0.5 Mev/s dense). When a scene exceeds what the Pi can
-flow live, it samples the trackable features and drops the surplus — which does
-not degrade the vectors. x86/Jetson process the full rate; it's the Pi's compute
-floor, not a bug.
+**Validated on the Pi.** Dense scenes are flow-bound on the Pi — cost scales with
+*feature count*. When a scene exceeds what the Pi can flow live, it samples the
+trackable features and drops the surplus — which does not degrade the vectors.
+x86/Jetson process the full rate; it's the Pi's compute floor, not a bug.
 
 **Reproducible testing with a bag** (live motion is an inconsistent stimulus):
 ```bash
@@ -181,17 +180,17 @@ and looking straight down at the blades is steadiest.
 
 **Keep the event rate within budget.** Frequency needs *every* event per pixel, so
 dropped events break it. If the rate exceeds what the node can process in real
-time (~3 Mev/s on a Pi 5), the transport silently drops events and the map goes
-**black even on a visibly flickering scene** — a bright full-frame strobe
-(~8 Mev/s) does exactly this. Fix: **cap `erc_rate`** in your params (e.g.
+time, the transport silently drops events and the map goes **black even on a
+visibly flickering scene** — a bright full-frame strobe does exactly this. Fix:
+**cap `erc_rate`** in your params (e.g.
 `erc_rate: 3000000`) — ERC drops on the sensor in a controlled way that preserves
 periodicity, unlike the transport's random whole-packet drops — or restrict the
 field of view with an `roi`.
 
-**Validated on the Pi:** lens at f/2, camera close above a desk fan →
-locked the blade-pass at ~60–70 Hz. The two things that decide success are
-**optics** (focus + light) and **staying within the event-rate budget** — not the
-algorithm (a synthetic 100/50 Hz input maps to exactly that frequency).
+**Validated on the Pi:** lens at f/2, camera close above a desk fan → locked onto
+the blade-pass. The two things that decide success are **optics** (focus + light)
+and **staying within the event-rate budget** — not the algorithm itself, which maps
+a periodic input to its true frequency.
 
 ---
 
@@ -407,8 +406,7 @@ update), which is correct — point it at structured edges in motion.
 
 This is the **cv3d tier**: it needs the SDK built with `-DUSE_SOPHUS=ON`
 ([install.md](install.md)), so the lean Pi build skips it. Unlike the ML tier it
-needs no GPU. **Validated on the lab PC**: 30 fps, ~2 Mev/s, edgelets locking onto
-moving edges.
+needs no GPU. **Validated on the lab PC** — edgelets lock onto moving edges.
 
 ---
 
@@ -445,8 +443,8 @@ YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
     params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
 ```
-publishing `/event_camera/<pipeline>_image`. **Validated on a 2× RTX 2080 Ti box**
-(GPU-resident inference confirmed: 254 MiB / 618 MiB / 1242 MiB respectively).
+publishing `/event_camera/<pipeline>_image`. **Validated on an x86 GPU box**
+(GPU-resident inference confirmed).
 Notes: `detection` is automotive — point it at driving footage, a desk yields no
 boxes — and inference-heavy at full sensor resolution (a lower model input
 resolution would speed it up); `gesture` and `flow_inference` run live on any

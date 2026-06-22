@@ -62,8 +62,8 @@ Torch — see [ML pipelines (GPU, x86)](#ml-pipelines-gpu-x86) below.)
 ## ARM (build from source)
 
 Validated on a **Raspberry Pi 5 (16 GB), Ubuntu 24.04, ROS 2 Jazzy**: the full
-build took ~22 minutes with zero errors. The same procedure
-is expected to work on a Jetson (aarch64), which is not tested here.
+build completes with zero errors (it takes a while — let it run). The same
+procedure is expected to work on a Jetson (aarch64), which is not tested here.
 
 ### 1. Download the source archives
 

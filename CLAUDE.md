@@ -150,8 +150,17 @@ well-documented, easy to extend.
   Measure `now - header.stamp` at a subscriber (2026-06-11: the calibrator
   overlay published at full rate while running 0.4 s behind; three rate
   measurements missed what one latency probe settled).
-- Record validated numbers WITH DATES in the docs (ERC envelope, CPU
-  figures, the RMS in every calibration YAML header).
+- Keep achieved-performance numbers OUT of the student docs (decision
+  2026-06-22, reverses the earlier "record validated numbers" rule): latency,
+  achieved fps, CPU %, throughput rates as capability, memory, build times, and
+  RMS-as-a-brag go stale and are machine/version-specific, so the docs state
+  validation qualitatively ("validated on the Pi") instead. KEEP config values
+  (param defaults, recommended `erc_rate`), inherent algorithmic timing (the
+  inference-window default, prune intervals, the LED base-period math), and the
+  stats-line output format. The calibrator still writes RMS into each
+  `event_camera.yaml` header (a per-file record), just not quoted as a docs
+  number. CLAUDE.md itself keeps its historical numbers (internal log, not student
+  docs). See memory [[no-perf-numbers-in-docs]].
 
 ### Documentation
 - The docs are a wiki/tutorial for students: assume no ROS "common

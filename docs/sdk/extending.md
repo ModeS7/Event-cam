@@ -32,7 +32,7 @@ Every pipeline subclasses one of two bases in `include/evk4_sdk_advanced/`:
   newest frame on demand and publishes it. A mutex guards only a cheap result swap,
   so rendering never stalls ingestion.
 - **`MlVisionNode`** (`ml_vision_node.hpp`, extends `EventVisionNode`) — for GPU
-  inference. Adds a **third, dedicated inference thread** so a ~50 ms model never
+  inference. Adds a **third, dedicated inference thread** so a heavy model never
   blocks ingestion (see [Rules & gotchas](#rules--gotchas)).
 
 `EventVisionNode` calls five hooks you implement:
@@ -212,8 +212,9 @@ ML pipelines take `model_path`, `gpu_id`, and `delta_t_us` as node params (pass 
 - **Keep heavy work off the ingestion thread.** `processEvents` runs on the
   subscription thread; if it costs more than real-time, ingestion backs up, packets
   drop, and the renderer starves. Model-free algorithms are fine per-packet. A
-  ~50 ms GPU inference is **not** — that is exactly why `MlVisionNode` runs the
-  model on a separate thread (it once dropped detection to ~0 fps inline).
+  heavy GPU inference (tens of milliseconds) is **not** — that is exactly why
+  `MlVisionNode` runs the model on a separate thread (running it inline once dropped
+  detection to a near-standstill).
 - **Destructor ordering.** The frame thread (and, for ML, the inference thread)
   call your virtuals, so they must be **joined before your members are destroyed**.
   A model-free derived destructor calls `stopFrameThread()`; an `MlVisionNode`

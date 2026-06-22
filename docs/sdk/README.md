@@ -91,7 +91,7 @@ launch, the results) is identical once the SDK is present. The model-free and
 cv3d pipelines share one real-time harness (`event_vision_node.hpp`: decode
 `EventPacket` → `vector<Metavision::EventCD>` → an SDK algorithm → publish an
 image); the ML pipelines extend it (`ml_vision_node.hpp`) with a dedicated
-inference thread so the ~50 ms GPU model never stalls event ingestion. Adding a
+inference thread so the heavy GPU model never stalls event ingestion. Adding a
 pipeline is a few small hooks plus a launch entry —
 see [extending.md](extending.md).
 
