@@ -1,5 +1,11 @@
 # Troubleshooting
 
+**Quick check first:** `./setup/evk4_doctor.sh` auto-diagnoses the common issues
+below — ROS environment, dependencies, the udev rule, USB enumeration and
+permissions, stale Fast DDS shared memory, and whether the workspace is built and
+sourced. It is read-only (no sudo) and prints `[OK]`/`[WARN]`/`[FAIL]` with a fix
+pointer for each.
+
 Symptoms are ordered roughly by how often they occur.
 
 ## Stream is seconds behind, frames smushed together, high CPU, or topics silently empty
