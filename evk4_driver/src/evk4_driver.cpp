@@ -120,6 +120,15 @@ void EVK4Driver::startCamera()
       }
     });
 
+  // Surface camera runtime / USB errors that would otherwise be silent: log a
+  // warning and count them (reported in the per-second stats line).
+  cam_.add_runtime_error_callback(
+    [this](const Metavision::CameraException & e) {
+      statErrors_.fetch_add(1, std::memory_order_relaxed);
+      totalErrors_.fetch_add(1, std::memory_order_relaxed);
+      RCLCPP_WARN_STREAM(this->get_logger(), "camera runtime error: " << e.what());
+    });
+
   if (statsInterval_ > 0.0) {
     statsTimer_ = this->create_wall_timer(
       std::chrono::duration<double>(statsInterval_),
@@ -555,6 +564,8 @@ void EVK4Driver::printStats()
   const double dt = statsInterval_ > 0.0 ? statsInterval_ : 1.0;
   const size_t msgs = statMsgs_.exchange(0, std::memory_order_relaxed);
   const size_t bytes = statBytes_.exchange(0, std::memory_order_relaxed);
+  const size_t errs = statErrors_.exchange(0, std::memory_order_relaxed);
+  const uint64_t totErrs = totalErrors_.load(std::memory_order_relaxed);
   size_t q = 0;
   if (useMultithreading_) {
     std::lock_guard<std::mutex> lock(queueMutex_);
@@ -563,7 +574,9 @@ void EVK4Driver::printStats()
   RCLCPP_INFO_STREAM(
     this->get_logger(),
     static_cast<long>(msgs / dt) << " msgs/s, " << (bytes / dt) / 1e6 << " MB/s"
-      << (useMultithreading_ ? " (queue " + std::to_string(q) + ")" : ""));
+      << (useMultithreading_ ? " (queue " + std::to_string(q) + ")" : "")
+      << (totErrs ? " | errors: " + std::to_string(errs) + "/interval, " +
+            std::to_string(totErrs) + " total" : ""));
 }
 
 }  // namespace evk4_driver

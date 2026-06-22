@@ -105,6 +105,9 @@ private:
   rclcpp::TimerBase::SharedPtr statsTimer_;
   std::atomic<size_t> statMsgs_{0};
   std::atomic<size_t> statBytes_{0};
+  // Camera runtime/USB errors surfaced by the SDK: per-interval + cumulative.
+  std::atomic<size_t> statErrors_{0};
+  std::atomic<uint64_t> totalErrors_{0};
 };
 }  // namespace evk4_driver
 
