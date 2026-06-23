@@ -412,6 +412,13 @@ needs no GPU. **Validated on the lab PC** — edgelets lock onto moving edges.
 
 ## ML inference pipelines (GPU)
 
+> **Status: optional and experimental — NOT validated.** This tier needs x86 + a
+> CUDA GPU *and* a stable machine to exercise, which there currently is not, so it
+> is provided **as-is** and is not part of the supported set. The pipelines build
+> and run (gesture has been seen working), but treat them as a starting point, not
+> a guaranteed feature. The **model-free and cv3d tiers are the validated, supported
+> pipelines.**
+
 Three neural-network pipelines run the SDK's pretrained models on the event
 stream. Unlike the model-free pipelines above they need **LibTorch + the SDK `ml`
 module**, so they build and run only on the x86 + GPU setup ([install.md](install.md));
@@ -467,8 +474,9 @@ YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
     params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
 ```
-publishing `/event_camera/<pipeline>_image`. **Validated on an x86 GPU box**
-(GPU-resident inference confirmed).
+publishing `/event_camera/<pipeline>_image`. (Ran on an x86 GPU box with
+GPU-resident inference, but per the status note above this tier is experimental
+and not a validated feature.)
 
 > **Too many events crash the ML pipelines.** Fed a high event rate — a busy,
 > bright, or full-frame scene — the ML node aborts mid-stream with a

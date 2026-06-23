@@ -86,8 +86,11 @@ run anywhere. Two more tiers launch the same way but need an extra SDK build
 
 - **`edgelet`** (cv3d tier) — 2D edge-segment tracking; needs the SDK rebuilt with
   `-DUSE_SOPHUS=ON` (no GPU).
-- **`gesture`, `detection`, `flow_inference`** (ML/GPU tier) — pretrained neural
-  nets; need LibTorch + the SDK `ml` module + a GPU (x86).
+- **`gesture`, `detection`, `flow_inference`** (ML/GPU tier — **optional and
+  experimental, NOT validated**) — pretrained neural nets; need LibTorch + the SDK
+  `ml` module + a GPU (x86). Provided **as-is**: they build and run (gesture has
+  been seen working), but there is no stable CUDA machine to validate them on, so
+  the **model-free and cv3d tiers are the validated, supported set**.
 
 `edgelet` runs exactly like the table above (`pipeline:=edgelet`, topic
 `/event_camera/edgelet_image`). The three **ML pipelines** additionally need a

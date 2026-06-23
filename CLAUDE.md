@@ -536,6 +536,15 @@ Next (user-ordered):
       terminal Ctrl+C is a PROCESS-GROUP SIGINT that reaches the node directly;
       `kill -INT <launch-pid>` does NOT replicate it and falsely reads as "hung" --
       signal the group (`kill -INT -<pgid>`). Memory `sdk-pipeline-sigint-shutdown`.
+- [x] **ML tier reclassified OPTIONAL / EXPERIMENTAL / non-validated (2026-06-23,
+      user decision).** The only x86+GPU box (the lab PC) degraded badly this
+      session -- USB-controller camera drops + hard freezes under load (see
+      [[lab-pc-nvme-freeze]]) -- and the Pi has no CUDA, so there is no stable
+      environment to keep gesture/detection/flow_inference validated. They still
+      build and run (gesture confirmed working 2026-06-23) but are now documented
+      as provided AS-IS; the model-free + cv3d tiers remain the validated/supported
+      set. Relabeled in docs/sdk/README.md + pipelines.md. Stop chasing ML
+      validation until there is a stable CUDA machine.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
