@@ -433,6 +433,24 @@ Each takes these node params via `node_params_file`:
 | `gpu_id` | `0` | GPU index; `-1` runs on CPU |
 | `delta_t_us` | `50000` | Inference window (µs) — one model run per window |
 
+**Where the models live.** `install_sdk.sh --ml` extracts the pretrained models
+into the SDK source tree, so `<MODELS>` below is
+`$HOME/metavision_src/openeb-<sdk_version>/sdk/modules/ml/models` — e.g.
+`$HOME/metavision_src/openeb-5.3.1/sdk/modules/ml/models`. List them on your
+machine (works regardless of version) with:
+
+```bash
+find ~/metavision_src -name '*.ptjit'
+```
+
+The `model_path` for each pipeline (relative to `<MODELS>/`):
+
+| `pipeline:=` | `model_path` (under `<MODELS>/`) |
+|---|---|
+| `gesture` | `classification/convRNN_chifoumi/rnn_model_classifier.ptjit` |
+| `detection` | `detection/red_event_cube_05_2020/model.ptjit` |
+| `flow_inference` | `optical_flow/model_flow/model_flow.ptjit` |
+
 ```bash
 cat > /tmp/ml.yaml <<'YAML'
 /**:

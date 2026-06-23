@@ -91,8 +91,9 @@ run anywhere. Two more tiers launch the same way but need an extra SDK build
 
 `edgelet` runs exactly like the table above (`pipeline:=edgelet`, topic
 `/event_camera/edgelet_image`). The three **ML pipelines** additionally need a
-model `.ptjit` (extracted by `install_sdk.sh --ml` under
-`<sdk_src>/sdk/modules/ml/models/`), passed via `node_params_file`:
+model `.ptjit`. `install_sdk.sh --ml` extracts these into the SDK source tree under
+`$HOME/metavision_src/openeb-<ver>/sdk/modules/ml/models/` — find them with
+`find ~/metavision_src -name '*.ptjit'` — passed via `node_params_file`:
 
 | `pipeline:=` | Model | Shows |
 |---|---|---|

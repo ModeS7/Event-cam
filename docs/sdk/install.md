@@ -208,7 +208,10 @@ automatically.
    skipped and the model-free pipelines build as usual.
 
 Run one with its model on the GPU — set `model_path` (the `.ptjit`) and `gpu_id`
-in a node-params YAML (see [pipelines.md](pipelines.md) for the full ML param set):
+in a node-params YAML. `--ml` extracted the models into the SDK source tree, so
+`<MODELS>` below is `$HOME/metavision_src/openeb-<sdk_version>/sdk/modules/ml/models`
+— list them with `find ~/metavision_src -name '*.ptjit'`. See
+[pipelines.md](pipelines.md) for the full ML param set and each pipeline's model path.
 ```bash
 cat > /tmp/ml.yaml <<'YAML'
 /**:
