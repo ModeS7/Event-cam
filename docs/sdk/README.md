@@ -125,7 +125,7 @@ close and filling the frame — see [pipelines.md](pipelines.md#ml-inference-pip
 ## Platform note
 
 The SDK ships **prebuilt apt binaries for x86_64 only**. On ARM (Pi, Jetson) you
-**build it from source** — a validated, ~22-minute procedure on a Pi 5
+**build it from source** — a validated procedure on a Pi 5
 ([install.md](install.md)). Everything downstream (`evk4_sdk_advanced`, the
 launch, the results) is identical once the SDK is present. The model-free and
 cv3d pipelines share one real-time harness (`event_vision_node.hpp`: decode
@@ -135,9 +135,11 @@ inference thread so the heavy GPU model never stalls event ingestion. Adding a
 pipeline is a few small hooks plus a launch entry —
 see [extending.md](extending.md).
 
-Validated on a **Raspberry Pi 5** (ARM source build) and an x86 dev box;
-**Jetson is untested** (same aarch64). The ML pipelines need CUDA, so they won't
-run on the Pi (the **ML/GPU tier**). The `edgelet` pipeline is the **cv3d tier** — it
+The model-free and cv3d pipelines are validated on a **Raspberry Pi 5** (ARM
+source build) and an x86 box; **Jetson is untested** (same aarch64). The
+**ML/GPU tier is experimental, not validated** (see
+[pipelines.md](pipelines.md#ml-inference-pipelines-gpu)), and needs CUDA — so it
+does not run on the Pi. The `edgelet` pipeline is the **cv3d tier** — it
 needs the SDK rebuilt with `-DUSE_SOPHUS=ON` ([install.md](install.md)) but no
 GPU. The remaining 3D apps (ArUco, model-3D, active markers, stereo) stay gated on
 a marker / model / second camera. See [pipelines.md](pipelines.md) for the

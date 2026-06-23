@@ -489,10 +489,16 @@ and not a validated feature.)
 > with background events. The model-free pipelines tolerate high rates; only this
 > ML tier aborts.
 
-Notes: `detection` is automotive — point it at driving footage, a desk yields no
-boxes — and inference-heavy at full sensor resolution (a lower model input
-resolution would speed it up); `gesture` and `flow_inference` run live on any
-motion.
+Notes: `detection` is an **automotive** model — its only classes are
+**`pedestrian` and `car`**, trained on real event-camera footage of moving
+traffic. It is **not a general object detector**: an event camera sees only
+motion, so a *still photo* of a car produces no events and never fires, and even a
+moving photo is the wrong domain. To get boxes, give it **real moving traffic or a
+walking person** (the `pedestrian` class is the easiest live trigger), or play
+automotive footage; a desk scene yields nothing. It is also inference-heavy at full
+sensor resolution (a lower model input resolution would speed it up). `gesture` and
+`flow_inference` run live on any motion — **`gesture`** (hand rock/paper/scissors,
+up close) is the quickest way to confirm the ML tier works at all.
 
 ---
 

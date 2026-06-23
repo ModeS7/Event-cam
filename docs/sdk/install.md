@@ -188,11 +188,12 @@ automatically.
    download and unzip CUDA LibTorch (e.g. `cu126`, version matching the SDK's —
    2.9.1), then configure with `-DUSE_TORCH=ON
    -DTorch_DIR=<libtorch>/share/cmake/Torch/` (add `-DCOMPILE_PYTHON3_BINDINGS=ON`
-   for the Python samples). Validated on a 2× RTX 2080 Ti box (Ubuntu 24.04,
-   CUDA 12.6, LibTorch 2.9.1).
+   for the Python samples). Built and run on a 2× RTX 2080 Ti box (Ubuntu 24.04,
+   CUDA 12.6, LibTorch 2.9.1) — but this tier is **experimental, not a validated
+   feature** (see [pipelines.md](pipelines.md#ml-inference-pipelines-gpu)).
 2. **Get the pretrained models.** Download `metavision_sdk_ml_models_<ver>.tar.gz`
    from the JFrog `metavision-sdk-5-archives-nc/main/sources` folder and extract
-   it into `<src>/sdk/modules/` (it lands as `ml/models/` and `core_ml/models/`).
+   it into `$HOME/metavision_src/openeb-5.3.1/sdk/modules/` (it lands as `ml/models/` and `core_ml/models/`).
 3. **Build the `evk4_sdk_advanced` ML tier.** Point CMake at both the SDK and
    LibTorch, with `nvcc` on PATH (Torch enables CMake's CUDA language):
    ```bash
@@ -200,7 +201,7 @@ automatically.
    export PATH=/usr/local/cuda/bin:$PATH          # nvcc, for CUDA-language detection
    export LD_LIBRARY_PATH=$HOME/libtorch/lib:$LD_LIBRARY_PATH
    colcon build --packages-select evk4_sdk_advanced --cmake-args \
-     -DMetavisionSDK_DIR=<src>/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
+     -DMetavisionSDK_DIR=$HOME/metavision_src/openeb-5.3.1/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
      -DTorch_DIR=$HOME/libtorch/share/cmake/Torch
    ```
    CMake auto-generates the `hdf5_ecf` config the no-install SDK build doesn't
@@ -254,7 +255,7 @@ is not x86-only.
    ```bash
    cd ~/ros2_ws
    colcon build --packages-select evk4_sdk_advanced --cmake-args \
-     -DMetavisionSDK_DIR=<src>/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
+     -DMetavisionSDK_DIR=$HOME/metavision_src/openeb-5.3.1/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir \
      -DSophus_DIR=/opt/ros/$ROS_DISTRO/share/sophus/cmake
    ```
    `find_package(MetavisionSDK COMPONENTS cv3d)` then succeeds and the `edgelet`
