@@ -27,9 +27,12 @@
 
 #include <metavision/sdk/base/events/event_cd.h>
 
+#include <pthread.h>
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <csignal>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -38,6 +41,19 @@
 namespace evk4_sdk_advanced
 {
 using event_camera_codecs::EventPacket;
+
+// --- Ctrl+C handling --------------------------------------------------------
+// The Metavision Pro SDK (linked by every pipeline) installs its own signal
+// handlers -- which swallow SIGINT, so rclcpp's executor never learns about
+// Ctrl+C and spin() never returns; the node then has to be SIGKILLed, which on
+// the EVK4 risks wedging the camera off the USB bus. We take SIGINT/SIGTERM
+// back: this handler is async-signal-safe (only sets the flag), and a per-node
+// watcher thread re-arms it (the SDK reinstalls its own, e.g. when an algorithm
+// is created) and calls rclcpp::shutdown() so spin() returns and the pipeline
+// stops cleanly. The OpenEB-based driver does NOT link the Pro SDK, so it shuts
+// down fine without any of this.
+inline std::atomic<bool> g_stop_requested{false};
+inline void requestStop(int) { g_stop_requested.store(true); }
 
 class EventVisionNode : public rclcpp::Node, public event_camera_codecs::EventProcessor
 {
@@ -55,6 +71,28 @@ public:
       "events", rclcpp::SensorDataQoS(),
       [this](EventPacket::ConstSharedPtr msg) { onMsg(msg); });
     frame_thread_ = std::thread([this]() { frameLoop(); });
+
+    // Take SIGINT/SIGTERM back from the SDK (see requestStop) and drive shutdown
+    // ourselves, re-arming periodically because the SDK reinstalls its handler.
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
+    shutdown_watcher_ = std::thread([this]() {
+      // The SDK may block SIGINT/SIGTERM process-wide; make sure THIS thread can
+      // still receive them so our handler runs.
+      sigset_t unblock;
+      sigemptyset(&unblock);
+      sigaddset(&unblock, SIGINT);
+      sigaddset(&unblock, SIGTERM);
+      pthread_sigmask(SIG_UNBLOCK, &unblock, nullptr);
+      while (!watcher_stop_.load() && !g_stop_requested.load() && rclcpp::ok()) {
+        std::signal(SIGINT, requestStop);
+        std::signal(SIGTERM, requestStop);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      if (g_stop_requested.load()) {
+        rclcpp::shutdown();  // wakes the executor so spin() returns
+      }
+    });
   }
 
   // By the time THIS base destructor runs, the derived members the frame thread
@@ -78,6 +116,10 @@ protected:
   // members it touches are destroyed. Idempotent.
   void stopFrameThread()
   {
+    watcher_stop_.store(true);
+    if (shutdown_watcher_.joinable()) {
+      shutdown_watcher_.join();
+    }
     {
       std::lock_guard<std::mutex> lock(mtx_);
       if (stopping_) {
@@ -139,6 +181,10 @@ private:
       inited_ = true;
     }
     processEvents(cd_buf_);  // subclass: run algo (no lock), store results
+    // The SDK may reinstall its own signal handler when its algorithm runs;
+    // re-arm ours right after so Ctrl+C keeps reaching us (cheap, see requestStop).
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
     {
       std::lock_guard<std::mutex> lock(mtx_);
       stageResults();  // stage results atomically with the events + timestamp
@@ -226,6 +272,8 @@ private:
   bool running_{true};
   bool stopping_{false};
   std::thread frame_thread_;
+  std::thread shutdown_watcher_;
+  std::atomic<bool> watcher_stop_{false};
 
   std::vector<Metavision::EventCD> cd_buf_;      // subscription-thread decode buffer
   std::vector<Metavision::EventCD> staging_ev_;  // shared (mtx_)
