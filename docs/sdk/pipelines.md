@@ -451,11 +451,17 @@ The `model_path` for each pipeline (relative to `<MODELS>/`):
 | `detection` | `detection/red_event_cube_05_2020/model.ptjit` |
 | `flow_inference` | `optical_flow/model_flow/model_flow.ptjit` |
 
+Set `MODELS` to that directory once, then the example below substitutes it for you
+(the heredoc is unquoted — `<<YAML`, not `<<'YAML'` — so `$MODELS` expands into the
+file; do NOT paste a literal `<MODELS>`):
+
 ```bash
-cat > /tmp/ml.yaml <<'YAML'
+MODELS=$HOME/metavision_src/openeb-5.3.1/sdk/modules/ml/models   # adjust the version if yours differs
+
+cat > /tmp/ml.yaml <<YAML
 /**:
   ros__parameters:
-    model_path: <MODELS>/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
+    model_path: $MODELS/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
     gpu_id: 0
 YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \

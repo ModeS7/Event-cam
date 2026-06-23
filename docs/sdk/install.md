@@ -213,15 +213,19 @@ in a node-params YAML. `--ml` extracted the models into the SDK source tree, so
 — list them with `find ~/metavision_src -name '*.ptjit'`. See
 [pipelines.md](pipelines.md) for the full ML param set and each pipeline's model path.
 ```bash
-cat > /tmp/ml.yaml <<'YAML'
+MODELS=$HOME/metavision_src/openeb-5.3.1/sdk/modules/ml/models   # adjust the version if yours differs
+
+cat > /tmp/ml.yaml <<YAML
 /**:
   ros__parameters:
-    model_path: <MODELS>/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
+    model_path: $MODELS/classification/convRNN_chifoumi/rnn_model_classifier.ptjit
     gpu_id: 0
 YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
     params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
 ```
+(The heredoc is unquoted — `<<YAML` — so `$MODELS` expands into the file. Don't
+leave a literal `<MODELS>` in `model_path` or the model load fails.)
 
 ## cv3d tier (geometric pipelines)
 
