@@ -224,7 +224,7 @@ protected:
       width, height, net_w_, net_h_, warmup_s);
 
     // Start the inference thread now that the model + slicer are ready.
-    infer_running_ = true;
+    infer_running_.store(true);
     infer_thread_ = std::thread([this]() { inferLoop(); });
   }
 
@@ -275,8 +275,8 @@ private:
       {
         std::unique_lock<std::mutex> lk(q_mtx_);
         q_cv_.wait(lk, [this]() { return !infer_running_ || !queued_.empty(); });
-        if (!infer_running_ && queued_.empty()) {
-          break;
+        if (!infer_running_) {
+          break;  // shutting down: abandon any backlog, don't drain (it is slow)
         }
         std::swap(queued_, batch);
       }
@@ -304,6 +304,9 @@ private:
   // Inference thread: run inference at a window boundary, then reset the cube.
   void runWindow(Metavision::timestamp ts)
   {
+    if (!infer_running_.load()) {
+      return;  // shutting down: skip the (slow) inference so the stop is prompt
+    }
     const auto t0 = std::chrono::steady_clock::now();
     model_->infer(model_input_, model_output_);
     const auto t1 = std::chrono::steady_clock::now();
@@ -330,10 +333,10 @@ private:
   {
     {
       std::lock_guard<std::mutex> lk(q_mtx_);
-      if (!infer_running_) {
+      if (!infer_running_.load()) {
         return;
       }
-      infer_running_ = false;
+      infer_running_.store(false);
     }
     q_cv_.notify_all();
     if (infer_thread_.joinable()) {
@@ -364,7 +367,7 @@ private:
   std::mutex q_mtx_;
   std::condition_variable q_cv_;
   std::vector<EventCD> queued_;  // guarded by q_mtx_
-  bool infer_running_{false};
+  std::atomic<bool> infer_running_{false};
   std::thread infer_thread_;
 
   double preprocess_ms_{0.0};  // preprocess time accumulated per window (debug_timing)
