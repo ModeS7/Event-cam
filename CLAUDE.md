@@ -516,6 +516,26 @@ Next (user-ordered):
       pose; active markers: need a marker board; stereo: a 2nd camera. Documented as
       the gated tier in pipelines.md + install.md (cv3d build steps). Memory
       `cv3d-tier`.
+- [x] **SDK-pipeline Ctrl+C shutdown fix (2026-06-23).** Every `evk4_sdk_advanced`
+      pipeline (model-free AND ML) hung ~15 s on Ctrl+C then needed SIGKILL
+      (camera-wedge risk). ROOT CAUSE: the Metavision Pro SDK (linked by every
+      pipeline; NOT by the OpenEB driver, which shuts down fine) installs its own
+      signal handler that swallows SIGINT, so rclcpp's `spin()` never returns. FIX
+      in the shared base `EventVisionNode` (so all pipelines inherit it): a watcher
+      thread `pthread_sigmask`-unblocks SIGINT/SIGTERM, re-arms OUR `std::signal`
+      handler (every 100 ms + again after each `processEvents`, since the SDK
+      reinstalls its own), and on signal calls `rclcpp::shutdown()` to wake the
+      executor. Second fix in `MlVisionNode`: on shutdown abort the inference thread
+      IMMEDIATELY (atomic `infer_running_` checked in `inferLoop`/`runWindow`)
+      instead of draining the slow detector backlog -> detection stop 13 s -> 1 s.
+      VALIDATED on the lab PC: optical_flow + detection both exit CLEAN in 1 s on a
+      real (process-group) Ctrl+C, with onInit run + algorithm active (via the
+      sample bag, since rapid restart cycling had wedged the live camera with the
+      transient "received frame doesn't match its advertised size" re-open glitch
+      -- a REPLUG clears it, it is NOT the kill -9 wedge). TEST-METHOD LESSON: a
+      terminal Ctrl+C is a PROCESS-GROUP SIGINT that reaches the node directly;
+      `kill -INT <launch-pid>` does NOT replicate it and falsely reads as "hung" --
+      signal the group (`kill -INT -<pgid>`). Memory `sdk-pipeline-sigint-shutdown`.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
