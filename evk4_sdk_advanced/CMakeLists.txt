@@ -26,6 +26,31 @@ find_package(OpenCV REQUIRED)
 #
 # This package is OPTIONAL: when the SDK (with the needed modules) is not found
 # we skip it so a normal `colcon build` without SDK Pro still succeeds.
+#
+# The MetavisionSDK `stream` module -- pulled in transitively by cv/analytics (and
+# by ml and cv3d below) -- does find_package(hdf5_ecf). A no-install SDK build (the
+# one we use) never exports a hdf5_ecfConfig.cmake (only an install-relative targets
+# fragment), so find_package(hdf5_ecf) fails and EVERY MetavisionSDK find here would
+# come up empty -> the whole package would skip. Synthesize a config pointing the
+# imported target at the built codec .so (derived from MetavisionSDK_DIR =
+# <build>/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir). This MUST run
+# before the find below and regardless of Torch (it is needed on a non-ML box too).
+if(MetavisionSDK_DIR AND NOT hdf5_ecf_DIR)
+  get_filename_component(_sdk_build "${MetavisionSDK_DIR}/../../../.." ABSOLUTE)
+  set(_ecf_so "${_sdk_build}/lib/libhdf5_ecf_codec.so")
+  if(EXISTS "${_ecf_so}")
+    set(_shim_dir "${CMAKE_CURRENT_BINARY_DIR}/hdf5_ecf_shim")
+    file(WRITE "${_shim_dir}/hdf5_ecf-config.cmake"
+"if(NOT TARGET hdf5_ecf_codec)
+  add_library(hdf5_ecf_codec SHARED IMPORTED)
+  set_target_properties(hdf5_ecf_codec PROPERTIES IMPORTED_LOCATION \"${_ecf_so}\")
+endif()
+set(hdf5_ecf_FOUND TRUE)
+")
+    set(hdf5_ecf_DIR "${_shim_dir}")
+  endif()
+endif()
+
 find_package(MetavisionSDK QUIET COMPONENTS base core cv analytics)
 if(NOT MetavisionSDK_FOUND)
   message(WARNING
@@ -104,26 +129,8 @@ ament_target_dependencies(undistortion_component camera_calibration_parsers)
 # ML pipelines are simply skipped there. Pass -DTorch_DIR=<libtorch>/share/cmake/Torch
 # to enable.
 find_package(Torch QUIET)
-# The ml module pulls in `stream` -> hdf5_ecf. A no-install SDK build (the one we
-# use) never exports a hdf5_ecfConfig.cmake -- only an install-relative targets
-# fragment -- so find_package(hdf5_ecf) fails. Synthesize a config pointing the
-# imported target straight at the built codec .so (derived from MetavisionSDK_DIR =
-# <build>/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir).
-if(Torch_FOUND AND MetavisionSDK_DIR AND NOT hdf5_ecf_DIR)
-  get_filename_component(_sdk_build "${MetavisionSDK_DIR}/../../../.." ABSOLUTE)
-  set(_ecf_so "${_sdk_build}/lib/libhdf5_ecf_codec.so")
-  if(EXISTS "${_ecf_so}")
-    set(_shim_dir "${CMAKE_CURRENT_BINARY_DIR}/hdf5_ecf_shim")
-    file(WRITE "${_shim_dir}/hdf5_ecf-config.cmake"
-"if(NOT TARGET hdf5_ecf_codec)
-  add_library(hdf5_ecf_codec SHARED IMPORTED)
-  set_target_properties(hdf5_ecf_codec PROPERTIES IMPORTED_LOCATION \"${_ecf_so}\")
-endif()
-set(hdf5_ecf_FOUND TRUE)
-")
-    set(hdf5_ecf_DIR "${_shim_dir}")
-  endif()
-endif()
+# (the hdf5_ecf shim that the ml/stream modules need is set up near the top, before
+# the base/core/cv/analytics find, so it applies on non-ML boxes too)
 find_package(MetavisionSDK QUIET COMPONENTS ml)
 if(Torch_FOUND AND TARGET MetavisionSDK::ml)
   message(STATUS "evk4_sdk_advanced: ML tier ENABLED (Torch + SDK ml module found)")
