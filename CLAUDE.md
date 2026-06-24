@@ -584,11 +584,14 @@ Next (user-ordered):
       is MOOT: the EVK4 8mm lens is near distortion-free, so raw and rect look
       identical (calibration.md). Only OPTIONAL extra tuning-demo GIFs (ERC,
       display_type A/Bs) remain — polish for a future capture session.
-- [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
-      stopgap; an accepted PR retires it). Needs a fork of
-      `ros-event-camera/event_camera_renderer` (a GitHub-account action by the
-      maintainer); the change is the 9-line drop-newest cap in
-      `setup/patches/event_camera_renderer-backlog-cap.patch`.
+- [~] Upstream PR for the renderer backlog cap — SUBMITTED 2026-06-24 to
+      `ros-event-camera/event_camera_renderer` (from fork ModeS7, branch
+      `max-frame-queue-param`). Implemented as a `max_frame_queue` ROS param
+      (default 1000, non-breaking) instead of the hardcoded-3 local patch — more
+      mergeable and still retires our patch. **When merged:** delete
+      `setup/patches/event_camera_renderer-backlog-cap.patch` + its
+      `install_deps.sh` apply step, and instead set `max_frame_queue` low (~3) on
+      the renderer in `evk4.launch.py`. Until then the local patch stays.
 - Fast-motion moving-edge trail tuning — OUT OF SCOPE (decision 2026-06-24):
       this is DOWNSTREAM fine-tuning, not ours. The repo is a foundation; it
       exposes the levers (`trail_filter_threshold`, `bias_refr`, `bias_fo` as live
