@@ -237,17 +237,41 @@ protected:
     }
     {
       std::lock_guard<std::mutex> lk(q_mtx_);
-      queued_.insert(queued_.end(), events.begin(), events.end());
-      // Bound the backlog so a slow inference thread processes RECENT events
-      // (fresh results) instead of an ever-growing tail: keep at most a few
-      // windows of event-time, dropping the oldest under sustained overload.
-      const Metavision::timestamp span = kMaxQueueWindows * delta_t_us_;
-      const Metavision::timestamp cutoff = queued_.back().t - span;
-      if (queued_.front().t < cutoff) {
-        auto it = std::lower_bound(
-          queued_.begin(), queued_.end(), cutoff,
-          [](const EventCD & e, Metavision::timestamp c) { return e.t < c; });
-        queued_.erase(queued_.begin(), it);
+      // Keep the inference stream strictly non-decreasing in time. The slicer and
+      // the event-cube preprocessor ASSERT on a backward timestamp, and the
+      // time-based trim below assumes a sorted queue -- so the few out-of-order
+      // events the live sensor can deliver at buffer boundaries would otherwise
+      // crash the cube processor AND defeat the trim (the queue then never
+      // shrinks -> unbounded growth -> RAM+swap exhaustion -> hard freeze). Drop
+      // anything older than the newest event admitted so far; events within one
+      // packet are already sorted, so skip the stale leading ones and bulk-append
+      // the rest.
+      const EventCD * b = events.data();
+      const EventCD * e = b + events.size();
+      while (b < e && b->t < lastEventT_) {
+        ++b;
+      }
+      if (b < e) {
+        queued_.insert(queued_.end(), b, e);
+        lastEventT_ = e[-1].t;
+      }
+      // Hard SIZE cap (independent of timestamps): a backstop so the backlog can
+      // never exhaust memory even if the time-based trim is ever defeated again.
+      if (queued_.size() > kMaxQueuedEvents) {
+        queued_.erase(
+          queued_.begin(), queued_.end() - static_cast<std::ptrdiff_t>(kMaxQueuedEvents));
+      }
+      // Bound the backlog by event-time so a slow inference thread processes
+      // RECENT events (fresh results) instead of an ever-growing tail.
+      if (!queued_.empty()) {
+        const Metavision::timestamp span = kMaxQueueWindows * delta_t_us_;
+        const Metavision::timestamp cutoff = queued_.back().t - span;
+        if (queued_.front().t < cutoff) {
+          auto it = std::lower_bound(
+            queued_.begin(), queued_.end(), cutoff,
+            [](const EventCD & ev, Metavision::timestamp c) { return ev.t < c; });
+          queued_.erase(queued_.begin(), it);
+        }
       }
     }
     q_cv_.notify_one();
@@ -364,9 +388,11 @@ private:
 
   // Subscription thread -> inference thread event hand-off.
   static constexpr Metavision::timestamp kMaxQueueWindows = 4;
+  static constexpr size_t kMaxQueuedEvents = 4'000'000;  // ~64 MB hard memory backstop
   std::mutex q_mtx_;
   std::condition_variable q_cv_;
   std::vector<EventCD> queued_;  // guarded by q_mtx_
+  Metavision::timestamp lastEventT_{0};  // newest event time admitted (monotonic guard)
   std::atomic<bool> infer_running_{false};
   std::thread infer_thread_;
 
