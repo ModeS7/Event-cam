@@ -186,10 +186,10 @@ automatically.
 1. **Build the SDK with Torch.** Re-run the source build above with a CUDA
    LibTorch: install an NVIDIA driver + CUDA toolkit (e.g. `cuda-toolkit-12-6`),
    download and unzip CUDA LibTorch (e.g. `cu126`, version matching the SDK's —
-   2.9.1), then configure with `-DUSE_TORCH=ON
+   2.7.1), then configure with `-DUSE_TORCH=ON
    -DTorch_DIR=<libtorch>/share/cmake/Torch/` (add `-DCOMPILE_PYTHON3_BINDINGS=ON`
    for the Python samples). Built and run on a 2× RTX 2080 Ti box (Ubuntu 24.04,
-   CUDA 12.6, LibTorch 2.9.1) — but this tier is **experimental, not a validated
+   CUDA 12.6, LibTorch 2.7.1) — but this tier is **experimental, not a validated
    feature** (see [pipelines.md](pipelines.md#ml-inference-pipelines-gpu)).
 2. **Get the pretrained models.** Download `metavision_sdk_ml_models_<ver>.tar.gz`
    from the JFrog `metavision-sdk-5-archives-nc/main/sources` folder and extract

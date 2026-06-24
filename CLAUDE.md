@@ -545,6 +545,20 @@ Next (user-ordered):
       as provided AS-IS; the model-free + cv3d tiers remain the validated/supported
       set. Relabeled in docs/sdk/README.md + pipelines.md. Stop chasing ML
       validation until there is a stable CUDA machine.
+- [x] **ML tier RE-VERIFIED on the lab PC (2026-06-24) -- reverses the above.**
+      Rebuilt the full ML stack (ROS + repo + 3rd_party_ws + SDK Pro source build +
+      `evk4_sdk_advanced`) and the `detection` pipeline RUNS: camera opens, model
+      loads, `detection_image` publishes ~28 fps. So ML is VALIDATED (builds / runs /
+      GPU inference). **CRITICAL DOC FIX: LibTorch is 2.7.1 cu126, NOT 2.9.1** -- no
+      2.9.x libtorch exists on any PyTorch CUDA variant (my "2.9.1" was wrong +
+      unbuildable; 2.7.1 builds and the model loads). `install_sdk.sh --ml` wants
+      `TORCH_DIR=<libtorch>/share/cmake/Torch` (the cmake subdir). The "ML pipeline
+      fails" was the camera dropping to 0 msgs/s under load = **ASPM on the chipset USB
+      controller (0000:01:00.0)**; A/B-confirmed LIVE (ASPM on -> drop; off -> stable;
+      `setpci -s 01:00.0 CAP_EXP+0x10.b=0:3`). detection not boxing an indoor person is
+      the automotive model's domain, not a bug. Memory `lab-pc-ml-verified`. TODO:
+      reverse the "experimental/not validated" wording in docs/sdk/README.md +
+      pipelines.md + install.md; fix the 2.9.1 -> 2.7.1 version there; driving-clip demo.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
