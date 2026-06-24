@@ -51,12 +51,28 @@ set(hdf5_ecf_FOUND TRUE)
   endif()
 endif()
 
+# ON makes a missing SDK a hard FATAL_ERROR instead of a quiet skip -- so a build
+# that CLEARLY meant to include the SDK tier (e.g. install_sdk.sh, which passes this)
+# cannot silently "succeed" having produced zero pipelines. A plain `colcon build`
+# without SDK Pro leaves it OFF and skips quietly, as before.
+option(EVK4_REQUIRE_SDK "Fail (do not skip) if the Metavision SDK Pro is not found" OFF)
+
 find_package(MetavisionSDK QUIET COMPONENTS base core cv analytics)
 if(NOT MetavisionSDK_FOUND)
+  # Diagnose the most common cause: openeb_vendor (the OPEN edition -- base/core/stream
+  # only) on CMAKE_PREFIX_PATH shadows SDK Pro, so cv/analytics come up missing.
+  find_package(MetavisionSDK QUIET COMPONENTS base core)
+  if(MetavisionSDK_FOUND)
+    set(_why "a MetavisionSDK was found at '${MetavisionSDK_DIR}' but it lacks cv/analytics -- that is the OPEN edition (openeb_vendor) shadowing SDK Pro; pass -DMetavisionSDK_DIR=<sdk_build>/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir to point at your SDK Pro build")
+  else()
+    set(_why "no Metavision SDK found at all; install SDK Pro and pass -DMetavisionSDK_DIR=... (see docs/sdk/)")
+  endif()
+  if(EVK4_REQUIRE_SDK)
+    message(FATAL_ERROR
+      "evk4_sdk_advanced: SDK Pro (base/core/cv/analytics) was required (EVK4_REQUIRE_SDK=ON) but not found -- ${_why}.")
+  endif()
   message(WARNING
-    "evk4_sdk_advanced: Metavision SDK (base/core/cv/analytics) not found -- "
-    "skipping this optional package. To build it, install SDK Pro and pass "
-    "-DMetavisionSDK_DIR=<prefix>/lib/cmake/MetavisionSDK (see docs/sdk/).")
+    "evk4_sdk_advanced: Metavision SDK Pro (base/core/cv/analytics) not found, skipping this optional package -- ${_why}.")
   ament_package()
   return()
 endif()

@@ -168,12 +168,23 @@ cd "$OVERLAY_WS"
 pkg_args=(
   -DMetavisionSDK_DIR="$SDK_SRC/build/generated/share/cmake/MetavisionSDKCMakePackagesFilesDir"
   -DSophus_DIR="$SOPHUS_DIR"
+  # We are deliberately building the SDK tier here: make a not-found SDK a HARD
+  # error rather than a silent skip that "succeeds" with zero pipelines.
+  -DEVK4_REQUIRE_SDK=ON
 )
 if [ "$MODE" = full ]; then
   export LD_LIBRARY_PATH="$(dirname "$(dirname "$(dirname "$TORCH_DIR")")")/lib:${LD_LIBRARY_PATH:-}"
   pkg_args+=( -DTorch_DIR="$TORCH_DIR" )
 fi
 colcon build --packages-select evk4_sdk_advanced --cmake-args "${pkg_args[@]}"
+
+# Belt-and-suspenders: confirm the build actually produced the pipeline
+# executables (EVK4_REQUIRE_SDK should already have failed the build otherwise).
+if [ ! -x "$OVERLAY_WS/install/evk4_sdk_advanced/lib/evk4_sdk_advanced/optical_flow" ]; then
+  echo "ERROR: evk4_sdk_advanced built but produced no pipeline executables --" >&2
+  echo "       the Metavision SDK was not found (see the cmake output above)." >&2
+  exit 1
+fi
 
 echo
 echo "Done ($MODE tier). Open a new terminal (or 'source $OVERLAY_WS/install/setup.bash'), then:"
