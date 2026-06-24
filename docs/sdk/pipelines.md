@@ -412,12 +412,12 @@ needs no GPU. **Validated on the lab PC** — edgelets lock onto moving edges.
 
 ## ML inference pipelines (GPU)
 
-> **Status: optional and experimental — NOT validated.** This tier needs x86 + a
-> CUDA GPU *and* a stable machine to exercise, which there currently is not, so it
-> is provided **as-is** and is not part of the supported set. The pipelines build
-> and run (gesture has been seen working), but treat them as a starting point, not
-> a guaranteed feature. The **model-free and cv3d tiers are the validated, supported
-> pipelines.**
+> **Status: optional — validated on x86 + NVIDIA GPU.** This tier needs x86 + a
+> CUDA GPU. All three pipelines are validated end-to-end (the model loads, runs
+> GPU inference, and produces correct output): `gesture` and `flow_inference` run
+> live on any motion, and `detection` draws correct boxes on real driving events
+> (it is an automotive model — see the note below). It needs CUDA, so it does not
+> run on the Pi; the model-free and cv3d tiers are the cross-platform set.
 
 Three neural-network pipelines run the SDK's pretrained models on the event
 stream. Unlike the model-free pipelines above they need **LibTorch + the SDK `ml`
@@ -439,6 +439,7 @@ Each takes these node params via `node_params_file`:
 | `model_path` | (required) | Path to the model `.ptjit` file |
 | `gpu_id` | `0` | GPU index; `-1` runs on CPU |
 | `delta_t_us` | `50000` | Inference window (µs) — one model run per window |
+| `confidence_threshold` | `0.4` | **`detection` only** — minimum score to keep a box. Keep `0.4` for live; lowering it (e.g. `0.1`) on a sparse scene floods the frame with false `car` anchor boxes |
 
 **Where the models live.** `install_sdk.sh --ml` extracts the pretrained models
 into the SDK source tree, so `<MODELS>` below is
@@ -474,20 +475,19 @@ YAML
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=gesture \
     params_file:=$HOME/my_params.yaml node_params_file:=/tmp/ml.yaml
 ```
-publishing `/event_camera/<pipeline>_image`. (Ran on an x86 GPU box with
-GPU-resident inference, but per the status note above this tier is experimental
-and not a validated feature.)
+publishing `/event_camera/<pipeline>_image`. (Validated on an x86 + NVIDIA GPU box
+with GPU-resident inference — see the status note above.)
 
-> **Too many events crash the ML pipelines.** Fed a high event rate — a busy,
-> bright, or full-frame scene — the ML node aborts mid-stream with a
-> `histo_processor ... Assertion 'ev.t >= cur_frame_start_ts' failed`
-> (`SIGABRT`; the node logs `process has died ... exit code -6`). The SDK's ML
-> preprocessor cannot keep up and rejects the overwhelming stream. **Keep the
-> event rate down:** lower `erc_rate` to a few Mev/s (well under the 10 Mev/s
-> recommended default — see [tuning.md](../tuning.md)), use a plainer
-> background, and get close so the subject fills the frame instead of flooding it
-> with background events. The model-free pipelines tolerate high rates; only this
-> ML tier aborts.
+> **A high event rate degrades the ML pipelines, but no longer crashes them.**
+> The inference queue is bounded — it keeps the event stream monotonic and caps its
+> size — so an overwhelming stream (a busy, bright, or full-frame scene, or a
+> flickering screen) drops the oldest events to stay within memory and keep results
+> fresh, instead of aborting or exhausting RAM. (Earlier builds crashed here with
+> `Assertion 'ev.t >= cur_frame_start_ts'` / `SIGABRT`, and a sustained flood could
+> grow memory until the machine froze; both are fixed.) For clean results still
+> **keep the event rate down:** lower `erc_rate` to a few Mev/s (under the 10 Mev/s
+> default — see [tuning.md](../tuning.md)), use a plainer background, and get close
+> so the subject fills the frame instead of flooding it with background events.
 
 Notes: `detection` is an **automotive** model — its only classes are
 **`pedestrian` and `car`**, trained on real event-camera footage of moving
@@ -499,6 +499,37 @@ automotive footage; a desk scene yields nothing. It is also inference-heavy at f
 sensor resolution (a lower model input resolution would speed it up). `gesture` and
 `flow_inference` run live on any motion — **`gesture`** (hand rock/paper/scissors,
 up close) is the quickest way to confirm the ML tier works at all.
+
+### Replay a recording instead of the live camera (`file:=`)
+
+The driver can read a recorded `.raw` (EVT3) file in place of the camera — pass
+`file:=<path>` to any pipeline launch (it works for every pipeline and the base
+renderer, so it doubles as a no-camera way to try any of them). This is the easiest
+way to see `detection` actually box things, since its automotive model needs real
+road traffic. Download a Prophesee sample driving clip (EVT3, CC0) and run
+detection on it:
+
+```bash
+curl -sL -o /tmp/driving_sample.raw \
+  "https://kdrive.infomaniak.com/2/app/975517/share/ff4ffb88-bbb0-4a09-8a1f-7f81860058ab/files/166/download"
+
+MODELS=$HOME/metavision_src/openeb-5.3.1/sdk/modules/ml/models   # adjust the version
+cat > /tmp/det.yaml <<YAML
+/**:
+  ros__parameters:
+    model_path: $MODELS/detection/red_event_cube_05_2020/model.ptjit
+    gpu_id: 0
+YAML
+ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=detection \
+    file:=/tmp/driving_sample.raw node_params_file:=/tmp/det.yaml
+ros2 run rqt_image_view rqt_image_view /event_camera/detection_image
+```
+
+The clip streams at its recorded rate, plays once (~12 s), then goes quiet —
+Ctrl+C and re-launch to replay. `file:=` takes precedence over the live camera, so
+no camera needs to be plugged in. (More sample recordings, including pedestrian and
+traffic scenes, are on the [Prophesee datasets page](https://docs.prophesee.ai/stable/datasets.html);
+the driver currently assumes **EVT3** files.)
 
 ---
 

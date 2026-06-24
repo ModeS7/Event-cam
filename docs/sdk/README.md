@@ -86,11 +86,11 @@ run anywhere. Two more tiers launch the same way but need an extra SDK build
 
 - **`edgelet`** (cv3d tier) — 2D edge-segment tracking; needs the SDK rebuilt with
   `-DUSE_SOPHUS=ON` (no GPU).
-- **`gesture`, `detection`, `flow_inference`** (ML/GPU tier — **optional and
-  experimental, NOT validated**) — pretrained neural nets; need LibTorch + the SDK
-  `ml` module + a GPU (x86). Provided **as-is**: they build and run (gesture has
-  been seen working), but there is no stable CUDA machine to validate them on, so
-  the **model-free and cv3d tiers are the validated, supported set**.
+- **`gesture`, `detection`, `flow_inference`** (ML/GPU tier — **optional**) —
+  pretrained neural nets; need LibTorch + the SDK `ml` module + an NVIDIA GPU
+  (x86). All three are **validated** end-to-end on an x86 + GPU machine (model
+  loads, GPU inference, correct output). They need CUDA, so they do **not** run on
+  the Pi — the model-free and cv3d tiers are the cross-platform set.
 
 `edgelet` runs exactly like the table above (`pipeline:=edgelet`, topic
 `/event_camera/edgelet_image`). The three **ML pipelines** additionally need a
@@ -118,9 +118,12 @@ ros2 run rqt_image_view rqt_image_view /event_camera/gesture_image
 
 Full ML param set + the other two models: [pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
 
-**A high event rate crashes the ML pipelines** (the SDK preprocessor aborts,
-`SIGABRT`). Keep the rate down — low `erc_rate`, plainer background, subject
-close and filling the frame — see [pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
+**A high event rate degrades the ML pipelines but no longer crashes them** — the
+inference queue is now bounded, so an overwhelming stream drops the oldest events
+to stay within memory and keep results fresh instead of aborting or freezing the
+machine. For clean output keep the rate down — low `erc_rate`, plainer background,
+subject close and filling the frame — see
+[pipelines.md](pipelines.md#ml-inference-pipelines-gpu).
 
 ## Platform note
 
@@ -137,8 +140,8 @@ see [extending.md](extending.md).
 
 The model-free and cv3d pipelines are validated on a **Raspberry Pi 5** (ARM
 source build) and an x86 box; **Jetson is untested** (same aarch64). The
-**ML/GPU tier is experimental, not validated** (see
-[pipelines.md](pipelines.md#ml-inference-pipelines-gpu)), and needs CUDA — so it
+**ML/GPU tier is validated on an x86 + NVIDIA GPU machine** (see
+[pipelines.md](pipelines.md#ml-inference-pipelines-gpu)); it needs CUDA — so it
 does not run on the Pi. The `edgelet` pipeline is the **cv3d tier** — it
 needs the SDK rebuilt with `-DUSE_SOPHUS=ON` ([install.md](install.md)) but no
 GPU. The remaining 3D apps (ArUco, model-3D, active markers, stereo) stay gated on
