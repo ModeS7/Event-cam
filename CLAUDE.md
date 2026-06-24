@@ -579,12 +579,21 @@ Next (user-ordered):
       via setpci AND installed a persistent boot service (`disable-pcie-aspm.service`,
       user-authorized) so it survives reboots. The box froze once mid-session (NVMe ASPM
       still on then) -> power-cycle recovered. See `lab-pc-nvme-freeze`.
-- [ ] Docs media pass — GIFs of the tuning experiments + rectified view
-      (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
+- [x] Docs media — `tuned_stream_demo.gif` is 4.6 MB (the old "18 MB, re-shrink"
+      note was stale; done) and `calibration_demo.gif` is in. A rectified-view GIF
+      is MOOT: the EVK4 8mm lens is near distortion-free, so raw and rect look
+      identical (calibration.md). Only OPTIONAL extra tuning-demo GIFs (ERC,
+      display_type A/Bs) remain — polish for a future capture session.
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
-      stopgap; an accepted PR retires it).
-- [ ] OPEN: fast-motion moving-edge trail — sensor-side (persists at 1000 fps);
-      levers to try are trail_filter_threshold down, bias_refr up, bias_fo.
+      stopgap; an accepted PR retires it). Needs a fork of
+      `ros-event-camera/event_camera_renderer` (a GitHub-account action by the
+      maintainer); the change is the 9-line drop-newest cap in
+      `setup/patches/event_camera_renderer-backlog-cap.patch`.
+- Fast-motion moving-edge trail tuning — OUT OF SCOPE (decision 2026-06-24):
+      this is DOWNSTREAM fine-tuning, not ours. The repo is a foundation; it
+      exposes the levers (`trail_filter_threshold`, `bias_refr`, `bias_fo` as live
+      params) + sane defaults, and whoever builds on it tunes for their specific
+      fast-motion app. See `project-is-student-starting-point`.
 
 ## Conventions
 
