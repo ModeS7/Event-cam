@@ -73,7 +73,7 @@ OVERLAY_WS="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # chains its underlays, so once it is built a new terminal gets the WHOLE
 # stack and `ros2 launch evk4_*` works immediately.
 add_source() {
-  local line="[ -f $1/install/setup.bash ] && source $1/install/setup.bash"
+  local line="[ -f \"$1/install/setup.bash\" ] && source \"$1/install/setup.bash\""
   if ! grep -Fxq "$line" "$HOME/.bashrc"; then
     echo "$line" >> "$HOME/.bashrc"
     echo "  added to ~/.bashrc: $1"

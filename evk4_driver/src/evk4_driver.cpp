@@ -112,11 +112,6 @@ void EVK4Driver::startCamera()
   paramCbHandle_ = this->add_on_set_parameters_callback(
     std::bind(&EVK4Driver::onSetParameters, this, _1));
 
-  // Optional worker thread for multithreaded capture.
-  if (useMultithreading_) {
-    workerThread_ = std::thread(&EVK4Driver::processingThread, this);
-  }
-
   // Raw EVT3 bytes straight from the sensor -> EventPacket (zero decode).
   // Single-threaded: pack+publish inline. Multithreaded: enqueue fast and let
   // the worker pack+publish, so this SDK callback never blocks on ROS.
@@ -128,6 +123,14 @@ void EVK4Driver::startCamera()
         {
           std::lock_guard<std::mutex> lock(queueMutex_);
           queue_.push_front(RawChunk{std::vector<uint8_t>(data, data + size), t});
+          queuedBytes_ += size;
+          // Bound memory under sustained overload: drop the OLDEST chunks rather
+          // than grow without limit (keep at least the chunk just enqueued).
+          while (queuedBytes_ > kMaxQueueBytes && queue_.size() > 1) {
+            queuedBytes_ -= queue_.back().data.size();
+            queue_.pop_back();
+            totalDropped_.fetch_add(1, std::memory_order_relaxed);
+          }
         }
         queueCv_.notify_one();
       } else {
@@ -167,6 +170,14 @@ void EVK4Driver::startCamera()
     this->get_logger(),
     "camera started, publishing evt3 EventPackets on ~/events"
       << (useMultithreading_ ? " (multithreaded)" : ""));
+
+  // Start the capture worker LAST, after cam_.start() has succeeded -- nothing
+  // after this point can throw, so no joinable std::thread can survive a
+  // constructor exception (which would call std::terminate instead of the
+  // catchable error the standalone node / component loader expects).
+  if (useMultithreading_) {
+    workerThread_ = std::thread(&EVK4Driver::processingThread, this);
+  }
 }
 
 void EVK4Driver::loadSettings()
@@ -581,6 +592,7 @@ void EVK4Driver::processingThread()
       }
       chunk = std::move(queue_.back());
       queue_.pop_back();
+      queuedBytes_ -= chunk.data.size();
     }
     rawDataCallback(chunk.data.data(), chunk.data.data() + chunk.data.size(), chunk.t);
   }
@@ -593,6 +605,7 @@ void EVK4Driver::printStats()
   const size_t bytes = statBytes_.exchange(0, std::memory_order_relaxed);
   const size_t errs = statErrors_.exchange(0, std::memory_order_relaxed);
   const uint64_t totErrs = totalErrors_.load(std::memory_order_relaxed);
+  const uint64_t totDropped = totalDropped_.load(std::memory_order_relaxed);
   size_t q = 0;
   if (useMultithreading_) {
     std::lock_guard<std::mutex> lock(queueMutex_);
@@ -603,7 +616,8 @@ void EVK4Driver::printStats()
     static_cast<long>(msgs / dt) << " msgs/s, " << (bytes / dt) / 1e6 << " MB/s"
       << (useMultithreading_ ? " (queue " + std::to_string(q) + ")" : "")
       << (totErrs ? " | errors: " + std::to_string(errs) + "/interval, " +
-            std::to_string(totErrs) + " total" : ""));
+            std::to_string(totErrs) + " total" : "")
+      << (totDropped ? " | dropped: " + std::to_string(totDropped) : ""));
 }
 
 }  // namespace evk4_driver

@@ -73,7 +73,14 @@ protected:
     }
   }
 
-  void swapResults() override { std::swap(staged_map_, work_map_); }
+  // Non-destructive: keep the last good map in work_map_ so a no-event interval
+  // (empty staged_map_) does not blank the output and stop publishing.
+  void swapResults() override
+  {
+    if (!staged_map_.empty()) {
+      work_map_ = staged_map_;
+    }
+  }
 
   // Render the heat map (full frame + colorbar; no event image).
   bool renderFrame(

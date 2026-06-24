@@ -98,6 +98,10 @@ private:
   struct RawChunk { std::vector<uint8_t> data; uint64_t t; };
   bool useMultithreading_{true};
   std::deque<RawChunk> queue_;
+  size_t queuedBytes_{0};                          // bytes in queue_ (under queueMutex_)
+  // Drop-oldest backstop so a consumer slower than the sensor cannot grow the
+  // queue without bound (best-effort QoS already permits event loss).
+  static constexpr size_t kMaxQueueBytes = 256 * 1024 * 1024;  // ~256 MB
   std::mutex queueMutex_;
   std::condition_variable queueCv_;
   std::thread workerThread_;
@@ -111,6 +115,7 @@ private:
   // Camera runtime/USB errors surfaced by the SDK: per-interval + cumulative.
   std::atomic<size_t> statErrors_{0};
   std::atomic<uint64_t> totalErrors_{0};
+  std::atomic<uint64_t> totalDropped_{0};          // raw chunks dropped on queue overflow
 };
 }  // namespace evk4_driver
 

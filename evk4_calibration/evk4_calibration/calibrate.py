@@ -219,64 +219,72 @@ class Calibrator(Node):
                 time.sleep(0.005)
                 continue
             seen = self._frame_seq
-            frame, header = self._latest
-            t0 = time.perf_counter()
-            tl = {'blobs': -1, 'blob': 0.0, 'grid': 0.0, 'refine': 0.0,
-                  'publish': 0.0}
-            contrast = self._event_contrast(frame)
-            found, centers = False, None
-            if cv2.mean(contrast)[0] > 0.5:   # any real activity?
-                gray = cv2.GaussianBlur(contrast, (9, 9), 0)
-                small = cv2.resize(gray, None, fx=0.5, fy=0.5,
-                                   interpolation=cv2.INTER_AREA)
-                t1 = time.perf_counter()
-                blobs = self._blob.detect(small)
-                tl['blob'] = time.perf_counter() - t1
-                tl['blobs'] = len(blobs)
-                # Clutter guard: a frame with far more (or fewer) blobs
-                # than dots cannot yield a clean grid, and search cost
-                # explodes.
-                if n_dots // 2 <= len(blobs) <= 4 * n_dots:
+            # Guard the per-frame work: a single bad frame (a malformed image, an
+            # OpenCV error) must not silently kill the worker thread and leave the
+            # node spinning forever without ever analyzing or finishing.
+            try:
+                frame, header = self._latest
+                t0 = time.perf_counter()
+                tl = {'blobs': -1, 'blob': 0.0, 'grid': 0.0, 'refine': 0.0,
+                      'publish': 0.0}
+                contrast = self._event_contrast(frame)
+                found, centers = False, None
+                if cv2.mean(contrast)[0] > 0.5:   # any real activity?
+                    gray = cv2.GaussianBlur(contrast, (9, 9), 0)
+                    small = cv2.resize(gray, None, fx=0.5, fy=0.5,
+                                       interpolation=cv2.INTER_AREA)
                     t1 = time.perf_counter()
-                    found, centers_s = cv2.findCirclesGrid(
-                        small, self._grid, flags=flags,
-                        blobDetector=self._blob)
-                    tl['grid'] = time.perf_counter() - t1
-                    if found:
+                    blobs = self._blob.detect(small)
+                    tl['blob'] = time.perf_counter() - t1
+                    tl['blobs'] = len(blobs)
+                    # Clutter guard: a frame with far more (or fewer) blobs
+                    # than dots cannot yield a clean grid, and search cost
+                    # explodes.
+                    if n_dots // 2 <= len(blobs) <= 4 * n_dots:
                         t1 = time.perf_counter()
-                        centers = _refine_centers(gray, centers_s * 2.0)
-                        tl['refine'] = time.perf_counter() - t1
-            if found:
-                h, w = frame.shape[:2]
-                self._maybe_capture(
-                    _grid_params(centers, *self._grid, w, h), centers)
-            with self._det_lock:
-                self._det = (bool(found), centers if found else None)
-            # Frames where the grid WAS found are republished with markers,
-            # drawn on the exact frame that was analyzed (its plain twin
-            # already went out live from the subscription callback) — so
-            # markers always sit on the dots they were found in.
-            if found and self._pub.get_subscription_count() > 0:
-                t1 = time.perf_counter()
-                view = frame.copy()
-                cv2.drawChessboardCorners(
-                    view, self._grid, centers, True)
-                self._draw_overlay(view, True)
-                out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
-                out.header = header
-                self._pub.publish(out)
-                tl['publish'] = time.perf_counter() - t1
-            if self._debug_timing:
-                age = (self.get_clock().now().nanoseconds
-                       - header.stamp.sec * 10**9
-                       - header.stamp.nanosec) * 1e-9
-                self.get_logger().info(
-                    f'cycle {(time.perf_counter() - t0) * 1000:6.0f} ms | '
-                    f'blobs {tl["blobs"]:4d} | blob {tl["blob"] * 1000:5.0f} '
-                    f'grid {tl["grid"] * 1000:5.0f} '
-                    f'refine {tl["refine"] * 1000:4.0f} '
-                    f'publish {tl["publish"] * 1000:4.0f} ms | '
-                    f'frame age {age:5.2f} s')
+                        found, centers_s = cv2.findCirclesGrid(
+                            small, self._grid, flags=flags,
+                            blobDetector=self._blob)
+                        tl['grid'] = time.perf_counter() - t1
+                        if found:
+                            t1 = time.perf_counter()
+                            centers = _refine_centers(gray, centers_s * 2.0)
+                            tl['refine'] = time.perf_counter() - t1
+                if found:
+                    h, w = frame.shape[:2]
+                    self._maybe_capture(
+                        _grid_params(centers, *self._grid, w, h), centers)
+                with self._det_lock:
+                    self._det = (bool(found), centers if found else None)
+                # Frames where the grid WAS found are republished with markers,
+                # drawn on the exact frame that was analyzed (its plain twin
+                # already went out live from the subscription callback) — so
+                # markers always sit on the dots they were found in.
+                if found and self._pub.get_subscription_count() > 0:
+                    t1 = time.perf_counter()
+                    view = frame.copy()
+                    cv2.drawChessboardCorners(
+                        view, self._grid, centers, True)
+                    self._draw_overlay(view, True)
+                    out = self._bridge.cv2_to_imgmsg(view, 'bgr8')
+                    out.header = header
+                    self._pub.publish(out)
+                    tl['publish'] = time.perf_counter() - t1
+                if self._debug_timing:
+                    age = (self.get_clock().now().nanoseconds
+                           - header.stamp.sec * 10**9
+                           - header.stamp.nanosec) * 1e-9
+                    self.get_logger().info(
+                        f'cycle {(time.perf_counter() - t0) * 1000:6.0f} ms | '
+                        f'blobs {tl["blobs"]:4d} | blob {tl["blob"] * 1000:5.0f} '
+                        f'grid {tl["grid"] * 1000:5.0f} '
+                        f'refine {tl["refine"] * 1000:4.0f} '
+                        f'publish {tl["publish"] * 1000:4.0f} ms | '
+                        f'frame age {age:5.2f} s')
+            except Exception as exc:   # noqa: BLE001 - keep the worker alive
+                self.get_logger().error(f'detection cycle error: {exc}')
+                time.sleep(0.01)
+                continue
             if not self._done and self.ready():
                 self._done = True
                 self._finish()
@@ -295,8 +303,13 @@ class Calibrator(Node):
         self.get_logger().info(f'captured view {len(self._params)}')
 
     def stop(self):
+        # Join fully (no timeout) before the node is destroyed: the worker exits
+        # within one iteration once _running clears, and _finish() is bounded and
+        # exception-safe, so this returns promptly -- but never while the worker
+        # is still using the node (e.g. mid cv2.calibrateCamera), which would
+        # otherwise destroy the node under it.
         self._running = False
-        self._worker.join(timeout=2.0)
+        self._worker.join()
 
     # -------------------------------------------------------------- coverage
     def _coverage(self):
@@ -358,26 +371,35 @@ class Calibrator(Node):
 
     # ----------------------------------------------------------- calibration
     def _finish(self):
-        """Run OpenCV calibration, write the YAML, log the RMS, and exit."""
-        cols, rows = self._grid
-        # Asymmetric grid object points (OpenCV convention): row pitch =
-        # spacing, odd rows offset by spacing, columns 2*spacing apart.
-        objp = np.zeros((cols * rows, 3), np.float32)
-        for i in range(rows):
-            for j in range(cols):
-                objp[i * cols + j] = ((2 * j + i % 2) * self._spacing,
-                                      i * self._spacing, 0)
-        self.get_logger().info(
-            f'coverage complete — calibrating on {len(self._imgpoints)} views '
-            '(takes a moment)...')
-        # FIX_K3: with a narrow-FOV lens the 6th-order radial term is
-        # unconstrained by realistic coverage and overfits wildly.
-        rms, k, d, _, _ = cv2.calibrateCamera(
-            [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None,
-            flags=cv2.CALIB_FIX_K3)
-        self.get_logger().info(f'calibration RMS reprojection error: {rms:.3f} px')
-        self._write_yaml(k, d, rms)
-        rclpy.shutdown()
+        """Run OpenCV calibration, write the YAML, log the RMS, and exit.
+
+        Always shuts down at the end: if calibration or the YAML write fails,
+        report it and still end the session rather than leaving the node
+        spinning forever with no result.
+        """
+        try:
+            cols, rows = self._grid
+            # Asymmetric grid object points (OpenCV convention): row pitch =
+            # spacing, odd rows offset by spacing, columns 2*spacing apart.
+            objp = np.zeros((cols * rows, 3), np.float32)
+            for i in range(rows):
+                for j in range(cols):
+                    objp[i * cols + j] = ((2 * j + i % 2) * self._spacing,
+                                          i * self._spacing, 0)
+            self.get_logger().info(
+                f'coverage complete — calibrating on {len(self._imgpoints)} views '
+                '(takes a moment)...')
+            # FIX_K3: with a narrow-FOV lens the 6th-order radial term is
+            # unconstrained by realistic coverage and overfits wildly.
+            rms, k, d, _, _ = cv2.calibrateCamera(
+                [objp] * len(self._imgpoints), self._imgpoints, self._size, None, None,
+                flags=cv2.CALIB_FIX_K3)
+            self.get_logger().info(f'calibration RMS reprojection error: {rms:.3f} px')
+            self._write_yaml(k, d, rms)
+        except Exception as exc:   # noqa: BLE001 - report and still exit cleanly
+            self.get_logger().error(f'calibration failed: {exc}')
+        finally:
+            rclpy.shutdown()
 
     def _write_yaml(self, k, d, rms):
         w, h = self._size

@@ -280,7 +280,7 @@ private:
   std_msgs::msg::Header header_;                 // shared (mtx_)
   Metavision::timestamp last_ts_{-1};            // shared (mtx_)
   cv::Mat frame_;                                // frame-thread only
-  bool inited_{false};
+  std::atomic<bool> inited_{false};  // set on the sub thread, read on the frame thread
 
   double fps_{30.0};
   uint32_t acc_time_us_{10000};

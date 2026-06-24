@@ -18,6 +18,7 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <memory>
@@ -34,7 +35,9 @@ public:
   explicit EdgeletTracking(const rclcpp::NodeOptions & options)
   : EventVisionNode("edgelet", "edgelet_image", options)
   {
-    grid_cell_ = static_cast<int>(declare_parameter("grid_cell_size", 16));
+    // Clamp to >=1: a 0 (or negative) cell size divides by zero per event (SIGFPE,
+    // a hard crash that bypasses clean shutdown) and builds an invalid grid.
+    grid_cell_ = std::max(1, static_cast<int>(declare_parameter("grid_cell_size", 16)));
     stc_threshold_us_ = static_cast<int>(declare_parameter("stc_threshold_us", 5000));
     RCLCPP_INFO(
       get_logger(), "edgelet tracking: %.0f fps, grid %d px, STC %d us",
