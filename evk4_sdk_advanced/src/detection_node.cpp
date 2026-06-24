@@ -5,7 +5,7 @@
 // file adds the detection post-processing: decode boxes from the model output,
 // NMS, and DataAssociation tracking.
 //
-// The model is automotive (cars / two-wheelers / pedestrians from a forward-facing
+// The model is automotive (classes: cars and pedestrians, from a forward-facing
 // car camera), so a desk scene yields no boxes -- point it at driving footage.
 
 #include "evk4_sdk_advanced/ml_vision_node.hpp"

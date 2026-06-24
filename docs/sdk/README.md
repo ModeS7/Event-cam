@@ -100,9 +100,9 @@ model `.ptjit`. `install_sdk.sh --ml` extracts these into the SDK source tree un
 
 | `pipeline:=` | Model | Shows |
 |---|---|---|
-| `gesture` | `classification/convRNN_chifoumi/rnn_model_classifier` | Rock / Paper / Scissors |
-| `detection` | `detection/red_event_cube_05_2020/model` | tracked boxes (automotive footage) |
-| `flow_inference` | `optical_flow/model_flow/model_flow` | flow-vector arrows |
+| `gesture` | `classification/convRNN_chifoumi/rnn_model_classifier.ptjit` | Rock / Paper / Scissors |
+| `detection` | `detection/red_event_cube_05_2020/model.ptjit` | tracked boxes (automotive footage) |
+| `flow_inference` | `optical_flow/model_flow/model_flow.ptjit` | flow-vector arrows |
 
 ```bash
 cat > /tmp/ml.yaml <<YAML

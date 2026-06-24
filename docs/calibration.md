@@ -72,6 +72,7 @@ ros2 launch evk4_calibration calibrate.launch.py params_file:=$HOME/my_params.ya
 | `grid_size` | `5x17` | Circles per row x rows; must match the displayed grid |
 | `output` | `event_camera.yaml` | Where the calibration is written |
 | `display_type` | `time_slice` | Renderer mode (`sharp` lags on quiet scenes) |
+| `debug_timing` | `false` | Log per-cycle detection timing + frame age (diagnostic) |
 
 The overlay shows the live image; when the grid is detected, colored markers
 appear ON the dots (verify that — markers wandering between dots means a

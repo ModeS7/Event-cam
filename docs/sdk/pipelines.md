@@ -372,7 +372,7 @@ committed placeholder (which is zero-distortion, so it would rectify to a no-op)
 ```bash
 ros2 launch evk4_sdk_advanced pipeline.launch.py pipeline:=undistortion \
     params_file:=$HOME/my_params.yaml \
-    calibration_url:=$HOME/event_camera.yaml      # the file your calibration wrote
+    calibration_url:=$(pwd)/event_camera.yaml     # your calibration file (in the dir you calibrated from)
 ```
 
 The distorted-to-undistorted pixel map is precomputed once at startup (a one-time
@@ -439,7 +439,9 @@ Each takes these node params via `node_params_file`:
 | `model_path` | (required) | Path to the model `.ptjit` file |
 | `gpu_id` | `0` | GPU index; `-1` runs on CPU |
 | `delta_t_us` | `50000` | Inference window (µs) — one model run per window |
-| `confidence_threshold` | `0.4` | **`detection` only** — minimum score to keep a box. Keep `0.4` for live; lowering it (e.g. `0.1`) on a sparse scene floods the frame with false `car` anchor boxes |
+| `confidence_threshold` | `0.4` (`detection`), `0.8` (`gesture`) | **`detection`:** min box score — keep `0.4` live; `0.1` floods a sparse scene with false `car` boxes. **`gesture`:** min softmax confidence to display the Rock/Paper/Scissors label |
+
+`flow_inference` also takes `min_flow_disp` (default `3.0` — minimum flow displacement, px, to draw a vector) and `visu_step` (default `8` — draw one arrow per this many pixels).
 
 **Where the models live.** `install_sdk.sh --ml` extracts the pretrained models
 into the SDK source tree, so `<MODELS>` below is

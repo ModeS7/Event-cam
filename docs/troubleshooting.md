@@ -1,6 +1,6 @@
 # Troubleshooting
 
-**Quick check first:** `./setup/evk4_doctor.sh` auto-diagnoses the common issues
+**Quick check first:** `~/ros2_ws/src/Event-cam/setup/evk4_doctor.sh` auto-diagnoses the common issues
 below — ROS environment, dependencies, the udev rule, USB enumeration and
 permissions, stale Fast DDS shared memory, and whether the workspace is built and
 sourced. It is read-only (no sudo) and prints `[OK]`/`[WARN]`/`[FAIL]` with a fix

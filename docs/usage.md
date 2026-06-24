@@ -30,13 +30,14 @@ ros2 launch evk4_bringup evk4.launch.py
 |---|---|---|
 | `camera_name` | `event_camera` | Node name and topic namespace |
 | `serial` | `''` (first camera) | Select a camera by serial number |
+| `file` | `''` | Replay a recorded RAW (EVT3) file instead of a live camera; takes precedence over `serial` (see [No camera?](#no-camera-play-the-sample-bag)) |
 | `viz` | `true` | Also run the renderer (image topic) |
 | `fps` | `25.0` | Renderer frame rate, Hz (with `viz:=true`) |
 | `display_type` | `time_slice` | Renderer mode; `sharp` is for busy scenes only ([tuning.md](tuning.md)) |
 | `frame_id` | `event_camera_optical_frame` | TF frame stamped on all messages |
 | `sync_mode` | `standalone` | Hardware sync role: `standalone`/`primary`/`secondary` ([multi_camera.md](multi_camera.md)) |
 | `trigger_in_mode` | `disabled` | External trigger input: `disabled`/`external`/`aux`/`loopback` (sync with other sensors) |
-| `settings` | `''` | Camera settings JSON (pixel masks); also the `save_settings` target |
+| `settings` | `''` | Camera settings JSON (e.g. pixel masks); also the `save_settings` target |
 | `calibration_url` | `''` | Path to a camera_info YAML → publish `camera_info` |
 | `rectify` | `false` | Also publish undistorted `image_rect` (needs `calibration_url`) |
 | `params_file` | `''` | Swap the params YAML — driver and renderer knobs in one file ([tuning.md](tuning.md)) |
@@ -91,7 +92,7 @@ rate statistics no service is needed: the driver prints them to the launch
 terminal every second (`statistics_print_interval` parameter, 0 disables):
 
 ```
-[event_camera]: <msgs/s>, <MB/s> (queue 0)
+[event_camera]: 248 msgs/s, 35 MB/s (queue 0)
 ```
 
 That counts *published* event packets — the driver publishes lazily, so
@@ -236,7 +237,8 @@ ros2 run rqt_image_view rqt_image_view /event_camera/image_raw
 The **`--clock`** flag is required: `replay.launch.py` runs the renderer on
 simulated time so it follows the *bag's* timeline (the renderer times its frames
 off the clock, and the bag's events carry old recorded stamps). Play without
-`--clock` and the renderer never emits a frame.
+`--clock` and the renderer never emits a frame. (`--loop` just repeats the ~15 s
+clip so you have time to open the viewers; drop it for a single pass.)
 
 The replayed image looks exactly like a live camera — blue/red ON/OFF pixels,
 motion only. Every consumer works the same on the replayed stream: the
@@ -247,6 +249,20 @@ which would also start the driver.
 
 To make your own sample instead of downloading, record a live camera as in the
 previous section.
+
+### Replaying a Prophesee `.raw` (EVT3) file
+
+If you have a raw event-camera recording (a Prophesee `.raw`, EVT3) rather than a
+ROS bag, the driver reads it directly — no renderer-only/sim-time dance:
+
+```bash
+ros2 launch evk4_bringup evk4.launch.py file:=/path/to/recording.raw
+```
+
+`file:=` makes the driver stream the file at its recorded rate in place of the
+camera (it takes precedence over `serial`), so the renderer, the examples, and the
+[SDK pipelines](sdk/README.md) all run exactly as on a live camera. Use the bag
+path above for ROS `.db3`/`.mcap` recordings, and `file:=` for `.raw` files.
 
 ## Next steps
 

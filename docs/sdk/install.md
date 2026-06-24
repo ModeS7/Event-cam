@@ -149,8 +149,10 @@ the heaviest ARM dependencies:
 
 - `-DCOMPILE_METAVISION_STUDIO=OFF` — **required** on ARM (Studio is amd64-only).
 - `-DUSE_TORCH=OFF` — skip the ML module (needs LibTorch; the Pi has no CUDA).
-- `-DUSE_SOPHUS=OFF` — skip the `cv3d` module (geometric/3D algorithms; enable it
-  for the edgelet pipeline — see the cv3d tier below).
+- `-DUSE_SOPHUS=OFF` — skip the `cv3d` module (geometric/3D algorithms). Note this
+  manual lean build therefore omits the `edgelet` pipeline; the one-command
+  `install_sdk.sh` LITE build enables `cv3d` (`-DUSE_SOPHUS=ON`) by default and so
+  includes `edgelet`. To add it here, see the cv3d tier below.
 - `-DCOMPILE_PYTHON3_BINDINGS=OFF`, `-DBUILD_TESTING=OFF` — not needed here.
 
 ```bash

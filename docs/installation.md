@@ -35,7 +35,10 @@ export ROS_DISTRO=jazzy      # jazzy (Ubuntu 24.04) or humble (Ubuntu 22.04)
   `ros-jazzy-desktop`, or `ros-jazzy-ros-base` for a headless machine — not just
   individual packages. Confirm with `ros2 --help` before continuing: if that
   says `No such file or directory`, you have the libraries but not the CLI
-  (install `ros-jazzy-ros-base`).
+  (install `ros-jazzy-ros-base`). Note that `ros-base` omits the GUI viewers the
+  smoke test and later pages use (`rqt_image_view`, `rqt_reconfigure`) — also
+  `sudo apt install ros-jazzy-rqt-image-view ros-jazzy-rqt-reconfigure`, or run
+  the viewers from a desktop machine on the same ROS network.
   If a `ros-...` package is "unable to locate", the ROS 2 apt repo is missing —
   see [troubleshooting.md](troubleshooting.md#e-unable-to-locate-package-ros-jazzy-).
 - **On a Raspberry Pi / SBC: flash Ubuntu (24.04 LTS, 64-bit), NOT Raspberry
@@ -45,7 +48,8 @@ export ROS_DISTRO=jazzy      # jazzy (Ubuntu 24.04) or humble (Ubuntu 22.04)
   After first boot, ensure `/etc/apt/sources.list.d/ubuntu.sources` lists
   `Suites: noble noble-updates noble-backports` (Pi images sometimes ship with
   only base `noble`, which breaks `ros-dev-tools`).
-- A USB 3.x port and cable — the EVK4 can exceed what USB 2 carries.
+- A USB cable and port — USB 3.x recommended; USB 2 also works once the event
+  rate is capped with ERC (see [tuning.md](tuning.md)).
 
 ## 2. Get this repo
 
