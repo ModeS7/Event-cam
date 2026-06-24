@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include <metavision/sdk/base/events/event_cd.h>
+
 #include <metavision/hal/facilities/i_antiflicker_module.h>
 #include <metavision/hal/facilities/i_camera_synchronization.h>
 #include <metavision/hal/facilities/i_digital_crop.h>
@@ -132,6 +134,18 @@ void EVK4Driver::startCamera()
         this->rawDataCallback(data, data + size, t);
       }
     });
+
+  // Offline file replay only paces to real time when a DECODE callback is
+  // registered -- the SDK derives the pace from decoded event timestamps
+  // (camera_offline_raw.cpp gates the inter-buffer sleep on has_decode_callbacks).
+  // We forward raw bytes and never otherwise decode, so without this the file
+  // floods out as fast as it reads (~80x real time), ending before subscribers
+  // (and the ML model load) are ready and overrunning best-effort QoS. Register
+  // a no-op CD callback purely to engage that throttle.
+  if (!file_.empty()) {
+    cam_.cd().add_callback(
+      [](const Metavision::EventCD *, const Metavision::EventCD *) {});
+  }
 
   // Surface camera runtime / USB errors that would otherwise be silent: log a
   // warning and count them (reported in the per-second stats line).
