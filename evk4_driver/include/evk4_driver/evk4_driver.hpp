@@ -24,8 +24,10 @@
 // The Camera class moved from sdk/driver to sdk/stream in Metavision 5.
 #if defined(METAVISION_VERSION) && METAVISION_VERSION < 5
 #include <metavision/sdk/driver/camera.h>
+#include <metavision/sdk/driver/file_config_hints.h>
 #else
 #include <metavision/sdk/stream/camera.h>
+#include <metavision/sdk/stream/file_config_hints.h>
 #endif
 
 namespace evk4_driver
@@ -74,6 +76,7 @@ private:
   Metavision::Camera cam_;
 
   std::string serial_;
+  std::string file_;          // optional RAW recording to replay instead of a live camera
   std::string settingsFile_;
   std::string frameId_{"event_camera"};
   std::string encoding_{"evt3"};

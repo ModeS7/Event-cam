@@ -45,6 +45,7 @@ def _require(package):
 def _launch_setup(context, *args, **kwargs):
     camera_name = LaunchConfiguration('camera_name').perform(context)
     serial = LaunchConfiguration('serial').perform(context)
+    file_path = LaunchConfiguration('file').perform(context)
     frame_id = LaunchConfiguration('frame_id').perform(context)
     sync_mode = LaunchConfiguration('sync_mode').perform(context)
     trigger_in_mode = LaunchConfiguration('trigger_in_mode').perform(context)
@@ -82,6 +83,7 @@ def _launch_setup(context, *args, **kwargs):
                 params_file,
                 {
                     'serial': serial,
+                    'file': file_path,
                     'frame_id': frame_id,
                     'sync_mode': sync_mode,
                     'trigger_in_mode': trigger_in_mode,
@@ -205,6 +207,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'serial', default_value='',
             description='Camera serial number (empty: first camera found).'),
+        DeclareLaunchArgument(
+            'file', default_value='',
+            description='Replay a recorded RAW (EVT3) file instead of a live '
+                        'camera; streams at the recorded rate. Takes precedence '
+                        'over serial. Enables the "no camera" / driving-clip demos.'),
         DeclareLaunchArgument(
             'frame_id', default_value='event_camera_optical_frame',
             description='TF frame stamped on all camera messages (honored by the '

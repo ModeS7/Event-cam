@@ -28,6 +28,10 @@ EVK4Driver::EVK4Driver(const rclcpp::NodeOptions & options)
 : Node("event_camera", options)
 {
   serial_ = this->declare_parameter<std::string>("serial", "");
+  // Offline replay: point at a recorded RAW/EVT3 file to feed the pipeline
+  // without a live camera (the "no camera" / driving-clip demos). Takes
+  // precedence over serial.
+  file_ = this->declare_parameter<std::string>("file", "");
   frameId_ = this->declare_parameter<std::string>("frame_id", "event_camera_optical_frame");
   settingsFile_ = this->declare_parameter<std::string>("settings", "");
   const double tThresh =
@@ -63,13 +67,22 @@ EVK4Driver::~EVK4Driver()
 
 void EVK4Driver::startCamera()
 {
-  Metavision::DeviceConfig deviceConfig;
-  deviceConfig.set_format("EVT3");
   try {
-    if (!serial_.empty()) {
-      cam_ = Metavision::Camera::from_serial(serial_, deviceConfig);
+    if (!file_.empty()) {
+      // Replay a recorded RAW: real_time_playback streams at the recorded rate
+      // so downstream nodes (renderer, SDK pipelines) behave as with a live
+      // camera. EVK4 recordings are already EVT3, so decoding is unchanged.
+      cam_ = Metavision::Camera::from_file(
+        file_, Metavision::FileConfigHints().real_time_playback(true));
+      RCLCPP_INFO_STREAM(this->get_logger(), "replaying recorded events from: " << file_);
     } else {
-      cam_ = Metavision::Camera::from_first_available(deviceConfig);
+      Metavision::DeviceConfig deviceConfig;
+      deviceConfig.set_format("EVT3");
+      if (!serial_.empty()) {
+        cam_ = Metavision::Camera::from_serial(serial_, deviceConfig);
+      } else {
+        cam_ = Metavision::Camera::from_first_available(deviceConfig);
+      }
     }
   } catch (const std::exception & e) {
     RCLCPP_ERROR_STREAM(this->get_logger(), "failed to open camera: " << e.what());

@@ -36,6 +36,7 @@ def _launch_setup(context, *args, **kwargs):
     pipeline = LaunchConfiguration('pipeline').perform(context)
     camera_name = LaunchConfiguration('camera_name').perform(context)
     serial = LaunchConfiguration('serial').perform(context)
+    file_path = LaunchConfiguration('file').perform(context)
     frame_id = LaunchConfiguration('frame_id').perform(context)
     fps = float(LaunchConfiguration('fps').perform(context))
     debug_timing = LaunchConfiguration('debug_timing').perform(context).lower() == 'true'
@@ -69,6 +70,7 @@ def _launch_setup(context, *args, **kwargs):
         launch_arguments={
             'camera_name': camera_name,
             'serial': serial,
+            'file': file_path,
             'frame_id': frame_id,
             'viz': 'false',
             'params_file': params_file,
@@ -106,6 +108,10 @@ def generate_launch_description():
                         'gesture | detection | flow_inference (ML tier, x86+GPU)'),
         DeclareLaunchArgument('camera_name', default_value='event_camera'),
         DeclareLaunchArgument('serial', default_value=''),
+        DeclareLaunchArgument(
+            'file', default_value='',
+            description='Replay a recorded RAW (EVT3) file instead of the live '
+                        'camera -- e.g. a driving clip for the detection pipeline.'),
         DeclareLaunchArgument('frame_id', default_value='event_camera_optical_frame'),
         DeclareLaunchArgument('fps', default_value='30.0'),
         DeclareLaunchArgument('debug_timing', default_value='false'),
