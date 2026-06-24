@@ -559,6 +559,26 @@ Next (user-ordered):
       the automotive model's domain, not a bug. Memory `lab-pc-ml-verified`. TODO:
       reverse the "experimental/not validated" wording in docs/sdk/README.md +
       pipelines.md + install.md; fix the 2.9.1 -> 2.7.1 version there; driving-clip demo.
+- [x] **`file` param + driving-clip detection demo (2026-06-24).** evk4_driver gained
+      a `file` param (`Camera::from_file`, plumbed through evk4.launch.py +
+      pipeline.launch.py) so a recorded `.raw` feeds the whole pipeline -- the
+      "no camera"/driving-clip path. VALIDATED end-to-end on Prophesee
+      `driving_sample.raw` (EVT3): detection loads, GPU-infers, draws clean labeled
+      `car`/`pedestrian` boxes. Bugs found+fixed: (a) `real_time_playback` only paces
+      offline replay when a DECODE callback is registered, so the raw-data-only driver
+      flooded the clip ~80x -- fix: a no-op CD callback in file mode (commit 1195327);
+      (b) the edge-box artifact (boxes pinned to x=0/1280) is EVENT STARVATION, not a
+      decode bug -- a near-empty SSD input emits border anchor garbage; clean once
+      events are paced and detection is ready. CAVEAT: `red_event_cube` is automotive
+      (dashcam) -- boxes a distant car, NOT the close-up out-of-domain luggage-pedestrians.
+      For a clean one-command demo the driver should LOOP the file (NOT yet built); the
+      denser `traffic_monitoring` sample is EVT2 (our `file` path hardcodes evt3). See
+      memory `lab-pc-ml-verified`.
+- [x] **Lab-PC PCIe ASPM hard-freeze -- durable fix (2026-06-24).** `pcie_aspm=off` is a
+      no-op on this OEM BIOS (22 links stayed ASPM-on). Force-disabled ASPM on ALL links
+      via setpci AND installed a persistent boot service (`disable-pcie-aspm.service`,
+      user-authorized) so it survives reboots. The box froze once mid-session (NVMe ASPM
+      still on then) -> power-cycle recovered. See `lab-pc-nvme-freeze`.
 - [ ] Docs media pass — GIFs of the tuning experiments + rectified view
       (calibration demo done; tuned_stream_demo.gif still 18 MB, re-shrink).
 - [ ] Upstream PR for the renderer backlog cap (the vendored patch is the
