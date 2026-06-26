@@ -191,6 +191,18 @@ file(GENERATE
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/sdk_libdir"
   DESTINATION share/${PROJECT_NAME})
 
+# On an ML build, also capture the LibTorch lib dir. On a Jetson the Tegra
+# PyTorch libs are not on the default loader path and the ML components' RPATH
+# can't be fully resolved (a cycle warning at link time), so the launch puts
+# this on LD_LIBRARY_PATH -- removing the only manual step ML needs there.
+if(Torch_FOUND)
+  file(GENERATE
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/torch_libdir"
+    CONTENT "${TORCH_INSTALL_PREFIX}/lib")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/torch_libdir"
+    DESTINATION share/${PROJECT_NAME})
+endif()
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
 

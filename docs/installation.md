@@ -14,6 +14,7 @@ where it's been validated.
 | x86_64 · Ubuntu 24.04 · Jazzy | validated on hardware |
 | x86_64 · Ubuntu 22.04 · Humble | expected — untested |
 | ARM64 · Raspberry Pi 5 · Ubuntu 24.04 · Jazzy | validated on hardware |
+| ARM64 · Jetson Orin Nano · Ubuntu 22.04 · Humble | validated on hardware (incl. SDK ML tier on the GPU) |
 | Other ARM64 SBCs / Humble | expected |
 | Ubuntu < 22.04 (e.g. original Jetson Nano @ 18.04) | unsupported — ROS 2 is EOL there |
 

@@ -116,6 +116,14 @@ pkill -INT -f component_container  # graceful stop (never -9: see the
 If it still fails, unplug/replug the camera to reset the USB handle, confirm
 with `lsusb | grep -i 04b4`, and launch again.
 
+On a board that also has a **CSI / V4L2 camera** (e.g. a Jetson with an onboard
+camera), Metavision's generic camera discovery can choke on that `/dev/video*`
+device (`[HAL][ERROR] ... VIDIOC_DBG_G_REGISTER failed`, then `Camera not found`)
+before it ever reaches the USB EVK4. The driver opens the EVK4 by USB source type
+directly to avoid this, so the EVK4 coexists with a CSI/RGB camera and you should
+not see it. If you somehow do (an unusual V4L2 setup), the conflicting `/dev/videoN`
+is the cause.
+
 ## Service call hangs: `waiting for service to become available...`
 
 The `save_settings` service lives inside the driver node — it only exists

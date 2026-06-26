@@ -19,7 +19,11 @@
 #include <event_camera_codecs/decoder_factory.h>
 #include <event_camera_codecs/event_packet.h>
 
-#include <cv_bridge/cv_bridge.hpp>
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>  // Jazzy and newer
+#else
+#include <cv_bridge/cv_bridge.h>  // Humble
+#endif
 #include <opencv2/core.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>

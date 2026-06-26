@@ -61,6 +61,47 @@ TOKEN_FILE="$HOME/.config/prophesee/jfrog_token"
 SOPHUS_DIR="/opt/ros/$ROS_DISTRO/share/sophus/cmake"
 BASE='https://propheseeai.jfrog.io/artifactory/metavision-sdk-5-archives-nc/main/sources'
 
+# --- Jetson (Tegra) auto LibTorch for --ml --------------------------------------
+# The x86 pytorch.org LibTorch does NOT run on Tegra. NVIDIA ships a Jetson
+# PyTorch wheel whose C++ LibTorch is bundled; this installs it (+ its cuSPARSELt
+# dependency, which has no apt package on JetPack) and points TORCH_DIR at it.
+# Auto-wired for JetPack 6 (L4T R36, CUDA 12.x, Python 3.10); other JetPack
+# versions need a matching wheel + a manual TORCH_DIR (see docs/sdk/install.md).
+JETSON_CUSPARSELT_VER=0.7.1.0
+JETSON_TORCH_WHEEL='https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl'
+JETSON_TORCH_DIR=''
+provision_jetson_libtorch() {
+  local l4t py
+  l4t="$(grep -oE 'R[0-9]+' /etc/nv_tegra_release 2>/dev/null | head -1)"
+  py="$(python3 -c 'import sys; print("%d%d" % sys.version_info[:2])' 2>/dev/null)"
+  if [ "$l4t" != "R36" ] || [ "$py" != "310" ]; then
+    echo "ERROR: --ml auto-LibTorch supports only JetPack 6 (L4T R36, Python 3.10);" >&2
+    echo "       found L4T=$l4t python=$py. Install a matching Jetson PyTorch wheel and" >&2
+    echo "       set TORCH_DIR=<torch>/share/cmake/Torch by hand. See docs/sdk/install.md." >&2
+    exit 1
+  fi
+  if ! ls /usr/local/cuda/lib64/libcusparseLt.so.0* >/dev/null 2>&1; then
+    echo "  Jetson: installing cuSPARSELt $JETSON_CUSPARSELT_VER (PyTorch dependency)..."
+    local a="libcusparse_lt-linux-aarch64-$JETSON_CUSPARSELT_VER-archive" t
+    t="$(mktemp -d)"
+    curl -fSL "https://developer.download.nvidia.com/compute/cusparselt/redist/libcusparse_lt/linux-aarch64/$a.tar.xz" -o "$t/cs.tar.xz"
+    tar -xf "$t/cs.tar.xz" -C "$t"
+    sudo cp -a "$t/$a/lib/." /usr/local/cuda/lib64/
+    sudo cp -a "$t/$a/include/." /usr/local/cuda/include/
+    sudo ldconfig
+    rm -rf "$t"
+  fi
+  if ! python3 -c 'import torch' 2>/dev/null; then
+    echo "  Jetson: installing NVIDIA Jetson PyTorch wheel..."
+    pip3 install --user --no-cache "$JETSON_TORCH_WHEEL"
+  fi
+  python3 -c 'import torch; assert torch.cuda.is_available()' 2>/dev/null || {
+    echo "ERROR: Jetson PyTorch installed but torch.cuda.is_available() is False." >&2
+    echo "       Check the CUDA/JetPack install. See docs/sdk/install.md." >&2; exit 1; }
+  JETSON_TORCH_DIR="$(python3 -c 'import torch, os; print(os.path.join(os.path.dirname(torch.__file__), "share", "cmake", "Torch"))')"
+  echo "  Jetson: provisioned PyTorch, TORCH_DIR=$JETSON_TORCH_DIR"
+}
+
 echo "Metavision SDK install: tier=$MODE, sdk=$SDK_VER, ros=$ROS_DISTRO"
 
 # --- prerequisite checks (fail early and clearly) -------------------------------
@@ -93,6 +134,12 @@ if [ "$MODE" = full ]; then
     echo "       Install an NVIDIA driver + CUDA toolkit and add it to PATH" >&2
     echo "       (e.g. export PATH=/usr/local/cuda/bin:\$PATH). See docs/sdk/install.md." >&2
     exit 1; }
+  # On a Jetson (Tegra), auto-provision the Tegra PyTorch LibTorch unless the
+  # user pointed TORCH_DIR at their own. Makes --ml a one-command install there.
+  if [ -f /etc/nv_tegra_release ] && [ -z "${TORCH_DIR:-}" ]; then
+    provision_jetson_libtorch
+    TORCH_DIR="$JETSON_TORCH_DIR"
+  fi
   TORCH_DIR="${TORCH_DIR:-$HOME/libtorch/share/cmake/Torch}"
   [ -f "$TORCH_DIR/TorchConfig.cmake" ] || {
     echo "ERROR: --ml needs CUDA LibTorch, not found at TORCH_DIR=$TORCH_DIR." >&2

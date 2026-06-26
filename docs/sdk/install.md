@@ -31,13 +31,19 @@ export PROPHESEE_USER=you@customers.prophesee.ai   # your JFrog login (see acces
 ./setup/install_sdk.sh --ml     # FULL -- also the ML/GPU pipelines (Jetson / x86 + NVIDIA)
 ```
 
-It checks its prerequisites and stops with instructions if any are missing: a
-JFrog token at `~/.config/prophesee/jfrog_token` ([access.md](access.md)); the base
-stack ([installation.md](../installation.md)); and, for `--ml`, CUDA (`nvcc`) plus a
-CUDA LibTorch (point `TORCH_DIR` at it). It source-builds the SDK in both tiers
-(with `USE_SOPHUS=ON`, so `edgelet` is included), then builds the package with the
-right CMake args. It does **not** install the GPU driver / CUDA toolkit — that
-stays a documented prerequisite for `--ml` (below).
+It checks its prerequisites and stops with instructions if any are missing: your
+JFrog token **and** `PROPHESEE_USER` login in `~/.config/prophesee/jfrog_token`
+([access.md](access.md)) — put both *in the file*, not just a shell export, so
+unattended/background runs pick them up; the base stack
+([installation.md](../installation.md)); and, for `--ml`, CUDA (`nvcc`). For LibTorch
+the script is platform-aware: on **x86** point `TORCH_DIR` at a CUDA LibTorch you
+downloaded; on a **Jetson (Tegra)** it installs the right NVIDIA Jetson PyTorch
+wheel + its cuSPARSELt dependency and sets `TORCH_DIR` itself — the x86 LibTorch
+won't run on Tegra — so `--ml` is a single command there too (validated on a Jetson
+Orin Nano, JetPack 6.2 / CUDA 12.6). It source-builds the SDK in both tiers (with
+`USE_SOPHUS=ON`, so `edgelet` is included), then builds the package with the right
+CMake args. It does **not** install the GPU driver / CUDA toolkit — that stays a
+documented prerequisite for `--ml` (below).
 
 **When it finishes, run a pipeline** — one launch starts the camera and the
 algorithm together (use a new terminal, or `source ~/ros2_ws/install/setup.bash`):
@@ -98,9 +104,10 @@ Torch — see [ML pipelines (GPU, x86)](#ml-pipelines-gpu-x86) below.)
 
 ## ARM (build from source)
 
-Validated on a **Raspberry Pi 5 (16 GB), Ubuntu 24.04, ROS 2 Jazzy**: the full
-build completes with zero errors (it takes a while — let it run). The same
-procedure is expected to work on a Jetson (aarch64), which is not tested here.
+Validated on a **Raspberry Pi 5 (16 GB), Ubuntu 24.04, ROS 2 Jazzy** and on a
+**Jetson Orin Nano, Ubuntu 22.04, ROS 2 Humble**: the full build completes with zero
+errors (it takes a while — let it run). On the Jetson, `--ml` additionally builds
+the GPU ML tier — see [ML pipelines](#ml-pipelines-gpu-x86-or-jetson) below.
 
 ### 1. Download the source archives
 
@@ -176,14 +183,22 @@ needs root, and a system install risks colliding with `openeb_vendor`.
 
 **Next:** [README.md](README.md) — build the package and run a pipeline.
 
-## ML pipelines (GPU, x86)
+## ML pipelines (GPU: x86 or Jetson)
 
 The neural-network pipelines (gesture / detection / flow inference) need the SDK
 `ml` module built **against LibTorch with CUDA** — which the **apt binaries do not
-provide**. So even on x86 the ML tier requires a **source SDK build** with
-`-DUSE_TORCH=ON` (the same source build as the ARM section above, plus Torch); the
-apt path covers only the model-free pipelines. The lean Pi build skips the ML tier
-automatically.
+provide**. So the ML tier requires a **source SDK build** with `-DUSE_TORCH=ON` (the
+same source build as the ARM section above, plus Torch); the apt path covers only
+the model-free pipelines. The lean Pi build skips the ML tier automatically.
+
+> **On a Jetson, the easy path is just `./setup/install_sdk.sh --ml`.** It
+> auto-installs NVIDIA's Tegra PyTorch wheel (+ its cuSPARSELt dependency) and wires
+> `TORCH_DIR`, so you do **not** follow the x86 LibTorch steps below. Validated on a
+> Jetson Orin Nano (JetPack 6.2, CUDA 12.6, Torch 2.5): the SDK's `ml` module
+> compiles against that Torch and `detection` / `gesture` / `flow_inference` run on
+> the Orin GPU. The runtime needs no manual `LD_LIBRARY_PATH` either — the launch
+> picks up the Tegra torch libs automatically. The steps below are the x86 reference
+> (and what the script does under the hood on either platform).
 
 1. **Build the SDK with Torch.** Re-run the source build above with a CUDA
    LibTorch: install an NVIDIA driver + CUDA toolkit (e.g. `cuda-toolkit-12-6`),

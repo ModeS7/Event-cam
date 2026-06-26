@@ -83,7 +83,17 @@ void EVK4Driver::startCamera()
       if (!serial_.empty()) {
         cam_ = Metavision::Camera::from_serial(serial_, deviceConfig);
       } else {
-        cam_ = Metavision::Camera::from_first_available(deviceConfig);
+        // The EVK4 is always a USB camera, so open it by USB source type first.
+        // This avoids Metavision's generic discovery, whose V4L2 backend probes
+        // every /dev/video* and fatally errors on a foreign V4L2/CSI camera
+        // (e.g. a Jetson's onboard camera), aborting before the USB EVK4 is
+        // found. Fall back to from_first_available() if no USB source is present,
+        // preserving the original behavior on any other setup.
+        try {
+          cam_ = Metavision::Camera::from_source(Metavision::OnlineSourceType::USB, deviceConfig);
+        } catch (const std::exception &) {
+          cam_ = Metavision::Camera::from_first_available(deviceConfig);
+        }
       }
     }
   } catch (const std::exception & e) {

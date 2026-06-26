@@ -53,16 +53,23 @@ def _launch_setup(context, *args, **kwargs):
     if node_params_file:
         node_parameters.append(node_params_file)
 
-    sdk_libdir = ''
-    libdir_file = os.path.join(
-        get_package_share_directory('evk4_sdk_advanced'), 'sdk_libdir')
-    if os.path.exists(libdir_file):
-        with open(libdir_file) as handle:
-            sdk_libdir = handle.read().strip()
+    # Runtime lib dirs captured at build time: the SDK's libs (RUNPATH), and on a
+    # Jetson the Tegra PyTorch libs the ML pipelines link (not on the default
+    # loader path; the components' RPATH can't be fully resolved there). Prepended
+    # to LD_LIBRARY_PATH so the pipelines run with no manual env / setup_env.sh.
+    share = get_package_share_directory('evk4_sdk_advanced')
+    libdirs = []
+    for name in ('sdk_libdir', 'torch_libdir'):
+        path = os.path.join(share, name)
+        if os.path.exists(path):
+            with open(path) as handle:
+                libdir = handle.read().strip()
+            if libdir:
+                libdirs.append(libdir)
     node_env = {}
-    if sdk_libdir:
-        node_env['LD_LIBRARY_PATH'] = (
-            sdk_libdir + os.pathsep + os.environ.get('LD_LIBRARY_PATH', ''))
+    if libdirs:
+        node_env['LD_LIBRARY_PATH'] = os.pathsep.join(
+            libdirs + [os.environ.get('LD_LIBRARY_PATH', '')])
 
     driver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(

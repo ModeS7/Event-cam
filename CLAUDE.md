@@ -584,6 +584,25 @@ Next (user-ordered):
       is MOOT: the EVK4 8mm lens is near distortion-free, so raw and rect look
       identical (calibration.md). Only OPTIONAL extra tuning-demo GIFs (ERC,
       display_type A/Bs) remain — polish for a future capture session.
+- [x] **Jetson Orin Nano (JetPack 6.2 / Humble / CUDA 12.6) validated as a 3rd
+      platform (2026-06-26).** Full student flow (install_deps, build, smoke, tune,
+      calibrate) ran with ZERO deviations on Humble/arm64. Two portability fixes the
+      Jetson exposed (committed): (1) `evk4_driver` opens via
+      `Camera::from_source(OnlineSourceType::USB)` (+ `from_first_available`
+      fallback) -- the Jetson's onboard AR0234 CSI camera (`/dev/video0`) made
+      Metavision's generic V4L2 discovery choke (`VIDIOC_DBG_G_REGISTER` -> "Camera
+      not found") before finding the USB EVK4; from_source(USB) skips V4L2, so the
+      EVK4 + RGB camera COEXIST. (2) `event_vision_node.hpp` uses
+      `#if __has_include(<cv_bridge/cv_bridge.hpp>)` (Jazzy) else `.h` (Humble).
+      **The SDK ML tier now works on the Jetson too (no longer x86-only):**
+      `install_sdk.sh --ml` auto-detects Tegra and installs NVIDIA's Jetson PyTorch
+      wheel (torch 2.5.0a0, JP6/cu126 -- NOT pytorch.org x86 LibTorch) + cuSPARSELt
+      0.7.1.0 (aarch64 tarball -> /usr/local/cuda) and sets TORCH_DIR itself;
+      `pipeline.launch.py` + a `torch_libdir` CMake capture put the Tegra torch libs
+      on LD_LIBRARY_PATH so pipelines run with no manual env. SDK 5.3.1 `ml` module
+      compiled fine against Torch 2.5; `detection` loads + GPU-infers on the Orin
+      (detection_image at fps), RGB camera coexisting. One-command install + standard
+      launch = as easy as x86. Memory [[jetson-validated]].
 - [~] Upstream PR for the renderer backlog cap — SUBMITTED 2026-06-24 to
       `ros-event-camera/event_camera_renderer` (from fork ModeS7, branch
       `max-frame-queue-param`). Implemented as a `max_frame_queue` ROS param
